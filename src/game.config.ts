@@ -6,9 +6,9 @@
  * never collide on shared infrastructure.
  */
 export const GAME_CONFIG = {
-  id: 'template',
-  title: 'Game Template',
-  tagline: 'Rock, paper, scissors: an example game. Replace src/game/ with your own.',
+  id: 'votes',
+  title: 'Votes',
+  tagline: 'Build districts, bring in families, win the seats when cities merge. For 2–5 players.',
 } as const
 
 /** The Supabase table this game owns. Must match supabase/migrations/. */

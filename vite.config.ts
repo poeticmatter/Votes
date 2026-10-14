@@ -5,7 +5,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   // GitHub Pages serves the site under /<repo-name>/. `npm run init-game` rewrites this.
-  base: '/game-template/',
+  base: '/Votes/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

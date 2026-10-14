@@ -11,7 +11,7 @@
 -- model as the PeerJS share link. The permissive RLS policies are intentional for
 -- playtesting with friends. The Supabase security advisor will flag them; that's expected.
 
-create table if not exists public.template_games (
+create table if not exists public.votes_games (
   id          text primary key,                 -- room code (uppercase)
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
@@ -23,11 +23,11 @@ create table if not exists public.template_games (
   p2_joined   boolean not null default false
 );
 
-alter table public.template_games enable row level security;
+alter table public.votes_games enable row level security;
 
-create policy "anon read"   on public.template_games for select using (true);
-create policy "anon insert" on public.template_games for insert with check (true);
-create policy "anon update" on public.template_games for update using (true) with check (true);
+create policy "anon read"   on public.votes_games for select using (true);
+create policy "anon insert" on public.votes_games for insert with check (true);
+create policy "anon update" on public.votes_games for update using (true) with check (true);
 
 -- Realtime so a player who is online sees the board advance live.
-alter publication supabase_realtime add table public.template_games;
+alter publication supabase_realtime add table public.votes_games;

@@ -38,3 +38,13 @@ A two-player, simultaneous-turn browser game with no backend of its own. It is p
 - Do not import from `src/game/` inside `src/platform/`. Only `App.tsx` joins the two.
 - All state changes go through `rules.resolveTurn`. UI components only render state and submit plans.
 - Keep the Supabase table name in `game.config.ts` and the migration in `supabase/migrations/` in sync.
+
+## Votes
+
+The platform above is still the template's: two players, simultaneous turns. Votes needs more than that, so adapt `src/platform/` to it.
+
+- **2–5 players, taking turns in order** (place a tile, immigration, maybe a merger and election). It is not simultaneous.
+- **Async online play is the top priority.** Live and hot seat come after it.
+- The `votes_games` table still has the template's two-player columns (`p1_plan`, `p2_plan`, `p2_joined`). Change it with a new migration (`0002_…`), applied to project `zavdrnttsfcupopdidda` under the name `votes_0002_…`.
+- **Rules:** `C:\Code\assets\VotesAssets\Rules\Votes.md` is the current draft. Values in [brackets] are playtest dials, so make them settings rather than hard-coding them.
+- **Board and visuals:** the board-game asset generator lives at `C:\Code\assets\VotesAssets` (local only). Its map data (`src/map/mapData.js`, districts derived in `src/map/board.js`), its "Metro" theme (`src/theme.js`) and its colour-blind-safe player colours (`src/pieces/playerColors.js`) are the reference for the digital board. Its `src/rules/elections.js` already implements seat allocation.
