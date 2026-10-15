@@ -39,8 +39,8 @@ export const TILE_STYLE = {
   // stay readable once a tile is down.
   sizeRatio: 0.74,
   cornerRadius: 12,
-  slot: { fill: 'rgba(255, 255, 255, 0.35)', stroke: 'rgba(0, 0, 0, 0.2)' },
+  emptySlotDash: '3 2.5',
   factory: { fill: '#383d45', ink: '#ffffff' },
   school: { fill: '#ffffff', ink: '#383d45', outline: { color: '#383d45', width: 2.5 } },
-  printed: { fill: '#ffffff', ink: COLORS.ink, outline: PRINTED_OUTLINE, slot: { fill: COLORS.ground, stroke: '#b4bcc7' } },
+  printed: { fill: '#ffffff', ink: COLORS.ink, outline: PRINTED_OUTLINE, emptySlot: COLORS.inkFaint },
 } as const

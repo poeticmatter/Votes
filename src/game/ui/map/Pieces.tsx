@@ -41,12 +41,16 @@ export const Cube = ({ center, color, size = TILE_LAYOUT.cubeSize }: { center: P
   )
 }
 
-const Homes = ({ center, slotStyle, families }: { center: Point; slotStyle: { fill: string; stroke: string }; families: CubeColor[] }) => {
+/**
+ * Empty homes are hollow dashed outlines, never filled: a filled square reads as a cube
+ * of the tile's colour (or as grey on a printed Residence).
+ */
+const Homes = ({ center, emptySlotColor, families }: { center: Point; emptySlotColor: string; families: CubeColor[] }) => {
   const { slotSize } = TILE_LAYOUT
   const slots = homeCenters(center)
   return (
     <g>
-      {slots.map(slot => (
+      {slots.slice(families.length).map(slot => (
         <rect
           key={slot.x}
           x={slot.x - slotSize / 2}
@@ -54,9 +58,10 @@ const Homes = ({ center, slotStyle, families }: { center: Point; slotStyle: { fi
           width={slotSize}
           height={slotSize}
           rx={slotSize * 0.18}
-          fill={slotStyle.fill}
-          stroke={slotStyle.stroke}
-          strokeWidth={1.25}
+          fill="none"
+          stroke={emptySlotColor}
+          strokeWidth={1.5}
+          strokeDasharray={TILE_STYLE.emptySlotDash}
         />
       ))}
       {families.map((color, index) => (
@@ -75,7 +80,7 @@ const ResidenceTile = ({ center, owner, families }: { center: Point; owner: Play
       <PlaceGlyph center={offset(center, 0, houseY)} size={houseSize}>
         <HouseGlyph size={houseSize} color={color.ink} />
       </PlaceGlyph>
-      <Homes center={center} slotStyle={TILE_STYLE.slot} families={families} />
+      <Homes center={center} emptySlotColor={color.ink} families={families} />
     </g>
   )
 }
@@ -96,7 +101,7 @@ const PrintedResidence = ({ center, district, families }: { center: Point; distr
           fontFamily={FONT_FAMILY}
         />
       </PlaceGlyph>
-      <Homes center={center} slotStyle={printed.slot} families={families} />
+      <Homes center={center} emptySlotColor={printed.emptySlot} families={families} />
     </g>
   )
 }
