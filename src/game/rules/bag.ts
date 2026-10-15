@@ -1,5 +1,5 @@
+import { nextIndex } from 'game-kit/turns'
 import { bagSize } from './boardQueries'
-import { nextIndex } from './random'
 import { INDEPENDENT, PLAYER_COLORS, type CubeColor, type VotesState } from './types'
 
 /** Fixed colour order, so a draw maps the random index to the same cube everywhere. */

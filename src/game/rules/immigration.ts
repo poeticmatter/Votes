@@ -1,4 +1,4 @@
-import { IllegalMoveError } from '../../platform/IllegalMoveError'
+import { IllegalMoveError } from 'game-kit/turns'
 import { districtOf } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import type { DistrictId } from '../map/mapData'

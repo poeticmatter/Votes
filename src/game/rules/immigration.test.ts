@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { IllegalMoveError } from '../../platform/IllegalMoveError'
+import { IllegalMoveError } from 'game-kit/turns'
 import { bagSize } from './boardQueries'
 import { beginImmigration, callStation, canStationBringFamily, settleFamily } from './immigration'
 import { factory, newGame, residence, station, withBag, withTiles } from './testStates'

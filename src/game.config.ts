@@ -1,18 +1,15 @@
+import { supabaseFromEnv, type GameConfig } from 'game-kit/turns'
+
 /**
- * Identity of this game within the game lab. `npm run init-game` rewrites these values.
+ * Identity of this game within the game lab.
  *
- * `id` must be unique across every lab game: it namespaces the Supabase table, the
- * PeerJS room ids on the public PeerJS server, and localStorage keys, so two games can
- * never collide on shared infrastructure.
+ * `id` must be unique across every lab game: it names the Supabase table
+ * (`votes_games`) and seat-claim function (`votes_claim_seat`), and prefixes PeerJS
+ * room ids and localStorage keys. Keep it in sync with supabase/migrations/.
  */
-export const GAME_CONFIG = {
+export const GAME_CONFIG: GameConfig = {
   id: 'votes',
   title: 'Votes',
   tagline: 'Build districts, bring in families, win the seats when cities merge. For 2–5 players.',
-} as const
-
-/** The Supabase table this game owns. Must match supabase/migrations/. */
-export const SUPABASE_TABLE = `${GAME_CONFIG.id}_games`
-
-/** The database function that atomically claims the next free seat. Must match supabase/migrations/. */
-export const SUPABASE_CLAIM_SEAT_FUNCTION = `${GAME_CONFIG.id}_claim_seat`
+  supabase: supabaseFromEnv(import.meta.env),
+}

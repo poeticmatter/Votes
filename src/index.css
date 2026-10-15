@@ -1,25 +1,8 @@
 @import "tailwindcss";
+@import "game-kit/theme.css";
 
-/* The "Metro" look from the Votes asset generator (src/theme.js): white cells on a
-   cool grey ground, charcoal ink, one blue for water. */
+/* GameKit's default palette is already the "Metro" look from the Votes asset
+   generator (src/theme.js); Votes only adds its typeface. */
 @theme {
   --font-sans: 'Barlow', 'Segoe UI', Helvetica, Arial, sans-serif;
-  --color-ground: #e7eaef;
-  --color-paper: #ffffff;
-  --color-ink: #262a31;
-  --color-ink-soft: #5b6370;
-  --color-ink-faint: #8a93a0;
-  --color-rule: #c4cad3;
-  --color-slot: #dde1e7;
-  --color-water: #72b7e4;
-  --color-alert: #b3261e;
-}
-
-html, body, #root {
-  background-color: var(--color-ground);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
 }

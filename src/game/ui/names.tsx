@@ -1,6 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react'
-import { ColorSwatch } from '../../platform/controls'
-import type { PlayerProfile, Seating, UserRole } from '../../platform/types'
+import { ColorSwatch, type PlayerProfile, type Seating, type UserRole } from 'game-kit/turns'
 import { PLAYER_COLORS, type CubeColor, type PlayerColor, type Tile, type TileKind } from '../rules/types'
 import { TILE_RADIUS } from './map/geometry'
 import { TilePiece } from './map/Pieces'

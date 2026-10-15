@@ -1,4 +1,4 @@
-import type { Seating } from '../../../platform/types'
+import type { Seating } from 'game-kit/turns'
 import { activePlayerState } from '../../rules/boardQueries'
 import type { VotesState } from '../../rules/types'
 import { PlayerChip } from '../names'

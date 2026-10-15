@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { IllegalMoveError } from '../../platform/IllegalMoveError'
+import { IllegalMoveError } from 'game-kit/turns'
 import { BOARD } from '../map/board'
 import { applyMove } from './turnFlow'
 import { factory, newGame, residence, school, station, withBag, withTiles } from './testStates'

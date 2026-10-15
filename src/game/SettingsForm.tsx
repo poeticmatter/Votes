@@ -1,4 +1,4 @@
-import type { SettingsFormProps } from '../platform/types'
+import type { SettingsFormProps } from 'game-kit/turns'
 import { isPlayerCount } from './rules/setup'
 import type { VotesSettings } from './rules/types'
 
@@ -40,28 +40,32 @@ export function VotesSettingsForm({ settings, playerCount, onChange }: SettingsF
   if (!isPlayerCount(playerCount)) throw new Error(`Unsupported player count ${playerCount}`)
   const residences = settings.residencesByPlayerCount[playerCount]
 
+  // Collapsed by default: most games use the rules' values.
   return (
-    <div className="flex flex-col gap-2">
-      <Stepper
-        label={`Residences each (${playerCount} players)`}
-        value={residences}
-        range={RESIDENCE_RANGE}
-        onChange={value =>
-          onChange({ ...settings, residencesByPlayerCount: { ...settings.residencesByPlayerCount, [playerCount]: value } })
-        }
-      />
-      <Stepper
-        label="Grey cubes in the bag"
-        value={settings.greyCubes}
-        range={GREY_CUBE_RANGE}
-        onChange={value => onChange({ ...settings, greyCubes: value })}
-      />
-      <Stepper
-        label="Starting cubes per player"
-        value={settings.startingCubesPerPlayer}
-        range={STARTING_CUBE_RANGE}
-        onChange={value => onChange({ ...settings, startingCubesPerPlayer: value })}
-      />
-    </div>
+    <details className="group">
+      <summary className="cursor-pointer select-none text-sm font-semibold text-ink-soft hover:text-ink">Playtest dials</summary>
+      <div className="flex flex-col gap-2 pt-3">
+        <Stepper
+          label={`Residences each (${playerCount} players)`}
+          value={residences}
+          range={RESIDENCE_RANGE}
+          onChange={value =>
+            onChange({ ...settings, residencesByPlayerCount: { ...settings.residencesByPlayerCount, [playerCount]: value } })
+          }
+        />
+        <Stepper
+          label="Grey cubes in the bag"
+          value={settings.greyCubes}
+          range={GREY_CUBE_RANGE}
+          onChange={value => onChange({ ...settings, greyCubes: value })}
+        />
+        <Stepper
+          label="Starting cubes per player"
+          value={settings.startingCubesPerPlayer}
+          range={STARTING_CUBE_RANGE}
+          onChange={value => onChange({ ...settings, startingCubesPerPlayer: value })}
+        />
+      </div>
+    </details>
   )
 }

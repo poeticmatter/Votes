@@ -1,4 +1,4 @@
-import type { BoardProps } from '../../platform/types'
+import type { BoardProps } from 'game-kit/turns'
 import { activePlayerIndex } from '../rules/turnFlow'
 import type { VotesMove, VotesState } from '../rules/types'
 import { MapView } from './map/MapView'
