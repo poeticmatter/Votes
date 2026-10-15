@@ -72,8 +72,8 @@ export type Phase =
   | { kind: 'placement' }
   | {
       kind: 'immigration'
-      /** Stations that may still bring a family this turn. */
-      stationsToCall: HexKey[]
+      /** Districts families have entered this turn; their Station owners have been paid. */
+      districtsEntered: DistrictId[]
       /** A family drawn from the bag that the active player must now house. */
       drawn: DrawnFamily | null
     }
@@ -135,7 +135,7 @@ export type LogEntry =
       color: CubeColor
       station: HexKey
       residence: HexKey
-      /** Cubes added to the bag because this family arrived. */
+      /** Cubes added to the bag because this family arrived; a player may appear twice. */
       addedToBag: PlayerColor[]
     }
   | { kind: 'merger'; turn: number; city: DistrictId[]; electionNumber: number }

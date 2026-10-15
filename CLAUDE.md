@@ -48,7 +48,8 @@ Votes: a 2–5 player, take-turns-in-order browser game with no backend of its o
 - **Rules:** `C:\Code\assets\VotesAssets\Rules\Votes.md` is the current draft and the source of truth. Values in [brackets] are playtest dials and live in `VotesSettings` (the lobby's "Playtest dials").
 - **Board and visuals:** the asset generator at `C:\Code\assets\VotesAssets` (local only) is the reference. `src/game/map/` ports its map data and district derivation, `src/game/ui/theme.ts` its Metro theme, `src/game/ui/pieceColors.ts` its colour-blind-safe colours, and `src/game/rules/elections.ts` its seat allocation. Change the map in the asset generator first, then port it.
 - **Rule interpretations** the draft doesn't settle, chosen here (revisit with the designer):
-  - Each Station is called once per turn, in the order the active player picks; the cube is drawn after the Station is chosen. Every Station that can bring a family must.
+  - Immigration fills every home and job it can in the turn the room appears: the active player calls any Station that can bring a family, as often as needed, and the cube is drawn after the Station is chosen. It stops when no Station can bring anyone (no open job, no empty home in a stationed district, or an empty bag).
+  - The first family into a district in a turn pays each Station owner there 1 cube (once per owner, however many Stations). Every family still pays its Residence's owner 1 cube, so one player can add 2 for the same family.
   - A tile touching several other cities merges them all in one election, with one merger marker per city joined. The game ends with the election that leaves one city.
   - Players tied with grey for a city's most seats still score; grey blocks only when it leads alone.
   - A colour with no cubes left can't win a seat as the compromise candidate, and seats no cube can fill stay empty.

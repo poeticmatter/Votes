@@ -6,8 +6,8 @@ import { citiesJoinedBy, mergeCities } from './mergers'
 import { hasAnyLegalPlacement, placeTile } from './placement'
 import type { Phase, PlayerColor, VotesMove, VotesState } from './types'
 
-// A turn: place a tile (School bonus included), immigration, then a merger and its
-// election if the tile joined cities. Each move is one decision by the active player;
+// A turn: place a tile (School bonus included), immigration until no Station can bring
+// anyone, then a merger and its election if the tile joined cities. Each move is one decision by the active player;
 // everything that needs no decision runs straight on.
 
 type GameOverReason = 'lastMerger' | 'nobodyCanBuild'

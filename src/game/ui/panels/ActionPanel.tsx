@@ -159,8 +159,8 @@ function ImmigrationChoices({ state, onMove }: { state: VotesState; onMove: (mov
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-ink-soft">
-        {stations.length === 1 ? 'One Station brings' : `${stations.length} Stations each bring`} a family. Choose which
-        goes next; a family is drawn from the bag when you do.
+        Families arrive while there are homes and jobs for them. Choose the Station that brings the next one; a family is
+        drawn from the bag when you do.
       </p>
       <ChoiceList
         keys={stations}

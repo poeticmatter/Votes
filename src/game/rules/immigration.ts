@@ -6,10 +6,13 @@ import { addToBag, drawFromBag } from './bag'
 import { bagSize, openJobs, residencesIn, stations } from './boardQueries'
 import { HOMES_PER_RESIDENCE, type PlayerColor, type VotesState } from './types'
 
-// End-of-turn immigration. Every Station brings in one family, in the order the active
-// player chooses, while its district has an empty home and the board has an open job.
-// Homes and jobs only ever fill up during a turn, so a Station that can't bring a
-// family now can't later in the same turn either.
+// Immigration runs right after the tile is placed and keeps going while any Station
+// can bring a family: its district has an empty home, the board has an open job, and
+// the bag isn't empty. The active player picks the Station each time, and the home once
+// the cube is drawn. A Station can bring any number of families.
+//
+// Paying the bag: each family pays its Residence's owner 1 cube, and the first family
+// to enter a district this turn pays every Station owner in that district 1 cube.
 
 export function residencesWithRoom(state: VotesState, district: DistrictId): HexKey[] {
   return residencesIn(state, district)
@@ -21,14 +24,16 @@ export function canStationBringFamily(state: VotesState, station: HexKey): boole
   return openJobs(state) > 0 && bagSize(state) > 0 && residencesWithRoom(state, districtOf(station)).length > 0
 }
 
-function stationsThatCanBring(state: VotesState, candidates: HexKey[]): HexKey[] {
-  return candidates.filter(station => canStationBringFamily(state, station))
+function stationsThatCanBring(state: VotesState): HexKey[] {
+  return stations(state)
+    .map(({ key }) => key)
+    .filter(station => canStationBringFamily(state, station))
 }
 
 /** Stations the active player may call next; empty while a drawn family waits for a home. */
 export function callableStations(state: VotesState): HexKey[] {
   const { phase } = state
-  return phase.kind === 'immigration' && !phase.drawn ? phase.stationsToCall : []
+  return phase.kind === 'immigration' && !phase.drawn ? stationsThatCanBring(state) : []
 }
 
 /** Residences the drawn family may move into. */
@@ -39,30 +44,28 @@ export function homesForDrawnFamily(state: VotesState): HexKey[] {
 }
 
 export function beginImmigration(state: VotesState): VotesState {
-  const allStations = stations(state).map(({ key }) => key)
-  return { ...state, phase: { kind: 'immigration', stationsToCall: stationsThatCanBring(state, allStations), drawn: null } }
+  return { ...state, phase: { kind: 'immigration', districtsEntered: [], drawn: null } }
 }
 
 export function isImmigrationOver(state: VotesState): boolean {
-  return state.phase.kind === 'immigration' && !state.phase.drawn && state.phase.stationsToCall.length === 0
+  return state.phase.kind === 'immigration' && !state.phase.drawn && stationsThatCanBring(state).length === 0
 }
 
 export function callStation(state: VotesState, station: HexKey): VotesState {
-  if (!callableStations(state).includes(station)) throw new IllegalMoveError(`Station ${station} can't bring a family now`)
-  const { state: drawnState, color } = drawFromBag(state)
-  return {
-    ...drawnState,
-    phase: {
-      kind: 'immigration',
-      stationsToCall: callableStations(state).filter(key => key !== station),
-      drawn: { station, color },
-    },
+  const { phase } = state
+  if (phase.kind !== 'immigration' || !callableStations(state).includes(station)) {
+    throw new IllegalMoveError(`Station ${station} can't bring a family now`)
   }
+  const { state: drawnState, color } = drawFromBag(state)
+  return { ...drawnState, phase: { ...phase, drawn: { station, color } } }
 }
 
-/** The Station's owner adds a cube, and so does the Residence's owner unless it's the same player. */
-function ownersRewardedFor(stationOwner: PlayerColor, residenceOwner: PlayerColor | null): PlayerColor[] {
-  return residenceOwner && residenceOwner !== stationOwner ? [stationOwner, residenceOwner] : [stationOwner]
+/** Every player with a Station in the district, once each, in board order. */
+function stationOwnersIn(state: VotesState, district: DistrictId): PlayerColor[] {
+  const owners = stations(state)
+    .filter(({ key }) => districtOf(key) === district)
+    .map(({ tile }) => tile.owner)
+  return [...new Set(owners)]
 }
 
 export function settleFamily(state: VotesState, residence: HexKey): VotesState {
@@ -71,22 +74,25 @@ export function settleFamily(state: VotesState, residence: HexKey): VotesState {
   if (!homesForDrawnFamily(state).includes(residence)) throw new IllegalMoveError(`The family can't move into ${residence}`)
 
   const { station, color } = phase.drawn
-  const stationTile = state.tiles[station]
   const residenceTile = state.tiles[residence]
-  // Both were validated above; these guards narrow the tile types.
-  if (stationTile?.kind !== 'station' || residenceTile?.kind !== 'residence') {
-    throw new Error(`Expected a Station at ${station} and a Residence at ${residence}`)
-  }
+  // Validated above; this guard narrows the tile type.
+  if (residenceTile?.kind !== 'residence') throw new Error(`Expected a Residence at ${residence}`)
 
-  const addedToBag = ownersRewardedFor(stationTile.owner, residenceTile.owner)
+  const district = districtOf(residence)
+  const isFirstInDistrict = !phase.districtsEntered.includes(district)
+  const addedToBag = [
+    ...(isFirstInDistrict ? stationOwnersIn(state, district) : []),
+    ...(residenceTile.owner ? [residenceTile.owner] : []),
+  ]
   const housed: VotesState = {
     ...state,
     tiles: { ...state.tiles, [residence]: { ...residenceTile, families: [...residenceTile.families, color] } },
+    phase: {
+      kind: 'immigration',
+      districtsEntered: isFirstInDistrict ? [...phase.districtsEntered, district] : phase.districtsEntered,
+      drawn: null,
+    },
     log: [...state.log, { kind: 'family', turn: state.turn.number, color, station, residence, addedToBag }],
   }
-  const rewarded = addedToBag.reduce((current, owner) => addToBag(current, owner, 1), housed)
-  return {
-    ...rewarded,
-    phase: { kind: 'immigration', stationsToCall: stationsThatCanBring(rewarded, phase.stationsToCall), drawn: null },
-  }
+  return addedToBag.reduce((current, owner) => addToBag(current, owner, 1), housed)
 }

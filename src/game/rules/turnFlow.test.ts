@@ -20,16 +20,22 @@ describe('a quiet turn', () => {
 describe('immigration within a turn', () => {
   const ready = withBag(withTiles(newGame(), { '8,3': station('blue'), '10,3': factory() }), { grey: 2 })
 
-  it('waits for the active player to call each Station', () => {
-    const state = applyMove(ready, { kind: 'place', tile: 'residence', at: '4,1' })
-    expect(state.phase).toEqual({ kind: 'immigration', stationsToCall: ['8,3'], drawn: null })
+  const placed = applyMove(ready, { kind: 'place', tile: 'residence', at: '4,1' })
+  const houseOneFamily = (state: VotesState) =>
+    applyMove(applyMove(state, { kind: 'callStation', station: '8,3' }), { kind: 'settleFamily', residence: '9,2' })
+
+  it('waits for the active player to call a Station', () => {
+    expect(placed.phase).toEqual({ kind: 'immigration', districtsEntered: [], drawn: null })
   })
 
-  it('ends the turn once the last family is housed', () => {
-    const placed = applyMove(ready, { kind: 'place', tile: 'residence', at: '4,1' })
-    const drawn = applyMove(placed, { kind: 'callStation', station: '8,3' })
-    const housed = applyMove(drawn, { kind: 'settleFamily', residence: '9,2' })
-    expect(housed.turn.playerIndex).toBe(1)
+  it('keeps bringing families while there are homes and jobs', () => {
+    expect(houseOneFamily(placed).turn.playerIndex).toBe(0)
+  })
+
+  it('ends the turn once no Station can bring anyone', () => {
+    // The first family pays blue's single cube back; the second pays nothing, emptying the bag.
+    const drained = houseOneFamily(houseOneFamily(withBag(placed, { grey: 1 })))
+    expect(drained.turn.playerIndex).toBe(1)
   })
 })
 

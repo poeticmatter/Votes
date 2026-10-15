@@ -31,8 +31,9 @@ function EntryText({ entry }: { entry: LogEntry }) {
       return (
         <>
           <CubeChip color={entry.color} /> A family moved into {districtOf(entry.residence)}. Into the bag:{' '}
-          {byLook(entry.addedToBag).map(color => (
-            <CubeChip key={color} color={color} />
+          {byLook(entry.addedToBag).map((color, position) => (
+            // A player can add two cubes for one family, so the colour alone isn't unique.
+            <CubeChip key={`${color}-${position}`} color={color} />
           ))}
         </>
       )

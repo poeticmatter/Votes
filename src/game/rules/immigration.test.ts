@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { IllegalMoveError } from 'game-kit/turns'
-import { bagSize } from './boardQueries'
 import { beginImmigration, callStation, canStationBringFamily, settleFamily } from './immigration'
 import { factory, newGame, residence, station, withBag, withTiles } from './testStates'
 import type { VotesState } from './types'
@@ -47,24 +46,30 @@ describe('bringing a family', () => {
     expect(state.tiles[PRINTED_C]).toEqual(residence(null, ['grey']))
   })
 
-  it('has only the Station’s owner add a cube for a printed Residence', () => {
+  it('has the Station’s owner add a cube for the first family into the district', () => {
     const state = bringFamilyTo(boardWithStation(), PRINTED_C)
     expect(state.bag).toEqual({ grey: 3, blue: 1 })
   })
 
-  it('has both owners add a cube when they differ', () => {
-    const state = bringFamilyTo(boardWithStation({ [OWNED_C]: residence('vermillion') }), OWNED_C)
+  it('pays the Station’s owner only once however many families enter the district', () => {
+    const twice = settleFamily(callStation(bringFamilyTo(boardWithStation(), PRINTED_C), STATION), PRINTED_C)
+    expect(twice.log.at(-1)).toMatchObject({ kind: 'family', addedToBag: [] })
+  })
+
+  it('pays each Station owner in the district once', () => {
+    const state = bringFamilyTo(boardWithStation({ '7,3': station('vermillion'), '9,3': station('blue') }), PRINTED_C)
     expect(state.bag).toEqual({ grey: 3, blue: 1, vermillion: 1 })
   })
 
-  it('adds just one cube when one player owns both', () => {
-    const state = bringFamilyTo(boardWithStation({ [OWNED_C]: residence('blue') }), OWNED_C)
-    expect(state.bag).toEqual({ grey: 3, blue: 1 })
+  it('has the Residence’s owner add a cube for every family', () => {
+    const first = bringFamilyTo(boardWithStation({ [OWNED_C]: residence('vermillion') }), OWNED_C)
+    const second = settleFamily(callStation(first, STATION), OWNED_C)
+    expect(second.log.at(-1)).toMatchObject({ kind: 'family', addedToBag: ['vermillion'] })
   })
 
-  it('never shrinks the bag', () => {
-    const before = boardWithStation()
-    expect(bagSize(bringFamilyTo(before, PRINTED_C))).toBe(bagSize(before))
+  it('pays one player twice when they own both the Station and the Residence', () => {
+    const state = bringFamilyTo(boardWithStation({ [OWNED_C]: residence('blue') }), OWNED_C)
+    expect(state.bag).toEqual({ grey: 3, blue: 2 })
   })
 
   it('refuses a Residence outside the Station’s district', () => {
@@ -72,9 +77,9 @@ describe('bringing a family', () => {
     expect(() => settleFamily(drawn, '4,1')).toThrow(IllegalMoveError)
   })
 
-  it('lets each Station bring only one family per turn', () => {
+  it('lets a Station bring another family while there is room', () => {
     const state = bringFamilyTo(boardWithStation(), PRINTED_C)
-    expect(() => callStation(state, STATION)).toThrow(IllegalMoveError)
+    expect(canStationBringFamily(state, STATION)).toBe(true)
   })
 })
 
