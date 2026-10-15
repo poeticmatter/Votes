@@ -7,44 +7,51 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run dev        # dev server at http://localhost:3000
 npm run lint       # TypeScript type checking (tsc --noEmit)
+npm test           # vitest: rules, map, seeded full games, board render smoke tests
 npm run build      # production build
 npm run deploy     # build and publish to GitHub Pages
-npm run init-game -- <repo-name> <game-id> "<Title>"   # one-time rename of a fresh template copy
 ```
 
 ## Architecture
 
-A two-player, simultaneous-turn browser game with no backend of its own. It is part of the game lab (poeticmatter/game-lab); each game lives in its own repo created from poeticmatter/game-template.
+Votes: a 2–5 player, take-turns-in-order browser game with no backend of its own. It is part of the game lab (poeticmatter/game-lab) and was created from poeticmatter/game-template, but its platform has been reworked from the template's two-player simultaneous turns to sequential moves for 2–5 players.
 
-- `src/game/`: the game. Pure rules (`rules.ts`), React UI (`Board.tsx`, `SettingsForm.tsx`), and `index.ts` exporting `game: GameModule`.
-- `src/platform/`: game-agnostic lobby, transports and screens. It only sees the game through the `GameModule` / `GameRules` contracts in `src/platform/types.ts`.
-- `src/game.config.ts`: the game id, title and Supabase table name.
+- `src/game/`: the game, and `index.ts` exporting `game: GameModule`.
+  - `map/`: map content (`mapData.ts`) and everything derived from it (`board.ts`: districts, rail borders, adjacency). Ported from the asset generator.
+  - `rules/`: pure rules. `turnFlow.ts` (`applyMove`) runs a turn through `placement.ts`, `immigration.ts`, `mergers.ts` and `elections.ts`. Tests sit beside them; `fullGame.test.ts` plays seeded games end to end and checks invariants.
+  - `ui/`: the board. `map/` draws the Metro map and pieces; `panels/` are the side panels; `useTurnControls.ts` turns the phase into clickable targets.
+- `src/platform/`: game-agnostic lobby, seats, transports and screens. It only sees the game through the contracts in `src/platform/types.ts`.
+- `src/game.config.ts`: the game id, title, Supabase table and seat-claim function names.
 - `src/App.tsx`: wires the game into the platform and routes on the URL (`?room=CODE[&mode=async]`). Hot-seat matches have no URL.
 
 ### Rules contract
 
-- `createInitialState(settings)` and `resolveTurn(state, p1Plan, p2Plan)` must be pure and deterministic. In async play, whichever client submits second resolves the turn.
-- State and plans carry `turn`. Transports drop plans whose `turn` doesn't match the current state.
+- `createInitialState({ settings, playerCount, seed })` and `applyMove(state, move)` must be pure and deterministic. Randomness (the bag) comes from a seeded generator whose state lives in the game state, so every client draws the same cubes.
+- `activePlayer(state)` names the seat whose move the game awaits (null once over). A turn may take several moves; transports only apply moves from the active player.
+- `applyMove` throws `IllegalMoveError` for a move that breaks the rules; transports catch it (`moveValidation.ts`) and leave the state alone.
+- The platform, not the game, counts applied moves as `version`. Transports drop moves made on an older version.
 
-### Transports
+### Seats and transports
 
-- **Live (PeerJS)**: `usePeerHost` (the room creator, always player 1, the only peer that runs rules) and `usePeerGuest` (player 2 or a spectator). Commit-and-hold: the host's plan is held until the guest's plan arrives, so the host gets no information advantage.
-- **Async (Supabase)**: `useAsyncMatch` + `asyncMatchApi`. One row per room in this game's own table (`<game-id>_games`) on the Supabase project shared by all lab games. Writes are guarded on the `turn` column.
-- **Hot seat**: `useHotSeatMatch`. Both players share one device; nothing goes online and nothing survives a reload. Player 1 commits, `HandoffScreen` hides the board while the device changes hands, player 2 commits, then the turn resolves. `role` is the player currently at the device, and the Board gets `seating: 'hot_seat'`.
-- All three return `MatchConnection`, so `MatchScreen` / `GameBoard` in `App.tsx` don't care which transport is in use.
+- Seat i joins in order and plays `PLAYER_COLORS[i]`. The first player is drawn from the seed. A browser remembers its seat per room in localStorage; anyone with the link can also take back a seat ("That's me") or watch.
+- **Async (Supabase)**: `useAsyncMatch` + `asyncMatchApi`. One row per room in `votes_games` on the Supabase project shared by all lab games: `players` (seat list), `player_count`, `state`, `version`. Seats are claimed through the `votes_claim_seat` RPC so concurrent joins can't collide. The active player's client applies each move, shows it at once and queues a write guarded on `version`; a refused write reloads the row. Realtime is best effort, so the hook also catches up on tab focus and on a slow poll, never accepting an older version than it shows.
+- **Live (PeerJS)**: `usePeerHost` (the room creator, seat 0, the only peer that runs rules) and `usePeerGuest` (takes a seat, takes one back after a reload, or watches). The game ends if the host closes the tab.
+- **Hot seat**: `useHotSeatMatch`. Everyone shares one device; nothing goes online or survives a reload. There is no hidden information, so no handoff screen: `role` is always the active player and the Board gets `seating: 'hot_seat'`.
+- All three return `MatchConnection`, so `MatchScreen` in `App.tsx` doesn't care which transport is in use.
 
 ## Rules
 
 - Do not import from `src/game/` inside `src/platform/`. Only `App.tsx` joins the two.
-- All state changes go through `rules.resolveTurn`. UI components only render state and submit plans.
-- Keep the Supabase table name in `game.config.ts` and the migration in `supabase/migrations/` in sync.
+- All state changes go through `rules.applyMove`. UI components only render state and submit moves.
+- Keep the Supabase names in `game.config.ts` and the migrations in `supabase/migrations/` in sync. New migrations are applied to project `zavdrnttsfcupopdidda` under the name `votes_<number>_…`.
 
 ## Votes
 
-The platform above is still the template's: two players, simultaneous turns. Votes needs more than that, so adapt `src/platform/` to it.
-
-- **2–5 players, taking turns in order** (place a tile, immigration, maybe a merger and election). It is not simultaneous.
-- **Async online play is the top priority.** Live and hot seat come after it.
-- The `votes_games` table still has the template's two-player columns (`p1_plan`, `p2_plan`, `p2_joined`). Change it with a new migration (`0002_…`), applied to project `zavdrnttsfcupopdidda` under the name `votes_0002_…`.
-- **Rules:** `C:\Code\assets\VotesAssets\Rules\Votes.md` is the current draft. Values in [brackets] are playtest dials, so make them settings rather than hard-coding them.
-- **Board and visuals:** the board-game asset generator lives at `C:\Code\assets\VotesAssets` (local only). Its map data (`src/map/mapData.js`, districts derived in `src/map/board.js`), its "Metro" theme (`src/theme.js`) and its colour-blind-safe player colours (`src/pieces/playerColors.js`) are the reference for the digital board. Its `src/rules/elections.js` already implements seat allocation.
+- **Rules:** `C:\Code\assets\VotesAssets\Rules\Votes.md` is the current draft and the source of truth. Values in [brackets] are playtest dials and live in `VotesSettings` (the lobby's "Playtest dials").
+- **Board and visuals:** the asset generator at `C:\Code\assets\VotesAssets` (local only) is the reference. `src/game/map/` ports its map data and district derivation, `src/game/ui/theme.ts` its Metro theme, `src/game/ui/pieceColors.ts` its colour-blind-safe colours, and `src/game/rules/elections.ts` its seat allocation. Change the map in the asset generator first, then port it.
+- **Rule interpretations** the draft doesn't settle, chosen here (revisit with the designer):
+  - Each Station is called once per turn, in the order the active player picks; the cube is drawn after the Station is chosen. Every Station that can bring a family must.
+  - A tile touching several other cities merges them all in one election, with one merger marker per city joined. The game ends with the election that leaves one city.
+  - Players tied with grey for a city's most seats still score; grey blocks only when it leads alone.
+  - A colour with no cubes left can't win a seat as the compromise candidate, and seats no cube can fill stay empty.
+  - Public tiles never run out. A player with no legal placement passes (immigration still runs); a full round of passes ends the game.

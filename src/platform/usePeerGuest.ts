@@ -1,28 +1,62 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Peer, { type DataConnection } from 'peerjs'
-import { ICE_CONFIG, describePeerError, hostPeerId, type PeerMessage } from './peerConfig'
-import type { ConnectionStatus, MatchConnection, TurnBasedState, TurnPlan, UserRole } from './types'
+import { ICE_CONFIG, describePeerError, hostPeerId, type GuestMessage, type HostMessage } from './peerConfig'
+import { recallRole, rememberRole } from './roomLink'
+import type { ConnectionStatus, MatchConnection, PlayerProfile, SeatChoice, UserRole } from './types'
 
 /**
- * Live (PeerJS) transport for anyone who opens a room link. The host decides whether
- * this peer plays as player 2 or spectates. The guest never runs game rules: it only
- * sends its plan and applies whatever state the host broadcasts.
+ * Live (PeerJS) transport for anyone who opens a room link. The guest never runs game
+ * rules: it sends its moves and shows whatever state the host broadcasts.
+ *
+ * A browser that held a seat before asks for it back automatically, including after a
+ * dropped connection; otherwise it waits for the person to take a seat or watch.
  */
 
 const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_BASE_DELAY_MS = 1500
 
-export function usePeerGuest<State extends TurnBasedState, Plan extends TurnPlan>(
-  roomCode: string,
-): MatchConnection<State, Plan> {
-  const [state, setState] = useState<State | null>(null)
-  const [role, setRole] = useState<UserRole>('spectator')
-  const [status, setStatus] = useState<ConnectionStatus>('connecting')
+type LinkStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected'
+
+interface Snapshot<State> {
+  state: State
+  version: number
+  players: PlayerProfile[]
+  playerCount: number
+}
+
+function guestStatus<State>(
+  link: LinkStatus,
+  errorMessage: string | null,
+  snapshot: Snapshot<State> | null,
+  role: UserRole | null,
+): ConnectionStatus {
+  if (errorMessage) return 'error'
+  if (link === 'disconnected' || link === 'reconnecting') return link
+  if (!snapshot) return 'connecting'
+  if (role === null) return 'choosing_seat'
+  if (snapshot.players.length < snapshot.playerCount) return 'waiting_for_players'
+  return role === 'spectator' ? 'spectating' : 'playing'
+}
+
+/** How a returning browser rejoins: by seat if it had one, otherwise as a spectator. */
+function rejoinMessage(role: UserRole): GuestMessage<never> {
+  return role === 'spectator' ? { type: 'WATCH' } : { type: 'RESUME_SEAT', seat: role }
+}
+
+export function usePeerGuest<State, Move>(roomCode: string): MatchConnection<State, Move> {
+  const [snapshot, setSnapshot] = useState<Snapshot<State> | null>(null)
+  const [role, setRole] = useState<UserRole | null>(() => recallRole(roomCode))
+  const [link, setLink] = useState<LinkStatus>('connecting')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [committedTurn, setCommittedTurn] = useState<number | null>(null)
-  const [spectatorCount, setSpectatorCount] = useState(0)
 
   const hostConnection = useRef<DataConnection | null>(null)
+  // Read by the connection's 'open' handler to rejoin after a reconnect.
+  const currentRole = useRef(role)
+  const currentVersion = useRef<number | null>(null)
+
+  const sendToHost = useCallback((message: GuestMessage<Move>) => {
+    if (hostConnection.current?.open) hostConnection.current.send(message)
+  }, [])
 
   useEffect(() => {
     let peer: Peer | null = null
@@ -33,11 +67,11 @@ export function usePeerGuest<State extends TurnBasedState, Plan extends TurnPlan
     function scheduleReconnect() {
       if (isDisposed || reconnectTimer !== null) return
       if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-        setStatus('disconnected')
+        setLink('disconnected')
         return
       }
       reconnectAttempts++
-      setStatus('reconnecting')
+      setLink('reconnecting')
       peer?.destroy()
       reconnectTimer = setTimeout(() => {
         reconnectTimer = null
@@ -45,14 +79,14 @@ export function usePeerGuest<State extends TurnBasedState, Plan extends TurnPlan
       }, reconnectAttempts * RECONNECT_BASE_DELAY_MS)
     }
 
-    function receive(message: PeerMessage<State, Plan>) {
-      if (message.type === 'ASSIGNED_ROLE') {
+    function receive(message: HostMessage<State>) {
+      if (message.type === 'ROLE') {
+        currentRole.current = message.role
         setRole(message.role)
-        setStatus(message.role === 'spectator' ? 'spectating' : 'playing')
-        reconnectAttempts = 0
-      } else if (message.type === 'STATE') {
-        setState(message.state)
-        setSpectatorCount(message.spectatorCount)
+        rememberRole(roomCode, message.role)
+      } else {
+        currentVersion.current = message.version
+        setSnapshot({ state: message.state, version: message.version, players: message.players, playerCount: message.playerCount })
       }
     }
 
@@ -61,12 +95,17 @@ export function usePeerGuest<State extends TurnBasedState, Plan extends TurnPlan
       peer = new Peer({ config: ICE_CONFIG })
 
       peer.on('open', () => {
-        const conn = peer!.connect(hostPeerId(roomCode), { reliable: true })
-        hostConnection.current = conn
+        const connection = peer!.connect(hostPeerId(roomCode), { reliable: true })
+        hostConnection.current = connection
+        connection.on('open', () => {
+          reconnectAttempts = 0
+          setLink('connected')
+          if (currentRole.current !== null) connection.send(rejoinMessage(currentRole.current))
+        })
         // Host-only messages; PeerJS delivers untyped payloads.
-        conn.on('data', raw => receive(raw as PeerMessage<State, Plan>))
-        conn.on('close', scheduleReconnect)
-        conn.on('error', scheduleReconnect)
+        connection.on('data', raw => receive(raw as HostMessage<State>))
+        connection.on('close', scheduleReconnect)
+        connection.on('error', scheduleReconnect)
       })
 
       peer.on('error', err => {
@@ -76,7 +115,6 @@ export function usePeerGuest<State extends TurnBasedState, Plan extends TurnPlan
           return
         }
         setErrorMessage(describePeerError(err))
-        setStatus('error')
       })
     }
 
@@ -90,23 +128,32 @@ export function usePeerGuest<State extends TurnBasedState, Plan extends TurnPlan
     }
   }, [roomCode])
 
-  const submitPlan = useCallback(
-    (plan: Plan) => {
-      if (role === 'spectator' || !hostConnection.current?.open) return
-      const message: PeerMessage<State, Plan> = { type: 'SUBMIT_PLAN', plan }
-      hostConnection.current.send(message)
-      setCommittedTurn(plan.turn)
-    },
-    [role],
+  const seatChoice = useMemo<SeatChoice>(
+    () => ({
+      claimSeat: name => sendToHost({ type: 'CLAIM_SEAT', name }),
+      resumeSeat: seat => sendToHost({ type: 'RESUME_SEAT', seat }),
+      watch: () => sendToHost({ type: 'WATCH' }),
+    }),
+    [sendToHost],
   )
 
+  const submitMove = useCallback(
+    (move: Move) => {
+      if (typeof currentRole.current !== 'number' || currentVersion.current === null) return
+      sendToHost({ type: 'MOVE', version: currentVersion.current, move })
+    },
+    [sendToHost],
+  )
+
+  const status = guestStatus(link, errorMessage, snapshot, role)
   return {
-    state,
-    role,
+    state: snapshot?.state ?? null,
+    role: role ?? 'spectator',
+    players: snapshot?.players ?? [],
+    playerCount: snapshot?.playerCount ?? null,
     status,
     errorMessage,
-    hasCommitted: state !== null && committedTurn === state.turn,
-    spectatorCount,
-    submitPlan,
+    seatChoice: status === 'choosing_seat' ? seatChoice : null,
+    submitMove,
   }
 }

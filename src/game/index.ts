@@ -1,20 +1,25 @@
 import type { GameModule } from '../platform/types'
-import { RpsBoard } from './Board'
-import { rpsRules } from './rules'
-import { RpsSettingsForm } from './SettingsForm'
-import type { RpsPlan, RpsSettings, RpsState } from './types'
+import { votesRules } from './rules'
+import { DEFAULT_SETTINGS } from './rules/setup'
+import { MAX_PLAYERS, MIN_PLAYERS, PLAYER_COLORS, type VotesMove, type VotesSettings, type VotesState } from './rules/types'
+import { VotesSettingsForm } from './SettingsForm'
+import { VotesBoard } from './ui/Board'
+import { PIECE_COLORS } from './ui/pieceColors'
 
-/**
- * The game plugged into the platform. To build a new game, replace everything in
- * src/game/ and keep exporting a GameModule named `game`.
- */
-export const game: GameModule<RpsSettings, RpsState, RpsPlan> = {
-  rules: rpsRules,
-  defaultSettings: { targetScore: 3 },
-  SettingsForm: RpsSettingsForm,
-  Board: RpsBoard,
+/** Votes, plugged into the platform. Seat i plays PLAYER_COLORS[i]. */
+export const game: GameModule<VotesSettings, VotesState, VotesMove> = {
+  rules: votesRules,
+  minPlayers: MIN_PLAYERS,
+  maxPlayers: MAX_PLAYERS,
+  defaultSettings: DEFAULT_SETTINGS,
+  playerAppearance: index => {
+    const { name, fill } = PIECE_COLORS[PLAYER_COLORS[index]]
+    return { name, color: fill }
+  },
+  SettingsForm: VotesSettingsForm,
+  Board: VotesBoard,
 }
 
-export type GameSettings = RpsSettings
-export type GameState = RpsState
-export type GamePlan = RpsPlan
+export type GameSettings = VotesSettings
+export type GameState = VotesState
+export type GameMove = VotesMove

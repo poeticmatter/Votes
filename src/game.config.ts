@@ -13,3 +13,6 @@ export const GAME_CONFIG = {
 
 /** The Supabase table this game owns. Must match supabase/migrations/. */
 export const SUPABASE_TABLE = `${GAME_CONFIG.id}_games`
+
+/** The database function that atomically claims the next free seat. Must match supabase/migrations/. */
+export const SUPABASE_CLAIM_SEAT_FUNCTION = `${GAME_CONFIG.id}_claim_seat`
