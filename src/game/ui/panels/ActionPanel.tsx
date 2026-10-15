@@ -1,4 +1,4 @@
-import { Button } from '../../../platform/controls'
+import { Button } from 'game-kit/turns'
 import { districtOf, hexAt } from '../../map/board'
 import type { HexKey } from '../../map/hexGrid'
 import { activePlayerState } from '../../rules/boardQueries'

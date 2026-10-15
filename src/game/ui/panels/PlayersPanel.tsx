@@ -1,4 +1,4 @@
-import type { PlayerProfile } from '../../../platform/types'
+import type { PlayerProfile } from 'game-kit/turns'
 import { familiesOnBoard } from '../../rules/boardQueries'
 import type { VotesState } from '../../rules/types'
 import { countOf, PlayerChip, seatOfColor, useIsViewer } from '../names'

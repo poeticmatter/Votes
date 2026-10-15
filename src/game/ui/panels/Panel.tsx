@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Card } from '../../../platform/controls'
+import { Card } from 'game-kit/turns'
 
 export function Panel({ title, children }: { title?: ReactNode; children: ReactNode }) {
   return (

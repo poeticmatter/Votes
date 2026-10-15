@@ -1,4 +1,4 @@
-import { IllegalMoveError } from '../../platform/IllegalMoveError'
+import { IllegalMoveError } from 'game-kit/turns'
 import { activePlayerState, familiesOnBoard } from './boardQueries'
 import { holdElection } from './elections'
 import { beginImmigration, callStation, isImmigrationOver, settleFamily } from './immigration'

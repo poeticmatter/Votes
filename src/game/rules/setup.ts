@@ -1,6 +1,6 @@
+import { nextIndex } from 'game-kit/turns'
 import { DISTRICT_IDS, startingResidenceKey } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
-import { nextIndex } from './random'
 import {
   INDEPENDENT,
   MAX_PLAYERS,

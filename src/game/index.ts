@@ -1,4 +1,4 @@
-import type { GameModule } from '../platform/types'
+import type { GameModule } from 'game-kit/turns'
 import { votesRules } from './rules'
 import { DEFAULT_SETTINGS } from './rules/setup'
 import { MAX_PLAYERS, MIN_PLAYERS, PLAYER_COLORS, type VotesMove, type VotesSettings, type VotesState } from './rules/types'

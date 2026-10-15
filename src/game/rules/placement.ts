@@ -1,4 +1,4 @@
-import { IllegalMoveError } from '../../platform/IllegalMoveError'
+import { IllegalMoveError } from 'game-kit/turns'
 import { BOARD, hexAt } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import { addToBag } from './bag'
