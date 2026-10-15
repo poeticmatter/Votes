@@ -1,9 +1,9 @@
-import { memo } from 'react'
+import { memo, type ReactNode } from 'react'
 import { BOARD, type BoardHex, type Terrain } from '../../map/board'
 import { apothemOf, hexCenter, hexCorners, polygonPath, roundedPolygonPath, sideCorners, towards, type EdgeRef, type Point } from '../../map/hexGrid'
 import { COLORS, MAP_STYLE } from '../theme'
 import { edgeEndpoints, HEX_RADIUS } from './geometry'
-import { MountainGlyph, PlaceGlyph, WavesGlyph } from './glyphs'
+import { ForestGlyph, MountainGlyph, PlaceGlyph, WavesGlyph } from './glyphs'
 import { sleeperPositions, trackPath, type TrackPosition } from './trackGeometry'
 
 // The printed map: cells, terrain, rail-side bands, river, track and bridges. Ported
@@ -16,6 +16,7 @@ const CELL_FILLS: Record<Terrain, string> = {
   open: COLORS.cell,
   mountain: COLORS.mountain,
   lake: COLORS.water,
+  forest: COLORS.forest,
 }
 
 const centerOf = (hex: BoardHex) => hexCenter(hex.col, hex.row, HEX_RADIUS)
@@ -32,23 +33,26 @@ const HexCells = () => (
   </g>
 )
 
+const TERRAIN_GLYPHS: Record<Exclude<Terrain, 'open'>, { size: number; glyph: (size: number) => ReactNode }> = {
+  mountain: { size: MAP_STYLE.mountainGlyphSize, glyph: size => <MountainGlyph size={size} color={COLORS.paper} /> },
+  lake: {
+    size: MAP_STYLE.wavesGlyphSize,
+    glyph: size => <WavesGlyph size={size} color={COLORS.paper} strokeWidth={MAP_STYLE.wavesStrokeWidth} />,
+  },
+  forest: { size: MAP_STYLE.forestGlyphSize, glyph: size => <ForestGlyph size={size} color={COLORS.paper} /> },
+}
+
 const TerrainArt = () => (
   <g>
-    {BOARD.hexes
-      .filter(hex => hex.terrain !== 'open')
-      .map(hex => {
-        const isMountain = hex.terrain === 'mountain'
-        const size = isMountain ? MAP_STYLE.mountainGlyphSize : MAP_STYLE.wavesGlyphSize
-        return (
-          <PlaceGlyph key={hex.key} center={centerOf(hex)} size={size}>
-            {isMountain ? (
-              <MountainGlyph size={size} color={COLORS.paper} />
-            ) : (
-              <WavesGlyph size={size} color={COLORS.paper} strokeWidth={MAP_STYLE.wavesStrokeWidth} />
-            )}
-          </PlaceGlyph>
-        )
-      })}
+    {BOARD.hexes.map(hex => {
+      if (hex.terrain === 'open') return null
+      const { size, glyph } = TERRAIN_GLYPHS[hex.terrain]
+      return (
+        <PlaceGlyph key={hex.key} center={centerOf(hex)} size={size}>
+          {glyph(size)}
+        </PlaceGlyph>
+      )
+    })}
   </g>
 )
 

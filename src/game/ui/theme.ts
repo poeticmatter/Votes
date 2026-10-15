@@ -8,6 +8,8 @@ export const COLORS = {
   cell: '#ffffff',
   mountain: '#b4bcc8',
   water: '#72b7e4',
+  // Darker and greyer than the sage printed Residences and the jade player colour.
+  forest: '#6f9468',
   ink: '#262a31',
   inkSoft: '#5b6370',
   inkFaint: '#8a93a0',
@@ -28,6 +30,7 @@ export const MAP_STYLE = {
   railSideBandWidth: 9,
   bridge: { offset: 16, lengthFraction: 0.42, armLength: 16, armAngleDegrees: 40, cornerRadius: 3, strokeWidth: 4 },
   mountainGlyphSize: 58,
+  forestGlyphSize: 56,
   wavesGlyphSize: 54,
   wavesStrokeWidth: 3.5,
 } as const

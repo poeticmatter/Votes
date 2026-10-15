@@ -18,9 +18,13 @@ export const MOUNTAINS: readonly HexCoord[] = [
 ]
 
 export const LAKES: readonly HexCoord[] = [
-  [0, 8], [1, 8],
+  [1, 8],
   [2, 5], [2, 6], [3, 5],
-  [10, 0], [10, 8],
+]
+
+// Unbuildable, like mountains and lakes.
+export const FORESTS: readonly HexCoord[] = [
+  [0, 8], [10, 0], [10, 8],
 ]
 
 // One printed Residence per district; its letter names the district.

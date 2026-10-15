@@ -1,10 +1,10 @@
-import { edgeKey, hexKey, neighborOf, SIDES, type EdgeRef, type HexKey, type HexSide } from './hexGrid'
-import { GRID, LAKES, MOUNTAINS, RAIL_LINES, RIVER, STARTING_RESIDENCES, type DistrictId } from './mapData'
+import { edgeKey, hexKey, neighborOf, SIDES, type EdgeRef, type HexCoord, type HexKey, type HexSide } from './hexGrid'
+import { FORESTS, GRID, LAKES, MOUNTAINS, RAIL_LINES, RIVER, STARTING_RESIDENCES, type DistrictId } from './mapData'
 
 // Everything derived from mapData.ts: terrain lookup, districts, rail borders and
 // adjacency. Ported from the asset generator's src/map/board.js.
 
-export type Terrain = 'open' | 'mountain' | 'lake'
+export type Terrain = 'open' | 'mountain' | 'lake' | 'forest'
 
 export interface HexNeighbor {
   side: HexSide
@@ -18,7 +18,7 @@ export interface BoardHex {
   terrain: Terrain
   /** The district whose printed Residence sits here, if any. */
   startingResidence: DistrictId | null
-  /** Null only for mountains and lakes. */
+  /** Null only for unbuildable hexes: mountains, lakes and forests. */
   district: DistrictId | null
   railSides: HexSide[]
   bordersRail: boolean
@@ -36,10 +36,16 @@ function isOnMap(col: number, row: number): boolean {
   return col >= 0 && col < GRID.columns && row >= 0 && row < GRID.rows
 }
 
-function terrainAt(key: HexKey, mountainKeys: Set<HexKey>, lakeKeys: Set<HexKey>): Terrain {
-  if (mountainKeys.has(key)) return 'mountain'
-  if (lakeKeys.has(key)) return 'lake'
-  return 'open'
+const keysOf = (coords: readonly HexCoord[]) => new Set(coords.map(([col, row]) => hexKey(col, row)))
+
+const UNBUILDABLE: readonly { terrain: Exclude<Terrain, 'open'>; keys: Set<HexKey> }[] = [
+  { terrain: 'mountain', keys: keysOf(MOUNTAINS) },
+  { terrain: 'lake', keys: keysOf(LAKES) },
+  { terrain: 'forest', keys: keysOf(FORESTS) },
+]
+
+function terrainAt(key: HexKey): Terrain {
+  return UNBUILDABLE.find(({ keys }) => keys.has(key))?.terrain ?? 'open'
 }
 
 interface BaseHex {
@@ -50,13 +56,11 @@ interface BaseHex {
 }
 
 function buildBaseHexes(): BaseHex[] {
-  const mountainKeys = new Set(MOUNTAINS.map(([col, row]) => hexKey(col, row)))
-  const lakeKeys = new Set(LAKES.map(([col, row]) => hexKey(col, row)))
   const hexes: BaseHex[] = []
   for (let col = 0; col < GRID.columns; col += 1) {
     for (let row = 0; row < GRID.rows; row += 1) {
       const key = hexKey(col, row)
-      hexes.push({ col, row, key, terrain: terrainAt(key, mountainKeys, lakeKeys) })
+      hexes.push({ col, row, key, terrain: terrainAt(key) })
     }
   }
   return hexes
