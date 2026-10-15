@@ -1,3 +1,4 @@
+import { DISTRICT_IDS, startingResidenceKey } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
 import type { CubeColor, PlayerColor, Tile, VotesState } from './types'
@@ -5,9 +6,11 @@ import type { CubeColor, PlayerColor, Tile, VotesState } from './types'
 // Builders for rules tests. Positions are set directly, so a test can start from any
 // board without replaying the turns that would lead there.
 
+/** A new game with bare printed Residences and no printed Factories, so tests place every family and job. */
 export function newGame(playerCount = 2, seed = 7): VotesState {
   const state = createInitialState({ settings: DEFAULT_SETTINGS, playerCount, seed })
-  return { ...state, firstPlayerIndex: 0, turn: { ...state.turn, playerIndex: 0 } }
+  const bareResidences = Object.fromEntries(DISTRICT_IDS.map(district => [startingResidenceKey(district), residence(null)]))
+  return { ...state, tiles: bareResidences, firstPlayerIndex: 0, turn: { ...state.turn, playerIndex: 0 } }
 }
 
 export function withTiles(state: VotesState, tiles: Record<HexKey, Tile>): VotesState {

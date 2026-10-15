@@ -34,6 +34,11 @@ export const STARTING_RESIDENCES = {
 
 export type DistrictId = keyof typeof STARTING_RESIDENCES
 
+// Public Factories on the map at setup, both in district E.
+export const STARTING_FACTORIES: readonly HexCoord[] = [
+  [9, 7], [10, 7],
+]
+
 export const RAIL_LINES: readonly (readonly EdgeRef[])[] = [
   // West to east. Shares its [5, 3, 'SE'] edge with the north-south line, which is
   // where the two lines cross.

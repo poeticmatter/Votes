@@ -1,9 +1,10 @@
 import type { SettingsFormProps } from 'game-kit/turns'
-import { isPlayerCount } from './rules/setup'
+import { isPlayerCount, MIN_GREY_CUBES } from './rules/setup'
 import type { VotesSettings } from './rules/types'
 
 const RESIDENCE_RANGE = { min: 1, max: 30 }
-const GREY_CUBE_RANGE = { min: 0, max: 30 }
+// Below this the 2-player setup can't seed the printed Residences.
+const GREY_CUBE_RANGE = { min: MIN_GREY_CUBES, max: 30 }
 const STARTING_CUBE_RANGE = { min: 0, max: 10 }
 
 function Stepper({
@@ -54,13 +55,13 @@ export function VotesSettingsForm({ settings, playerCount, onChange }: SettingsF
           }
         />
         <Stepper
-          label="Grey cubes in the bag"
+          label="Grey cubes (seeded + bag)"
           value={settings.greyCubes}
           range={GREY_CUBE_RANGE}
           onChange={value => onChange({ ...settings, greyCubes: value })}
         />
         <Stepper
-          label="Starting cubes per player"
+          label="Bag cubes per player"
           value={settings.startingCubesPerPlayer}
           range={STARTING_CUBE_RANGE}
           onChange={value => onChange({ ...settings, startingCubesPerPlayer: value })}

@@ -19,12 +19,16 @@ export const MAX_PLAYERS: PlayerCount = 5
 export const HOMES_PER_RESIDENCE = 3
 export const JOBS_PER_FACTORY = 5
 export const STATIONS_PER_PLAYER = 3
+/** Families seeded on each printed Residence at setup. */
+export const STARTING_FAMILIES_PER_RESIDENCE = 2
+/** Cubes of each player's colour among the families seeded at setup. */
+export const STARTING_FAMILIES_PER_PLAYER = 2
 
 /** The [bracketed] playtest dials from the rules. */
 export interface VotesSettings {
   /** Residences each player starts with, by player count. */
   residencesByPlayerCount: Record<PlayerCount, number>
-  /** Grey cubes in the bag at setup. */
+  /** Grey cubes at setup: those seeded on the printed Residences, the rest in the bag. */
   greyCubes: number
   /** Cubes of each player's colour in the bag at setup. */
   startingCubesPerPlayer: number
