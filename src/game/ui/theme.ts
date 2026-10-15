@@ -32,8 +32,6 @@ export const MAP_STYLE = {
   wavesStrokeWidth: 3.5,
 } as const
 
-const PRINTED_OUTLINE = { color: COLORS.ink, width: 2.5 }
-
 export const TILE_STYLE = {
   // Tiles cover 74% of their hex, leaving a ring where rails, river and rail markings
   // stay readable once a tile is down.
@@ -42,5 +40,7 @@ export const TILE_STYLE = {
   emptySlotDash: '3 2.5',
   factory: { fill: '#383d45', ink: '#ffffff' },
   school: { fill: '#ffffff', ink: '#383d45', outline: { color: '#383d45', width: 2.5 } },
-  printed: { fill: '#ffffff', ink: COLORS.ink, outline: PRINTED_OUTLINE, emptySlot: COLORS.inkFaint },
+  // A pale sage: far lighter and yellower than the green player's #009e73, so a printed
+  // Residence never reads as theirs.
+  printed: { fill: '#d6e9c6', ink: COLORS.ink, emptySlot: COLORS.inkFaint },
 } as const

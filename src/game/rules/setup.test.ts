@@ -19,11 +19,11 @@ describe('setup', () => {
   })
 
   it('seeds two of each player colour, topped up with grey to ten', () => {
-    expect(countByColor(familiesOnBoard(threePlayers()))).toEqual({ vermillion: 2, blue: 2, yellow: 2, [INDEPENDENT]: 4 })
+    expect(countByColor(familiesOnBoard(threePlayers()))).toEqual({ pink: 2, vermillion: 2, blue: 2, [INDEPENDENT]: 4 })
   })
 
   it('bags two of each player colour and the grey cubes left over', () => {
-    expect(threePlayers().bag).toEqual({ vermillion: 2, blue: 2, yellow: 2, [INDEPENDENT]: 6 })
+    expect(threePlayers().bag).toEqual({ pink: 2, vermillion: 2, blue: 2, [INDEPENDENT]: 6 })
   })
 
   it('deals the seeded families differently for different seeds', () => {

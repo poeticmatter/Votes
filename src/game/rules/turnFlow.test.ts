@@ -18,7 +18,7 @@ describe('a quiet turn', () => {
 })
 
 describe('immigration within a turn', () => {
-  const ready = withBag(withTiles(newGame(), { '8,3': station('blue'), '10,3': factory() }), { grey: 2 })
+  const ready = withBag(withTiles(newGame(), { '8,3': station('vermillion'), '10,3': factory() }), { grey: 2 })
 
   const placed = applyMove(ready, { kind: 'place', tile: 'residence', at: '4,1' })
   const houseOneFamily = (state: VotesState) =>
@@ -33,7 +33,7 @@ describe('immigration within a turn', () => {
   })
 
   it('ends the turn once no Station can bring anyone', () => {
-    // The first family pays blue's single cube back; the second pays nothing, emptying the bag.
+    // The first family pays vermillion's single cube back; the second pays nothing, emptying the bag.
     const drained = houseOneFamily(houseOneFamily(withBag(placed, { grey: 1 })))
     expect(drained.turn.playerIndex).toBe(1)
   })
@@ -42,9 +42,9 @@ describe('immigration within a turn', () => {
 describe('mergers', () => {
   // [6, 1] in C touches B's printed Residence across the rail.
   const beforeMerger = withTiles(newGame(), {
-    '5,1': residence(null, ['vermillion']),
-    '7,1': residence('blue'),
-    '9,2': residence(null, ['blue']),
+    '5,1': residence(null, ['pink']),
+    '7,1': residence('vermillion'),
+    '9,2': residence(null, ['vermillion']),
     '4,1': factory(),
     '10,5': factory(),
     '8,7': residence(null, ['grey', 'grey']),
@@ -69,7 +69,7 @@ describe('mergers', () => {
   })
 
   it('merges every city a tile touches in one election', () => {
-    const threeWay = withTiles(newGame(), { '5,2': residence('blue'), '5,4': residence('blue'), '6,3': residence('blue') })
+    const threeWay = withTiles(newGame(), { '5,2': residence('vermillion'), '5,4': residence('vermillion'), '6,3': residence('vermillion') })
     const state = applyMove(threeWay, { kind: 'place', tile: 'residence', at: '5,3' })
     expect(state.cities).toEqual([['A'], ['B', 'C', 'D'], ['E']])
     expect(state.mergers).toHaveLength(2)
@@ -80,7 +80,7 @@ describe('mergers', () => {
 describe('game end', () => {
   it('ends after the merger that leaves one city', () => {
     const nearlyDone: VotesState = { ...newGame(), cities: [['A', 'B', 'D', 'E'], ['C']] }
-    const state = applyMove(withTiles(nearlyDone, { '7,1': residence('blue') }), {
+    const state = applyMove(withTiles(nearlyDone, { '7,1': residence('vermillion') }), {
       kind: 'place',
       tile: 'residence',
       at: '6,1',
@@ -90,17 +90,17 @@ describe('game end', () => {
 
   it('breaks a tied score on cubes on the board', () => {
     const tied = withTiles({ ...newGame(), cities: [['A', 'B', 'D', 'E'], ['C']] }, {
-      '7,1': residence('blue'),
-      '1,2': residence(null, ['blue']),
+      '7,1': residence('vermillion'),
+      '1,2': residence(null, ['vermillion']),
     })
     const state = applyMove(tied, { kind: 'place', tile: 'residence', at: '6,1' })
-    expect(state.phase).toEqual({ kind: 'gameOver', winners: ['blue'] })
+    expect(state.phase).toEqual({ kind: 'gameOver', winners: ['vermillion'] })
   })
 
   it('reports the winners and scores by seat', () => {
     const finished: VotesState = {
       ...newGame(3),
-      phase: { kind: 'gameOver', winners: ['vermillion', 'yellow'] },
+      phase: { kind: 'gameOver', winners: ['pink', 'blue'] },
       players: newGame(3).players.map((player, seat) => ({ ...player, score: [7, 4, 7][seat] })),
     }
     expect(gameOutcome(finished)).toEqual({ winners: [0, 2], scores: [7, 4, 7] })

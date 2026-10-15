@@ -42,8 +42,8 @@ export const Cube = ({ center, color, size = TILE_LAYOUT.cubeSize }: { center: P
 }
 
 /**
- * Empty homes are hollow dashed outlines, never filled: a filled square reads as a cube
- * of the tile's colour (or as grey on a printed Residence).
+ * Empty homes are white with a dashed outline. No cube is white, so an empty home can't
+ * be mistaken for a family of the tile's colour (or for grey on a printed Residence).
  */
 const Homes = ({ center, emptySlotColor, families }: { center: Point; emptySlotColor: string; families: CubeColor[] }) => {
   const { slotSize } = TILE_LAYOUT
@@ -58,7 +58,7 @@ const Homes = ({ center, emptySlotColor, families }: { center: Point; emptySlotC
           width={slotSize}
           height={slotSize}
           rx={slotSize * 0.18}
-          fill="none"
+          fill={COLORS.paper}
           stroke={emptySlotColor}
           strokeWidth={1.5}
           strokeDasharray={TILE_STYLE.emptySlotDash}
@@ -91,7 +91,7 @@ const PrintedResidence = ({ center, district, families }: { center: Point; distr
   const { printedHouseSize, houseY } = TILE_LAYOUT
   return (
     <g>
-      <TileBase center={center} fill={printed.fill} outline={printed.outline} />
+      <TileBase center={center} fill={printed.fill} />
       <PlaceGlyph center={offset(center, 0, houseY)} size={printedHouseSize}>
         <LetteredHouseGlyph
           size={printedHouseSize}

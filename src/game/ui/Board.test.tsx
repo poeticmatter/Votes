@@ -90,9 +90,9 @@ describe('board rendering', () => {
   })
 
   it('draws a disguised seat only in the colour it looks like', () => {
-    // Seat 1 plays blue; disguised as seat 3, everything of blue's should come out green.
+    // Seat 1 plays vermillion; disguised as seat 3, everything of vermillion's should come out yellow.
     const markup = render(afterElection, { role: 'spectator', seating: 'hot_seat', lookOf: seat => (seat === 1 ? 3 : seat) })
-    expect(markup).toContain(PIECE_COLORS.green.fill)
-    expect(markup).not.toContain(PIECE_COLORS.blue.fill)
+    expect(markup).toContain(PIECE_COLORS.yellow.fill)
+    expect(markup).not.toContain(PIECE_COLORS.vermillion.fill)
   })
 })

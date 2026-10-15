@@ -41,7 +41,7 @@ describe('placing a tile', () => {
   it('takes a private tile from the active player’s stock', () => {
     const placed = placeTile(newGame(), 'residence', '4,1')
     expect(placed.players[0].residencesLeft).toBe(newGame().players[0].residencesLeft - 1)
-    expect(placed.tiles['4,1']).toEqual(residence('vermillion'))
+    expect(placed.tiles['4,1']).toEqual(residence('pink'))
   })
 
   it('leaves the stock alone for a public tile', () => {
@@ -53,11 +53,11 @@ describe('placing a tile', () => {
 describe('School bonus', () => {
   // The rules-sheet example: E's printed Residence is already next to another School.
   const exampleBoard = withTiles(newGame(), {
-    '8,7': residence(null, ['yellow', 'green', 'grey']),
-    '8,8': station('blue'),
+    '8,7': residence(null, ['blue', 'yellow', 'grey']),
+    '8,8': station('vermillion'),
     '7,6': school(),
-    '9,6': residence('pink', ['pink', 'blue']),
-    '10,7': residence('green', ['green']),
+    '9,6': residence('green', ['green', 'vermillion']),
+    '10,7': residence('yellow', ['yellow']),
   })
 
   it('counts families in neighbouring Residences not already next to a School', () => {
@@ -66,6 +66,6 @@ describe('School bonus', () => {
 
   it('adds the bonus cubes to the bag in the builder’s colour', () => {
     const placed = placeTile(exampleBoard, 'school', '9,7')
-    expect(placed.bag.vermillion).toBe((exampleBoard.bag.vermillion ?? 0) + 3)
+    expect(placed.bag.pink).toBe((exampleBoard.bag.pink ?? 0) + 3)
   })
 })

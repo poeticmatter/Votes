@@ -12,9 +12,9 @@ export interface PieceColor {
 
 export const PIECE_COLORS: Record<CubeColor, PieceColor> = {
   vermillion: { name: 'Vermillion', fill: '#d55e00', ink: '#ffffff' },
-  blue: { name: 'Blue', fill: '#0072b2', ink: '#ffffff' },
-  yellow: { name: 'Yellow', fill: '#f0c419', ink: '#3b2f05' },
-  green: { name: 'Green', fill: '#009e73', ink: '#ffffff' },
-  pink: { name: 'Pink', fill: '#cc79a7', ink: '#3d1630' },
+  blue: { name: 'Cobalt', fill: '#0072b2', ink: '#ffffff' },
+  yellow: { name: 'Saffron', fill: '#f0c419', ink: '#3b2f05' },
+  green: { name: 'Jade', fill: '#009e73', ink: '#ffffff' },
+  pink: { name: 'Orchid', fill: '#cc79a7', ink: '#3d1630' },
   [INDEPENDENT]: { name: 'Grey', fill: '#a3a7ab', ink: '#2b2d30' },
 }

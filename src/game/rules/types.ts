@@ -1,8 +1,11 @@
 import type { HexKey } from '../map/hexGrid'
 import type { DistrictId } from '../map/mapData'
 
-/** Seat order: player 1 is vermillion, player 2 blue, and so on. */
-export const PLAYER_COLORS = ['vermillion', 'blue', 'yellow', 'green', 'pink'] as const
+/**
+ * Seat order: seat 0 is pink, seat 1 vermillion, and so on. These are the ids kept in
+ * the game state; the names players see (Orchid, Cobalt, ...) live in ui/pieceColors.ts.
+ */
+export const PLAYER_COLORS = ['pink', 'vermillion', 'blue', 'yellow', 'green'] as const
 
 export type PlayerColor = (typeof PLAYER_COLORS)[number]
 
