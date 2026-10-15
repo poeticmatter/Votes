@@ -1,8 +1,8 @@
 import { hexCorners, roundedPolygonPath, type Point } from '../../map/hexGrid'
 import type { DistrictId } from '../../map/mapData'
 import { JOBS_PER_FACTORY, type CubeColor, type PlayerColor, type Tile } from '../../rules/types'
-import { PIECE_COLORS } from '../pieceColors'
 import { COLORS, FONT_FAMILY, TILE_STYLE } from '../theme'
+import { usePieceColorOf } from '../viewer'
 import { homeCenters, TILE_LAYOUT, TILE_RADIUS } from './geometry'
 import { FactoryGlyph, HouseGlyph, LetteredHouseGlyph, PlaceGlyph, SchoolGlyph, StationGlyph } from './glyphs'
 
@@ -25,18 +25,21 @@ const TileBase = ({ center, fill, outline }: { center: Point; fill: string; outl
   />
 )
 
-export const Cube = ({ center, color, size = TILE_LAYOUT.cubeSize }: { center: Point; color: CubeColor; size?: number }) => (
-  <rect
-    x={center.x - size / 2}
-    y={center.y - size / 2}
-    width={size}
-    height={size}
-    rx={size * 0.18}
-    fill={PIECE_COLORS[color].fill}
-    stroke="rgba(0, 0, 0, 0.45)"
-    strokeWidth={1.5}
-  />
-)
+export const Cube = ({ center, color, size = TILE_LAYOUT.cubeSize }: { center: Point; color: CubeColor; size?: number }) => {
+  const pieceColorOf = usePieceColorOf()
+  return (
+    <rect
+      x={center.x - size / 2}
+      y={center.y - size / 2}
+      width={size}
+      height={size}
+      rx={size * 0.18}
+      fill={pieceColorOf(color).fill}
+      stroke="rgba(0, 0, 0, 0.45)"
+      strokeWidth={1.5}
+    />
+  )
+}
 
 const Homes = ({ center, slotStyle, families }: { center: Point; slotStyle: { fill: string; stroke: string }; families: CubeColor[] }) => {
   const { slotSize } = TILE_LAYOUT
@@ -64,7 +67,7 @@ const Homes = ({ center, slotStyle, families }: { center: Point; slotStyle: { fi
 }
 
 const ResidenceTile = ({ center, owner, families }: { center: Point; owner: PlayerColor; families: CubeColor[] }) => {
-  const color = PIECE_COLORS[owner]
+  const color = usePieceColorOf()(owner)
   const { houseSize, houseY } = TILE_LAYOUT
   return (
     <g>
@@ -99,7 +102,7 @@ const PrintedResidence = ({ center, district, families }: { center: Point; distr
 }
 
 const StationTile = ({ center, owner }: { center: Point; owner: PlayerColor }) => {
-  const color = PIECE_COLORS[owner]
+  const color = usePieceColorOf()(owner)
   const { stationSize } = TILE_LAYOUT
   return (
     <g>

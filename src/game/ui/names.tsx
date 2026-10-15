@@ -1,11 +1,10 @@
-import { createContext, useContext, type ReactNode } from 'react'
-import { ColorSwatch, type PlayerProfile, type Seating, type UserRole } from 'game-kit/turns'
-import { PLAYER_COLORS, type CubeColor, type PlayerColor, type Tile, type TileKind } from '../rules/types'
+import { ColorSwatch } from 'game-kit/turns'
+import type { CubeColor, PlayerColor, Tile, TileKind } from '../rules/types'
 import { TILE_RADIUS } from './map/geometry'
 import { TilePiece } from './map/Pieces'
-import { PIECE_COLORS } from './pieceColors'
+import { seatOfColor, usePieceColorOf, useViewer } from './viewer'
 
-// How the board names players and pieces in text. Seat i plays PLAYER_COLORS[i].
+// How the board names players and pieces in text, always by the colour the viewer sees.
 
 export const TILE_NAMES: Record<TileKind, string> = {
   residence: 'Residence',
@@ -19,36 +18,15 @@ export function countOf(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? '' : 's'}`
 }
 
-interface Viewer {
-  players: PlayerProfile[]
-  role: UserRole
-  seating: Seating
-}
-
-const ViewerContext = createContext<Viewer | null>(null)
-
-export function ViewerProvider({ viewer, children }: { viewer: Viewer; children: ReactNode }) {
-  return <ViewerContext.Provider value={viewer}>{children}</ViewerContext.Provider>
-}
-
-function useViewer(): Viewer {
-  const viewer = useContext(ViewerContext)
-  if (!viewer) throw new Error('useViewer must be used inside ViewerProvider')
-  return viewer
-}
-
-export function seatOfColor(color: PlayerColor): number {
-  return PLAYER_COLORS.indexOf(color)
-}
-
 /** "You" for the viewer's own colour in an online game, otherwise the player's name. */
 export function useNameOf(): (color: CubeColor) => string {
   const { players, role, seating } = useViewer()
+  const pieceColorOf = usePieceColorOf()
   return color => {
     if (color === 'grey') return 'Grey'
     const seat = seatOfColor(color)
     if (seating === 'remote' && role === seat) return 'You'
-    return players[seat]?.name ?? PIECE_COLORS[color].name
+    return players[seat]?.name ?? pieceColorOf(color).name
   }
 }
 
@@ -66,16 +44,24 @@ export function useIsViewer(): (color: PlayerColor) => boolean {
 
 export function PlayerChip({ color }: { color: CubeColor }) {
   const nameOf = useNameOf()
+  const pieceColorOf = usePieceColorOf()
   return (
     <span className="inline-flex items-center gap-1.5 align-middle font-semibold">
-      <ColorSwatch color={PIECE_COLORS[color].fill} />
+      <ColorSwatch color={pieceColorOf(color).fill} />
       {nameOf(color)}
     </span>
   )
 }
 
 export function CubeChip({ color, size = 14 }: { color: CubeColor; size?: number }) {
-  return <ColorSwatch color={PIECE_COLORS[color].fill} size={size} />
+  const pieceColorOf = usePieceColorOf()
+  return <ColorSwatch color={pieceColorOf(color).fill} size={size} />
+}
+
+/** "Blue", for a cube or family of that colour. */
+export function useColorNameOf(): (color: CubeColor) => string {
+  const pieceColorOf = usePieceColorOf()
+  return color => pieceColorOf(color).name
 }
 
 const ICON_MARGIN = 4

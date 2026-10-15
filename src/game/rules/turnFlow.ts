@@ -1,4 +1,4 @@
-import { IllegalMoveError } from 'game-kit/turns'
+import { IllegalMoveError, type GameOutcome } from 'game-kit/turns'
 import { activePlayerState, familiesOnBoard } from './boardQueries'
 import { holdElection } from './elections'
 import { beginImmigration, callStation, isImmigrationOver, settleFamily } from './immigration'
@@ -33,6 +33,16 @@ export function findWinners(state: VotesState): PlayerColor[] {
     .map(player => ({ color: player.color, cubes: cubesOnBoardOf(state, player.color) }))
   const mostCubes = Math.max(...leaders.map(leader => leader.cubes))
   return leaders.filter(leader => leader.cubes === mostCubes).map(leader => leader.color)
+}
+
+/** A finished game's winners and scores by seat, for GameKit's hot-seat playtest summary. */
+export function gameOutcome(state: VotesState): GameOutcome {
+  if (state.phase.kind !== 'gameOver') throw new Error('Only a finished game has an outcome')
+  const { winners } = state.phase
+  return {
+    winners: state.players.flatMap((player, seat) => (winners.includes(player.color) ? [seat] : [])),
+    scores: state.players.map(player => player.score),
+  }
 }
 
 function endGame(state: VotesState, reason: GameOverReason): VotesState {

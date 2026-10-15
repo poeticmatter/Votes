@@ -19,7 +19,7 @@ Votes: a 2–5 player, take-turns-in-order browser game with no backend of its o
 - `src/game/`: the game, and `index.ts` exporting `game: GameModule`.
   - `map/`: map content (`mapData.ts`) and everything derived from it (`board.ts`: districts, rail borders, adjacency). Ported from the asset generator.
   - `rules/`: pure rules. `turnFlow.ts` (`applyMove`) runs a turn through `placement.ts`, `immigration.ts`, `mergers.ts` and `elections.ts`. Tests sit beside them; `fullGame.test.ts` plays seeded games end to end and checks invariants.
-  - `ui/`: the board. `map/` draws the Metro map and pieces; `panels/` are the side panels; `useTurnControls.ts` turns the phase into clickable targets.
+  - `ui/`: the board. `map/` draws the Metro map and pieces; `panels/` are the side panels; `useTurnControls.ts` turns the phase into clickable targets; `viewer.tsx` holds who is looking and the colour each player is drawn in.
 - `src/game.config.ts`: the game's `GameConfig` (id, title, tagline, Supabase settings from `.env.local`).
 - `src/App.tsx`: renders `<TurnBasedGameApp config={GAME_CONFIG} game={game} />`; GameKit routes on the URL (`?room=CODE[&mode=async]`).
 - `src/index.css`: imports GameKit's theme and sets the Barlow font. GameKit's default palette is the Metro look.
@@ -34,7 +34,8 @@ Votes: a 2–5 player, take-turns-in-order browser game with no backend of its o
 
 - Seat i joins in order and plays `PLAYER_COLORS[i]`. The first player is drawn from the seed.
 - **Async (Supabase)**: one row per room in `votes_games` (`players`, `player_count`, `state`, `version`); seats are claimed through the `votes_claim_seat` RPC. Both are defined by this repo's `supabase/migrations/`.
-- **Live (PeerJS)** and **hot seat** need nothing from this repo beyond `GAME_CONFIG.id`.
+- **Live (PeerJS)** needs nothing from this repo beyond `GAME_CONFIG.id`.
+- **Hot seat** is GameKit's solo playtest: several tables, a random seat each turn, the played seat disguised as seat 0. The board draws, names and orders every player colour through `BoardProps.lookOf` (via `ui/viewer.tsx`: `usePieceColorOf`, `useByLook`), never `PIECE_COLORS[color]` directly; lists of players start from the viewer's seat. `rules.outcome` gives the summary its winners and scores.
 - To change platform behaviour, change GameKit, tag a release, and bump the `game-kit` version in `package.json`. Don't patch `node_modules/game-kit`.
 
 ## Rules

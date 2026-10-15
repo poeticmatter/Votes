@@ -1,20 +1,24 @@
 import { countVotes } from '../../rules/elections'
 import { INDEPENDENT, PLAYER_COLORS, type CityElection, type CubeColor, type ElectionResult, type VotesState } from '../../rules/types'
 import { CubeChip, PlayerChip } from '../names'
+import { useByLook } from '../viewer'
 import { Panel } from './Panel'
 
 const ALL_COLORS: CubeColor[] = [INDEPENDENT, ...PLAYER_COLORS]
 
 type ColorCounts = Partial<Record<CubeColor, number>>
 
-function largestFirst(counts: ColorCounts): [CubeColor, number][] {
-  return ALL_COLORS.map((color): [CubeColor, number] => [color, counts[color] ?? 0])
+/** Equal counts keep the order `colors` gives them. */
+function largestFirst(counts: ColorCounts, colors: readonly CubeColor[]): [CubeColor, number][] {
+  return colors
+    .map((color): [CubeColor, number] => [color, counts[color] ?? 0])
     .filter(([, count]) => count > 0)
     .sort((a, b) => b[1] - a[1])
 }
 
 export function ColorTally({ counts, emptyText }: { counts: ColorCounts; emptyText: string }) {
-  const tally = largestFirst(counts)
+  const byLook = useByLook()
+  const tally = largestFirst(counts, byLook(ALL_COLORS))
   if (tally.length === 0) return <span className="text-ink-faint">{emptyText}</span>
   return (
     <span className="inline-flex flex-wrap gap-x-2">
@@ -28,13 +32,14 @@ export function ColorTally({ counts, emptyText }: { counts: ColorCounts; emptyTe
 }
 
 export function Scorers({ city }: { city: CityElection }) {
+  const byLook = useByLook()
   if (city.scorers.length === 0) {
-    const greyLeads = largestFirst(city.seats)[0]?.[0] === INDEPENDENT
+    const greyLeads = largestFirst(city.seats, ALL_COLORS)[0]?.[0] === INDEPENDENT
     return <span className="text-ink-soft">{greyLeads ? 'Grey leads: nobody scores' : 'Nobody scores'}</span>
   }
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2">
-      {city.scorers.map(color => (
+      {byLook(city.scorers).map(color => (
         <PlayerChip key={color} color={color} />
       ))}
       <span className="text-ink-soft">

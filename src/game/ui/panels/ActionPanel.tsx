@@ -6,8 +6,7 @@ import { callableStations, homesForDrawnFamily } from '../../rules/immigration'
 import { citiesJoinedBy } from '../../rules/mergers'
 import { legalPlacements, newTile, schoolBonusAt, TILE_KINDS } from '../../rules/placement'
 import { HOMES_PER_RESIDENCE, type PlayerState, type TileKind, type VotesMove, type VotesState } from '../../rules/types'
-import { countOf, CubeChip, PlayerChip, TILE_NAMES, TileIcon, useOwnerOf } from '../names'
-import { PIECE_COLORS } from '../pieceColors'
+import { countOf, CubeChip, PlayerChip, TILE_NAMES, TileIcon, useColorNameOf, useOwnerOf } from '../names'
 import type { TurnControls } from '../useTurnControls'
 import { Panel } from './Panel'
 
@@ -133,6 +132,7 @@ function ChoiceList({ keys, describe, onChoose }: { keys: HexKey[]; describe: (k
 function ImmigrationChoices({ state, onMove }: { state: VotesState; onMove: (move: VotesMove) => void }) {
   const ownerOf = useOwnerOf()
   const describeResidence = useDescribeResidence(state)
+  const colorNameOf = useColorNameOf()
   const { phase } = state
   if (phase.kind !== 'immigration') return null
 
@@ -143,7 +143,7 @@ function ImmigrationChoices({ state, onMove }: { state: VotesState; onMove: (mov
         <p className="flex items-center gap-2 text-sm">
           <CubeChip color={color} size={22} />
           <span>
-            A <strong>{PIECE_COLORS[color].name}</strong> family arrives in district {districtOf(station)}. Choose its home.
+            A <strong>{colorNameOf(color)}</strong> family arrives in district {districtOf(station)}. Choose its home.
           </span>
         </p>
         <ChoiceList

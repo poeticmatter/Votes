@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { IllegalMoveError } from 'game-kit/turns'
 import { BOARD } from '../map/board'
-import { applyMove } from './turnFlow'
+import { applyMove, gameOutcome } from './turnFlow'
 import { factory, newGame, residence, school, station, withBag, withTiles } from './testStates'
 import type { Tile, VotesState } from './types'
 
@@ -89,6 +89,15 @@ describe('game end', () => {
     })
     const state = applyMove(tied, { kind: 'place', tile: 'residence', at: '6,1' })
     expect(state.phase).toEqual({ kind: 'gameOver', winners: ['blue'] })
+  })
+
+  it('reports the winners and scores by seat', () => {
+    const finished: VotesState = {
+      ...newGame(3),
+      phase: { kind: 'gameOver', winners: ['vermillion', 'yellow'] },
+      players: newGame(3).players.map((player, seat) => ({ ...player, score: [7, 4, 7][seat] })),
+    }
+    expect(gameOutcome(finished)).toEqual({ winners: [0, 2], scores: [7, 4, 7] })
   })
 
   it('ends when a full round passes without anyone able to build', () => {

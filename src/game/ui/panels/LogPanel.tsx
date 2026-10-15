@@ -1,11 +1,13 @@
 import { districtOf } from '../../map/board'
 import type { LogEntry, VotesState } from '../../rules/types'
 import { countOf, CubeChip, PlayerChip, TILE_NAMES } from '../names'
+import { useByLook } from '../viewer'
 import { Panel } from './Panel'
 
 const RECENT_ENTRY_COUNT = 15
 
 function EntryText({ entry }: { entry: LogEntry }) {
+  const byLook = useByLook()
   switch (entry.kind) {
     case 'placed':
       return (
@@ -29,7 +31,7 @@ function EntryText({ entry }: { entry: LogEntry }) {
       return (
         <>
           <CubeChip color={entry.color} /> A family moved into {districtOf(entry.residence)}. Into the bag:{' '}
-          {entry.addedToBag.map(color => (
+          {byLook(entry.addedToBag).map(color => (
             <CubeChip key={color} color={color} />
           ))}
         </>

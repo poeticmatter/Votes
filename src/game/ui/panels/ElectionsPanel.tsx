@@ -1,6 +1,5 @@
 import type { DistrictElection, SeatReason, VotesState } from '../../rules/types'
-import { CubeChip } from '../names'
-import { PIECE_COLORS } from '../pieceColors'
+import { CubeChip, useColorNameOf } from '../names'
 import { CityRows, ColorTally } from './CitiesPanel'
 import { Panel } from './Panel'
 
@@ -12,6 +11,7 @@ const TIE_EXPLANATIONS: Record<SeatReason, string | null> = {
 }
 
 function DistrictSeats({ result }: { result: DistrictElection }) {
+  const colorNameOf = useColorNameOf()
   const unfilled = result.seatCount - result.awards.length
   return (
     <li className="flex flex-col gap-0.5 py-1.5">
@@ -26,7 +26,7 @@ function DistrictSeats({ result }: { result: DistrictElection }) {
       <ol className="flex flex-col text-xs text-ink-soft">
         {result.awards.map((award, index) => (
           <li key={index} className="flex items-center gap-1.5">
-            Seat {index + 1}: <CubeChip color={award.color} size={11} /> {PIECE_COLORS[award.color].name}
+            Seat {index + 1}: <CubeChip color={award.color} size={11} /> {colorNameOf(award.color)}
             {TIE_EXPLANATIONS[award.reason] && <span className="italic">({TIE_EXPLANATIONS[award.reason]})</span>}
           </li>
         ))}

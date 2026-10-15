@@ -2,7 +2,6 @@ import type { BoardProps } from 'game-kit/turns'
 import { activePlayerIndex } from '../rules/turnFlow'
 import type { VotesMove, VotesState } from '../rules/types'
 import { MapView } from './map/MapView'
-import { ViewerProvider } from './names'
 import { ActionPanel } from './panels/ActionPanel'
 import { CitiesPanel } from './panels/CitiesPanel'
 import { ElectionsPanel } from './panels/ElectionsPanel'
@@ -12,10 +11,11 @@ import { SupplyPanel } from './panels/SupplyPanel'
 import { TurnBanner } from './panels/TurnBanner'
 import { useMediaQuery, WIDE_LAYOUT_QUERY } from './useMediaQuery'
 import { useTurnControls } from './useTurnControls'
+import { ViewerProvider } from './viewer'
 
 type VotesBoardProps = BoardProps<VotesState, VotesMove>
 
-export function VotesBoard({ state, role, players, onMove, seating }: VotesBoardProps) {
+export function VotesBoard({ state, role, players, onMove, seating, lookOf }: VotesBoardProps) {
   const isViewersTurn = role === activePlayerIndex(state)
   const controls = useTurnControls(state, isViewersTurn, onMove)
   const isWide = useMediaQuery(WIDE_LAYOUT_QUERY)
@@ -24,7 +24,7 @@ export function VotesBoard({ state, role, players, onMove, seating }: VotesBoard
   const actionPanel = !isOver && <ActionPanel state={state} canAct={isViewersTurn} controls={controls} onMove={onMove} />
 
   return (
-    <ViewerProvider viewer={{ players, role, seating }}>
+    <ViewerProvider viewer={{ players, role, seating, lookOf }}>
       <div className="mx-auto flex max-w-[1500px] flex-col gap-3 p-3 lg:flex-row lg:items-start lg:gap-4 lg:p-4">
         <main className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:flex-1">
           <TurnBanner state={state} isViewersTurn={isViewersTurn} seating={seating} />

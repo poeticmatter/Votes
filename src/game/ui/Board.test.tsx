@@ -1,11 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { nextIndex, type PlayerProfile, type Seating, type UserRole } from 'game-kit/turns'
+import { nextIndex, type PlayerIndex, type PlayerProfile, type Seating, type UserRole } from 'game-kit/turns'
 import { callableStations, homesForDrawnFamily } from '../rules/immigration'
 import { legalPlacements, TILE_KINDS } from '../rules/placement'
 import { createInitialState, DEFAULT_SETTINGS } from '../rules/setup'
 import { applyMove } from '../rules/turnFlow'
 import type { VotesMove, VotesState } from '../rules/types'
+import { PIECE_COLORS } from './pieceColors'
 import { VotesBoard } from './Board'
 
 // Renders the board for states taken from a seeded game, to catch anything that
@@ -38,8 +39,16 @@ function playUntil(isWanted: (state: VotesState) => boolean): VotesState {
   return state
 }
 
-function render(state: VotesState, role: UserRole, seating: Seating = 'remote'): string {
-  return renderToStaticMarkup(<VotesBoard state={state} role={role} players={PLAYERS} onMove={() => {}} seating={seating} />)
+interface View {
+  role: UserRole
+  seating?: Seating
+  lookOf?: (seat: PlayerIndex) => PlayerIndex
+}
+
+function render(state: VotesState, { role, seating = 'remote', lookOf = seat => seat }: View): string {
+  return renderToStaticMarkup(
+    <VotesBoard state={state} role={role} players={PLAYERS} onMove={() => {}} seating={seating} lookOf={lookOf} />,
+  )
 }
 
 const activeRole = (state: VotesState) => state.turn.playerIndex
@@ -53,30 +62,37 @@ describe('board rendering', () => {
   const finished = playUntil(state => state.phase.kind === 'gameOver')
 
   it('offers the tile picker to the active player', () => {
-    expect(render(start, activeRole(start))).toContain('Choose a tile to place')
+    expect(render(start, { role: activeRole(start) })).toContain('Choose a tile to place')
   })
 
   it('tells everyone else whose turn it is', () => {
-    expect(render(start, otherRole(start))).toContain('is placing a tile')
+    expect(render(start, { role: otherRole(start) })).toContain('is placing a tile')
   })
 
   it('lists the Stations that can still bring a family', () => {
-    expect(render(choosingStation, activeRole(choosingStation))).toContain('Station in district')
+    expect(render(choosingStation, { role: activeRole(choosingStation) })).toContain('Station in district')
   })
 
   it('asks where the drawn family should live', () => {
-    expect(render(housingFamily, activeRole(housingFamily))).toContain('Choose its home')
+    expect(render(housingFamily, { role: activeRole(housingFamily) })).toContain('Choose its home')
   })
 
   it('shows past elections', () => {
-    expect(render(afterElection, 'spectator')).toContain('Election 1')
+    expect(render(afterElection, { role: 'spectator' })).toContain('Election 1')
   })
 
   it('announces the winners', () => {
-    expect(render(finished, 'spectator')).toContain('Game over')
+    expect(render(finished, { role: 'spectator' })).toContain('Game over')
   })
 
   it('names players instead of saying "You" in a hot-seat game', () => {
-    expect(render(start, activeRole(start), 'hot_seat')).not.toContain('Your turn')
+    expect(render(start, { role: activeRole(start), seating: 'hot_seat' })).not.toContain('Your turn')
+  })
+
+  it('draws a disguised seat only in the colour it looks like', () => {
+    // Seat 1 plays blue; disguised as seat 3, everything of blue's should come out green.
+    const markup = render(afterElection, { role: 'spectator', seating: 'hot_seat', lookOf: seat => (seat === 1 ? 3 : seat) })
+    expect(markup).toContain(PIECE_COLORS.green.fill)
+    expect(markup).not.toContain(PIECE_COLORS.blue.fill)
   })
 })
