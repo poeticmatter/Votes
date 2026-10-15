@@ -1,80 +1,40 @@
-import { useCallback, useState } from 'react'
-import type { GameRules, MatchConnection, PlayerSlot, TurnBasedState, TurnPlan } from './types'
+import { useCallback, useMemo, useState } from 'react'
+import { applyPlayerMove } from './moveValidation'
+import type { GameRules, MatchConnection, MatchSetup, PlayerProfile } from './types'
 
 /**
- * Hot-seat transport: both players share one device, and nothing goes online.
- *
- * Turns stay simultaneous: player 1 commits, the device is handed to player 2, player 2
- * commits, and only then is the turn resolved. A handoff screen sits between every pair
- * of inputs so that neither player sees the other's private view.
+ * Hot-seat transport: everyone shares one device, and nothing goes online or survives
+ * a reload. The role is always whoever's turn it is, so the device simply passes on.
  */
+export function useHotSeatMatch<Settings, State, Move>(
+  rules: GameRules<Settings, State, Move>,
+  setup: MatchSetup<Settings>,
+): MatchConnection<State, Move> {
+  const [state, setState] = useState<State>(() => rules.createInitialState(setup))
 
-interface HotSeatProgress<State, Plan> {
-  state: State
-  p1Plan: Plan | null
-  activeSlot: PlayerSlot
-  isHandoffPending: boolean
-}
-
-export interface HotSeatMatch<State, Plan> {
-  connection: MatchConnection<State, Plan>
-  /** The player who must take the device next, or null while a player is at the board. */
-  pendingHandoff: PlayerSlot | null
-  confirmHandoff: () => void
-}
-
-function commitPlan<Settings, State extends TurnBasedState, Plan extends TurnPlan>(
-  progress: HotSeatProgress<State, Plan>,
-  plan: Plan,
-  rules: GameRules<Settings, State, Plan>,
-): HotSeatProgress<State, Plan> {
-  if (plan.turn !== progress.state.turn || progress.isHandoffPending) return progress
-
-  if (progress.activeSlot === 1) {
-    return { ...progress, p1Plan: plan, activeSlot: 2, isHandoffPending: true }
-  }
-  if (!progress.p1Plan) return progress
-
-  return {
-    state: rules.resolveTurn(progress.state, progress.p1Plan, plan),
-    p1Plan: null,
-    activeSlot: 1,
-    isHandoffPending: true,
-  }
-}
-
-export function useHotSeatMatch<Settings, State extends TurnBasedState, Plan extends TurnPlan>(
-  rules: GameRules<Settings, State, Plan>,
-  settings: Settings,
-): HotSeatMatch<State, Plan> {
-  const [progress, setProgress] = useState<HotSeatProgress<State, Plan>>(() => ({
-    state: rules.createInitialState(settings),
-    p1Plan: null,
-    activeSlot: 1,
-    isHandoffPending: false,
-  }))
-
-  const submitPlan = useCallback(
-    (plan: Plan) => setProgress(current => commitPlan(current, plan, rules)),
+  const submitMove = useCallback(
+    (move: Move) =>
+      setState(current => {
+        const player = rules.activePlayer(current)
+        if (player === null) return current
+        return applyPlayerMove(rules, current, player, move) ?? current
+      }),
     [rules],
   )
 
-  const confirmHandoff = useCallback(
-    () => setProgress(current => ({ ...current, isHandoffPending: false })),
-    [],
+  const players = useMemo<PlayerProfile[]>(
+    () => Array.from({ length: setup.playerCount }, (_, index) => ({ name: `Player ${index + 1}` })),
+    [setup.playerCount],
   )
 
   return {
-    connection: {
-      state: progress.state,
-      role: progress.activeSlot,
-      status: 'playing',
-      errorMessage: null,
-      hasCommitted: false,
-      spectatorCount: 0,
-      submitPlan,
-    },
-    pendingHandoff: progress.isHandoffPending ? progress.activeSlot : null,
-    confirmHandoff,
+    state,
+    role: rules.activePlayer(state) ?? 'spectator',
+    players,
+    playerCount: setup.playerCount,
+    status: 'playing',
+    errorMessage: null,
+    seatChoice: null,
+    submitMove,
   }
 }

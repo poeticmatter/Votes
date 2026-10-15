@@ -1,5 +1,5 @@
 import { GAME_CONFIG } from '../game.config'
-import type { UserRole } from './types'
+import type { PlayerIndex, PlayerProfile, UserRole } from './types'
 
 export const ICE_CONFIG: RTCConfiguration = {
   iceServers: [
@@ -9,11 +9,17 @@ export const ICE_CONFIG: RTCConfiguration = {
   ],
 }
 
-/** Messages sent between host and guests. The host is authoritative for all state. */
-export type PeerMessage<State, Plan> =
-  | { type: 'STATE'; state: State; spectatorCount: number }
-  | { type: 'ASSIGNED_ROLE'; role: UserRole }
-  | { type: 'SUBMIT_PLAN'; plan: Plan }
+/** Sent by the host, which is authoritative for all state. */
+export type HostMessage<State> =
+  | { type: 'SNAPSHOT'; state: State; version: number; players: PlayerProfile[]; playerCount: number }
+  | { type: 'ROLE'; role: UserRole }
+
+/** Sent by guests. Moves carry the version they were made on, so stale ones are dropped. */
+export type GuestMessage<Move> =
+  | { type: 'CLAIM_SEAT'; name: string }
+  | { type: 'RESUME_SEAT'; seat: PlayerIndex }
+  | { type: 'WATCH' }
+  | { type: 'MOVE'; version: number; move: Move }
 
 /**
  * Room ids live in the public PeerJS server's global namespace, so they are prefixed

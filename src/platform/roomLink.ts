@@ -4,6 +4,9 @@ import type { Transport, UserRole } from './types'
 /** Room codes avoid I and O so they can't be confused with 1 and 0 when read aloud. */
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
 const ROOM_CODE_LENGTH = 4
+const SPECTATOR_VALUE = 'spectator'
+
+export const MAX_PLAYER_NAME_LENGTH = 24
 
 export interface RoomLink {
   code: string
@@ -15,6 +18,10 @@ export function generateRoomCode(): string {
     { length: ROOM_CODE_LENGTH },
     () => ROOM_CODE_ALPHABET[Math.floor(Math.random() * ROOM_CODE_ALPHABET.length)],
   ).join('')
+}
+
+export function generateSeed(): number {
+  return crypto.getRandomValues(new Uint32Array(1))[0]
 }
 
 export function readRoomLinkFromUrl(): RoomLink | null {
@@ -31,24 +38,50 @@ export function buildRoomUrl({ code, transport }: RoomLink): string {
   return url.toString()
 }
 
-function roleStorageKey(code: string): string {
-  return `${GAME_CONFIG.id}-role-${code}`
+export function normalizePlayerName(name: string): string {
+  return name.trim().slice(0, MAX_PLAYER_NAME_LENGTH)
 }
 
-/** Remembers that this browser created the room, so reopening the link resumes as player 1. */
-export function rememberRoomCreator(code: string): void {
+const seatStorageKey = (code: string) => `${GAME_CONFIG.id}-seat-${code}`
+const NAME_STORAGE_KEY = `${GAME_CONFIG.id}-player-name`
+
+/** Remembers which seat this browser holds, so reopening the link resumes it. */
+export function rememberRole(code: string, role: UserRole): void {
   try {
-    localStorage.setItem(roleStorageKey(code), '1')
+    localStorage.setItem(seatStorageKey(code), String(role))
   } catch (err) {
-    console.warn('Could not persist room role; reopening this link will join as player 2.', err)
+    console.warn(`Could not remember the seat for room ${code}; reopening the link will ask again.`, err)
   }
 }
 
-export function recallRole(code: string): UserRole {
+/** The role this browser took in the room before, or null if it never joined. */
+export function recallRole(code: string): UserRole | null {
   try {
-    return localStorage.getItem(roleStorageKey(code)) === '1' ? 1 : 2
+    const stored = localStorage.getItem(seatStorageKey(code))
+    if (stored === null) return null
+    if (stored === SPECTATOR_VALUE) return 'spectator'
+    const seat = Number(stored)
+    return Number.isInteger(seat) && seat >= 0 ? seat : null
   } catch (err) {
-    console.warn('Could not read persisted room role; defaulting to player 2.', err)
-    return 2
+    console.warn(`Could not read the remembered seat for room ${code}.`, err)
+    return null
+  }
+}
+
+/** The name this browser last played under, to prefill the next lobby or join screen. */
+export function recallPlayerName(): string {
+  try {
+    return localStorage.getItem(NAME_STORAGE_KEY) ?? ''
+  } catch (err) {
+    console.warn('Could not read the remembered player name.', err)
+    return ''
+  }
+}
+
+export function rememberPlayerName(name: string): void {
+  try {
+    localStorage.setItem(NAME_STORAGE_KEY, name)
+  } catch (err) {
+    console.warn('Could not remember the player name.', err)
   }
 }

@@ -1,138 +1,168 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Peer, { type DataConnection } from 'peerjs'
-import { ICE_CONFIG, describePeerError, hostPeerId, type PeerMessage } from './peerConfig'
-import type { ConnectionStatus, GameRules, MatchConnection, TurnBasedState, TurnPlan } from './types'
+import { applyPlayerMove } from './moveValidation'
+import { ICE_CONFIG, describePeerError, hostPeerId, type GuestMessage, type HostMessage } from './peerConfig'
+import type { ConnectionStatus, GameRules, MatchConnection, NewMatch, PlayerIndex, PlayerProfile } from './types'
 
 /**
- * Live (PeerJS) transport for the player who created the room. The host is always
- * player 1 and is the only peer that runs game rules.
+ * Live (PeerJS) transport for the player who created the room. The host holds seat 0
+ * and is the only peer that runs game rules: guests send moves, the host applies the
+ * ones from the active player and broadcasts the result.
  *
- * Commit-and-hold: the host's own plan is held locally until the guest's plan arrives,
- * so the host never sees the guest's move before committing its own and has no
- * information advantage. Only then does it resolve the turn and broadcast the result.
+ * Everyone who connects gets a snapshot first, then takes a free seat, takes back a
+ * seat they held before (after a reload or on another device), or watches.
  */
 
-interface HostConnections<State, Plan> {
-  state: State
-  guest: DataConnection | null
-  spectators: Set<DataConnection>
-  hostPlan: Plan | null
-  guestPlan: Plan | null
+const HOST_SEAT = 0
+
+interface Seat {
+  name: string
+  /** Null for the host, and for a guest who has dropped out. */
+  connection: DataConnection | null
 }
 
-export function usePeerHost<Settings, State extends TurnBasedState, Plan extends TurnPlan>(
+interface HostTable<State> {
+  state: State
+  version: number
+  seats: Seat[]
+  spectators: Set<DataConnection>
+  /** Connected, but not yet seated or watching. */
+  undecided: Set<DataConnection>
+}
+
+function profilesOf(seats: Seat[]): PlayerProfile[] {
+  return seats.map((seat, index) => ({
+    name: seat.name,
+    isOnline: index === HOST_SEAT || Boolean(seat.connection?.open),
+  }))
+}
+
+function seatOf(seats: Seat[], connection: DataConnection): PlayerIndex | null {
+  const index = seats.findIndex(seat => seat.connection === connection)
+  return index === -1 ? null : index
+}
+
+function hostStatus(host: {
+  errorMessage: string | null
+  isOpen: boolean
+  seatsTaken: number
+  playerCount: number
+}): ConnectionStatus {
+  if (host.errorMessage) return 'error'
+  if (!host.isOpen) return 'connecting'
+  return host.seatsTaken < host.playerCount ? 'waiting_for_players' : 'playing'
+}
+
+function send<State>(connection: DataConnection, message: HostMessage<State>): void {
+  if (connection.open) connection.send(message)
+}
+
+export function usePeerHost<Settings, State, Move>(
   roomCode: string,
-  rules: GameRules<Settings, State, Plan>,
-  settings: Settings,
-): MatchConnection<State, Plan> {
-  const [state, setState] = useState<State>(() => rules.createInitialState(settings))
-  const [status, setStatus] = useState<ConnectionStatus>('connecting')
+  rules: GameRules<Settings, State, Move>,
+  newMatch: NewMatch<Settings, State>,
+): MatchConnection<State, Move> {
+  const { playerCount } = newMatch.setup
+  const [state, setState] = useState<State>(newMatch.initialState)
+  const [players, setPlayers] = useState<PlayerProfile[]>([{ name: newMatch.hostName, isOnline: true }])
+  const [isOpen, setIsOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [committedTurn, setCommittedTurn] = useState<number | null>(null)
-  const [spectatorCount, setSpectatorCount] = useState(0)
 
   // Peer callbacks outlive renders, so they read and write this ref, never React state.
-  const live = useRef<HostConnections<State, Plan>>({
-    state,
-    guest: null,
+  const table = useRef<HostTable<State>>({
+    state: newMatch.initialState,
+    version: 0,
+    seats: [{ name: newMatch.hostName, connection: null }],
     spectators: new Set(),
-    hostPlan: null,
-    guestPlan: null,
+    undecided: new Set(),
   })
 
-  const broadcastState = useCallback(() => {
-    const { guest, spectators } = live.current
-    const message: PeerMessage<State, Plan> = {
-      type: 'STATE',
-      state: live.current.state,
-      spectatorCount: spectators.size,
-    }
-    for (const conn of [guest, ...spectators]) {
-      if (conn?.open) conn.send(message)
-    }
-    setSpectatorCount(spectators.size)
-  }, [])
+  const broadcast = useCallback(() => {
+    const { state: current, version, seats, spectators, undecided } = table.current
+    const snapshot: HostMessage<State> = { type: 'SNAPSHOT', state: current, version, players: profilesOf(seats), playerCount }
+    const guests = [...seats.map(seat => seat.connection), ...spectators, ...undecided]
+    for (const connection of guests) if (connection) send(connection, snapshot)
+    setState(current)
+    setPlayers(profilesOf(seats))
+  }, [playerCount])
 
-  const resolveIfBothCommitted = useCallback(() => {
-    const { state: current, hostPlan, guestPlan } = live.current
-    if (!hostPlan || !guestPlan) return
-
-    live.current.hostPlan = null
-    live.current.guestPlan = null
-    live.current.state = rules.resolveTurn(current, hostPlan, guestPlan)
-    setState(live.current.state)
-    broadcastState()
-  }, [rules, broadcastState])
+  const applyMove = useCallback(
+    (player: PlayerIndex, move: Move) => {
+      const nextState = applyPlayerMove(rules, table.current.state, player, move)
+      if (nextState === null) return
+      table.current.state = nextState
+      table.current.version += 1
+      broadcast()
+    },
+    [rules, broadcast],
+  )
 
   useEffect(() => {
     const peer = new Peer(hostPeerId(roomCode), { config: ICE_CONFIG })
+    const { seats, spectators, undecided } = table.current
 
-    function admit(conn: DataConnection) {
-      const isGuestSlotFree = !live.current.guest?.open
-      if (isGuestSlotFree) {
-        live.current.guest = conn
-        setStatus('playing')
+    function assign(connection: DataConnection, role: PlayerIndex | 'spectator') {
+      undecided.delete(connection)
+      if (role === 'spectator') spectators.add(connection)
+      send<State>(connection, { type: 'ROLE', role })
+      broadcast()
+    }
+
+    function receive(connection: DataConnection, message: GuestMessage<Move>) {
+      if (message.type === 'MOVE') {
+        const seat = seatOf(seats, connection)
+        if (seat !== null && message.version === table.current.version) applyMove(seat, message.move)
+        return
+      }
+      if (seatOf(seats, connection) !== null) return
+      if (message.type === 'CLAIM_SEAT' && seats.length < playerCount) {
+        seats.push({ name: message.name, connection })
+        assign(connection, seats.length - 1)
+      } else if (message.type === 'RESUME_SEAT' && message.seat !== HOST_SEAT && message.seat < seats.length) {
+        // Knowing the room code is the only credential, so a returning player simply
+        // takes the seat over, even if their old connection hasn't timed out yet.
+        seats[message.seat].connection = connection
+        assign(connection, message.seat)
       } else {
-        live.current.spectators.add(conn)
+        assign(connection, 'spectator')
       }
-      const assigned: PeerMessage<State, Plan> = {
-        type: 'ASSIGNED_ROLE',
-        role: isGuestSlotFree ? 2 : 'spectator',
-      }
-      conn.send(assigned)
-      broadcastState()
     }
 
-    function drop(conn: DataConnection) {
-      if (live.current.guest === conn) live.current.guest = null
-      live.current.spectators.delete(conn)
-      broadcastState()
+    function drop(connection: DataConnection) {
+      for (const seat of seats) if (seat.connection === connection) seat.connection = null
+      spectators.delete(connection)
+      undecided.delete(connection)
+      broadcast()
     }
 
-    function receive(conn: DataConnection, message: PeerMessage<State, Plan>) {
-      if (message.type !== 'SUBMIT_PLAN') return
-      if (conn !== live.current.guest) return
-      if (message.plan.turn !== live.current.state.turn) return
+    peer.on('open', () => setIsOpen(true))
 
-      live.current.guestPlan = message.plan
-      resolveIfBothCommitted()
-    }
-
-    peer.on('open', () => setStatus('waiting_for_partner'))
-
-    peer.on('connection', conn => {
-      conn.on('open', () => admit(conn))
-      // PeerJS delivers untyped payloads; every sender in this app uses PeerMessage.
-      conn.on('data', raw => receive(conn, raw as PeerMessage<State, Plan>))
-      conn.on('close', () => drop(conn))
-      conn.on('error', () => drop(conn))
+    peer.on('connection', connection => {
+      connection.on('open', () => {
+        undecided.add(connection)
+        broadcast()
+      })
+      // PeerJS delivers untyped payloads; every guest in this app sends GuestMessage.
+      connection.on('data', raw => receive(connection, raw as GuestMessage<Move>))
+      connection.on('close', () => drop(connection))
+      connection.on('error', () => drop(connection))
     })
 
-    peer.on('error', err => {
-      setErrorMessage(describePeerError(err))
-      setStatus('error')
-    })
+    peer.on('error', err => setErrorMessage(describePeerError(err)))
 
     return () => peer.destroy()
-  }, [roomCode, broadcastState, resolveIfBothCommitted])
+  }, [roomCode, playerCount, broadcast, applyMove])
 
-  const submitPlan = useCallback(
-    (plan: Plan) => {
-      if (plan.turn !== live.current.state.turn) return
-      live.current.hostPlan = plan
-      setCommittedTurn(plan.turn)
-      resolveIfBothCommitted()
-    },
-    [resolveIfBothCommitted],
-  )
+  const submitMove = useCallback((move: Move) => applyMove(HOST_SEAT, move), [applyMove])
 
   return {
     state,
-    role: 1,
-    status,
+    role: HOST_SEAT,
+    players,
+    playerCount,
+    status: hostStatus({ errorMessage, isOpen, seatsTaken: players.length, playerCount }),
     errorMessage,
-    hasCommitted: committedTurn === state.turn,
-    spectatorCount,
-    submitPlan,
+    seatChoice: null,
+    submitMove,
   }
 }

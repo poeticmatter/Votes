@@ -1,100 +1,72 @@
-import { SUPABASE_TABLE } from '../game.config'
+import { SUPABASE_CLAIM_SEAT_FUNCTION, SUPABASE_TABLE } from '../game.config'
 import { getSupabase } from './supabaseClient'
-import type { GameRules, PlayerSlot, TurnBasedState, TurnPlan } from './types'
+import type { NewMatch, PlayerIndex, PlayerProfile } from './types'
 
 /**
- * Database I/O for async play. The table stores data only: turn resolution runs in
- * whichever client submits second, using the same pure rules as live play.
+ * Database I/O for async play. The table stores data only: the active player's client
+ * applies each move with the game's pure rules and writes the resulting state.
  *
  * Error policy: every Supabase `error` is thrown; useAsyncMatch is the handling
  * boundary. A missing row on {@link loadMatch} is normal and returns null.
  */
 
-export interface MatchRow<Settings, State, Plan> {
+export interface MatchRow<Settings, State> {
   id: string
   settings: Settings
+  player_count: number
+  players: PlayerProfile[]
   state: State
-  turn: number
-  p1_plan: Plan | null
-  p2_plan: Plan | null
-  p2_joined: boolean
+  /** Counts applied moves; guards every state write. */
+  version: number
 }
 
 /**
- * Creates the match row if it does not already exist. Idempotent, so a double-invoked
- * effect (React StrictMode) or a host reopening the link cannot reset a game.
+ * Creates the match row with the host in seat 0, unless it already exists. Idempotent,
+ * so a double-invoked effect (React StrictMode) or a host reopening the link can't
+ * reset a game.
  */
-export async function createMatch<Settings, State extends TurnBasedState, Plan extends TurnPlan>(
-  code: string,
-  rules: GameRules<Settings, State, Plan>,
-  settings: Settings,
-): Promise<void> {
-  const state = rules.createInitialState(settings)
+export async function createMatch<Settings, State>(code: string, match: NewMatch<Settings, State>): Promise<void> {
   const { error } = await getSupabase()
     .from(SUPABASE_TABLE)
     .upsert(
-      { id: code, settings, state, turn: state.turn, p2_joined: false },
+      {
+        id: code,
+        settings: match.setup.settings,
+        player_count: match.setup.playerCount,
+        players: [{ name: match.hostName }],
+        state: match.initialState,
+        version: 0,
+      },
       { onConflict: 'id', ignoreDuplicates: true },
     )
   if (error) throw error
 }
 
-export async function loadMatch<Settings, State, Plan>(
-  code: string,
-): Promise<MatchRow<Settings, State, Plan> | null> {
-  const { data, error } = await getSupabase()
-    .from(SUPABASE_TABLE)
-    .select('*')
-    .eq('id', code)
-    .maybeSingle()
+export async function loadMatch<Settings, State>(code: string): Promise<MatchRow<Settings, State> | null> {
+  const { data, error } = await getSupabase().from(SUPABASE_TABLE).select('*').eq('id', code).maybeSingle()
   if (error) throw error
   // The client is untyped (no generated schema); rows are only ever written by this module.
-  return data as MatchRow<Settings, State, Plan> | null
+  return data as MatchRow<Settings, State> | null
 }
 
-export async function markPlayer2Joined(code: string): Promise<void> {
-  const { error } = await getSupabase()
-    .from(SUPABASE_TABLE)
-    .update({ p2_joined: true })
-    .eq('id', code)
+/** Takes the next free seat. Returns null when the room is full or doesn't exist. */
+export async function claimSeat(code: string, name: string): Promise<PlayerIndex | null> {
+  const { data, error } = await getSupabase().rpc(SUPABASE_CLAIM_SEAT_FUNCTION, { room_id: code, player_name: name })
   if (error) throw error
+  return typeof data === 'number' ? data : null
 }
 
 /**
- * Stores a player's plan, then resolves the turn if both plans are in.
- *
- * Both writes are guarded on the stored `turn`, so a stale submission is a no-op, and
- * when two clients race to resolve the same turn the loser's write matches zero rows.
- * Determinism of `resolveTurn` makes the race harmless either way.
+ * Stores the state after one move, guarded on the version it was computed from.
+ * Returns false when the stored version has moved on, so nothing was written.
  */
-export async function submitPlan<Settings, State extends TurnBasedState, Plan extends TurnPlan>(
-  code: string,
-  slot: PlayerSlot,
-  plan: Plan,
-  rules: GameRules<Settings, State, Plan>,
-): Promise<void> {
-  const planColumn = slot === 1 ? 'p1_plan' : 'p2_plan'
-  const { error: writeError } = await getSupabase()
+export async function saveMove<State>(code: string, fromVersion: number, nextState: State): Promise<boolean> {
+  const { data, error } = await getSupabase()
     .from(SUPABASE_TABLE)
-    .update({ [planColumn]: plan })
+    .update({ state: nextState, version: fromVersion + 1, updated_at: new Date().toISOString() })
     .eq('id', code)
-    .eq('turn', plan.turn)
-  if (writeError) throw writeError
-
-  const row = await loadMatch<Settings, State, Plan>(code)
-  if (!row || !row.p1_plan || !row.p2_plan || row.turn !== plan.turn) return
-
-  const nextState = rules.resolveTurn(row.state, row.p1_plan, row.p2_plan)
-  const { error: resolveError } = await getSupabase()
-    .from(SUPABASE_TABLE)
-    .update({
-      state: nextState,
-      turn: nextState.turn,
-      p1_plan: null,
-      p2_plan: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', code)
-    .eq('turn', plan.turn)
-  if (resolveError) throw resolveError
+    .eq('version', fromVersion)
+    .select('version')
+  if (error) throw error
+  return data.length > 0
 }
