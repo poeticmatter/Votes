@@ -41,6 +41,23 @@ export function factoryPoints(key: HexKey): number {
   return hexAt(key).bordersRail ? 2 : 1
 }
 
+/** Whether a School borders `key`, across a district line or not. */
+export function isNextToSchool(state: VotesState, key: HexKey): boolean {
+  return hexAt(key).neighbors.some(neighbor => state.tiles[neighbor.key]?.kind === 'school')
+}
+
+/** Only families in a Residence next to a School vote. */
+export function votingResidencesIn(state: VotesState, district: DistrictId): Located<ResidenceTile>[] {
+  return residencesIn(state, district).filter(({ key }) => isNextToSchool(state, key))
+}
+
+/** The Residences next to `at` that a School there would give the vote to. */
+export function residencesEnfranchisedBy(state: VotesState, at: HexKey): HexKey[] {
+  return hexAt(at)
+    .neighbors.filter(({ key }) => state.tiles[key]?.kind === 'residence' && !isNextToSchool(state, key))
+    .map(({ key }) => key)
+}
+
 export function familiesOnBoard(state: VotesState): CubeColor[] {
   return residences(state).flatMap(({ tile }) => tile.families)
 }

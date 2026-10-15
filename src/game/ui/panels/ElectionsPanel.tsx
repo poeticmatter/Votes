@@ -20,7 +20,7 @@ function DistrictSeats({ result }: { result: DistrictElection }) {
           District {result.district} · {result.seatCount} {result.seatCount === 1 ? 'seat' : 'seats'}
         </span>
         <span className="text-xs text-ink-soft">
-          families: <ColorTally counts={result.families} emptyText="none" />
+          voters: <ColorTally counts={result.voters} emptyText="none" />
         </span>
       </div>
       <ol className="flex flex-col text-xs text-ink-soft">
@@ -30,7 +30,7 @@ function DistrictSeats({ result }: { result: DistrictElection }) {
             {TIE_EXPLANATIONS[award.reason] && <span className="italic">({TIE_EXPLANATIONS[award.reason]})</span>}
           </li>
         ))}
-        {unfilled > 0 && <li>{unfilled} left empty: no families left to fill them</li>}
+        {unfilled > 0 && <li>{unfilled} left empty: no voters left to fill them</li>}
       </ol>
     </li>
   )

@@ -105,10 +105,10 @@ export interface SeatAward {
 
 export interface DistrictElection {
   district: DistrictId
-  /** One seat per Residence in the district. */
+  /** One seat per Residence in the district, whether or not anyone there votes. */
   seatCount: number
-  /** Families on the district's Residences, by colour, before any seat was awarded. */
-  families: Partial<Record<CubeColor, number>>
+  /** Families in the district's Residences next to a School, by colour: the only ones who vote. */
+  voters: Partial<Record<CubeColor, number>>
   /** One entry per filled seat, in award order. Seats nobody can fill stay empty. */
   awards: SeatAward[]
 }
@@ -131,7 +131,6 @@ export interface ElectionResult {
 export type LogEntry =
   | { kind: 'placed'; turn: number; player: PlayerColor; tile: TileKind; at: HexKey }
   | { kind: 'passed'; turn: number; player: PlayerColor }
-  | { kind: 'schoolBonus'; turn: number; player: PlayerColor; cubes: number }
   | {
       kind: 'family'
       turn: number

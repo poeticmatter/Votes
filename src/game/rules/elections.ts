@@ -1,6 +1,6 @@
 import { DISTRICT_IDS, districtOf } from '../map/board'
 import type { DistrictId } from '../map/mapData'
-import { factoryKeys, factoryPoints, residencesIn, turnOrderColors } from './boardQueries'
+import { factoryKeys, factoryPoints, residencesIn, turnOrderColors, votingResidencesIn } from './boardQueries'
 import {
   INDEPENDENT,
   type CityElection,
@@ -12,8 +12,10 @@ import {
   type VotesState,
 } from './types'
 
-// Elections, held after every merger. Seat allocation follows the asset generator's
-// src/rules/elections.js, with two differences for cases it never meets on paper:
+// Elections, held after every merger. Every Residence adds a seat to its district, but
+// only families in Residences next to a School vote for them. Seat allocation follows
+// the asset generator's src/rules/elections.js, with two differences for cases it never
+// meets on paper:
 // a colour with no cubes left can't win a seat as the compromise candidate, and seats
 // that no remaining cube can fill stay empty instead of being an error.
 
@@ -46,11 +48,11 @@ function pickSeatWinner(tallies: Tally[], lastWinner: CubeColor | null, turnOrde
  * one fewer. `turnOrder` settles ties that nothing else does.
  */
 export function awardSeats(
-  families: Partial<Record<CubeColor, number>>,
+  voters: Partial<Record<CubeColor, number>>,
   seatCount: number,
   turnOrder: CubeColor[],
 ): SeatAward[] {
-  let tallies: Tally[] = [INDEPENDENT, ...turnOrder].map(color => ({ color, count: families[color] ?? 0 }))
+  let tallies: Tally[] = [INDEPENDENT, ...turnOrder].map(color => ({ color, count: voters[color] ?? 0 }))
   let lastWinner: CubeColor | null = null
   const awards: SeatAward[] = []
   for (let seat = 0; seat < seatCount; seat += 1) {
@@ -72,13 +74,13 @@ function countByColor(colors: CubeColor[]): Partial<Record<CubeColor, number>> {
 }
 
 function electDistrict(state: VotesState, district: DistrictId): DistrictElection {
-  const districtResidences = residencesIn(state, district)
-  const families = countByColor(districtResidences.flatMap(({ tile }) => tile.families))
+  const seatCount = residencesIn(state, district).length
+  const voters = countByColor(votingResidencesIn(state, district).flatMap(({ tile }) => tile.families))
   return {
     district,
-    seatCount: districtResidences.length,
-    families,
-    awards: awardSeats(families, districtResidences.length, turnOrderColors(state)),
+    seatCount,
+    voters,
+    awards: awardSeats(voters, seatCount, turnOrderColors(state)),
   }
 }
 

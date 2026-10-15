@@ -1,6 +1,6 @@
 import { districtOf } from '../../map/board'
 import type { LogEntry, VotesState } from '../../rules/types'
-import { countOf, CubeChip, PlayerChip, TILE_NAMES } from '../names'
+import { CubeChip, PlayerChip, TILE_NAMES } from '../names'
 import { useByLook } from '../viewer'
 import { Panel } from './Panel'
 
@@ -19,12 +19,6 @@ function EntryText({ entry }: { entry: LogEntry }) {
       return (
         <>
           <PlayerChip color={entry.player} /> couldn’t place a tile and passed.
-        </>
-      )
-    case 'schoolBonus':
-      return (
-        <>
-          <PlayerChip color={entry.player} /> put {countOf(entry.cubes, 'cube')} in the bag (School bonus).
         </>
       )
     case 'family':

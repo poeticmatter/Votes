@@ -51,6 +51,7 @@ Votes: a 2–5 player, take-turns-in-order browser game with no backend of its o
   - Immigration fills every home and job it can in the turn the room appears: the active player calls any Station that can bring a family, as often as needed, and the cube is drawn after the Station is chosen. It stops when no Station can bring anyone (no open job, no empty home in a stationed district, or an empty bag).
   - The first family into a district in a turn pays each Station owner there 1 cube (once per owner, however many Stations). Every family still pays its Residence's owner 1 cube, so one player can add 2 for the same family.
   - A tile touching several other cities merges them all in one election, with one merger marker per city joined. The game ends with the election that leaves one city.
+  - Only families in a Residence next to a School vote, and a School across a district line counts. Every Residence still adds a seat to its district.
   - Players tied with grey for a city's most seats still score; grey blocks only when it leads alone.
   - A colour with no cubes left can't win a seat as the compromise candidate, and seats no cube can fill stay empty.
   - Public tiles never run out. A player with no legal placement passes (immigration still runs); a full round of passes ends the game.

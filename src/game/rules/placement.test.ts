@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { IllegalMoveError } from 'game-kit/turns'
-import { legalPlacements, placeTile, schoolBonusAt } from './placement'
-import { newGame, residence, school, station, withTiles } from './testStates'
+import { legalPlacements, placeTile } from './placement'
+import { newGame, residence, school, withTiles } from './testStates'
 
 describe('legal placements', () => {
   it('allows a tile next to a tile in its own district', () => {
@@ -50,22 +50,9 @@ describe('placing a tile', () => {
   })
 })
 
-describe('School bonus', () => {
-  // The rules-sheet example: E's printed Residence is already next to another School.
-  const exampleBoard = withTiles(newGame(), {
-    '8,7': residence(null, ['blue', 'yellow', 'grey']),
-    '8,8': station('vermillion'),
-    '7,6': school(),
-    '9,6': residence('green', ['green', 'vermillion']),
-    '10,7': residence('yellow', ['yellow']),
-  })
-
-  it('counts families in neighbouring Residences not already next to a School', () => {
-    expect(schoolBonusAt(exampleBoard, '9,7')).toBe(3)
-  })
-
-  it('adds the bonus cubes to the bag in the builder’s colour', () => {
-    const placed = placeTile(exampleBoard, 'school', '9,7')
-    expect(placed.bag.pink).toBe((exampleBoard.bag.pink ?? 0) + 3)
+describe('placing a School', () => {
+  it('adds no cubes to the bag, however many families live next to it', () => {
+    const nextToFamilies = withTiles(newGame(), { '9,6': residence('vermillion', ['vermillion', 'pink']) })
+    expect(placeTile(nextToFamilies, 'school', '9,7').bag).toEqual(nextToFamilies.bag)
   })
 })

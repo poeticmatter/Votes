@@ -40,14 +40,18 @@ describe('immigration within a turn', () => {
 })
 
 describe('mergers', () => {
-  // [6, 1] in C touches B's printed Residence across the rail.
+  // [6, 1] in C touches B's printed Residence across the rail. The Schools give B's, C's
+  // and E's printed Residences the vote.
   const beforeMerger = withTiles(newGame(), {
     '5,1': residence(null, ['pink']),
+    '5,2': school(),
     '7,1': residence('vermillion'),
     '9,2': residence(null, ['vermillion']),
+    '10,2': school(),
     '4,1': factory(),
     '10,5': factory(),
     '8,7': residence(null, ['grey', 'grey']),
+    '7,6': school(),
   })
   const merged = applyMove(beforeMerger, { kind: 'place', tile: 'residence', at: '6,1' })
 

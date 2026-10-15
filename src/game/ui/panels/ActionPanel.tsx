@@ -1,10 +1,10 @@
 import { Button } from 'game-kit/turns'
 import { districtOf, hexAt } from '../../map/board'
 import type { HexKey } from '../../map/hexGrid'
-import { activePlayerState } from '../../rules/boardQueries'
+import { activePlayerState, isNextToSchool, residencesEnfranchisedBy } from '../../rules/boardQueries'
 import { callableStations, homesForDrawnFamily } from '../../rules/immigration'
 import { citiesJoinedBy } from '../../rules/mergers'
-import { legalPlacements, newTile, schoolBonusAt, TILE_KINDS } from '../../rules/placement'
+import { legalPlacements, newTile, TILE_KINDS } from '../../rules/placement'
 import { HOMES_PER_RESIDENCE, type PlayerState, type TileKind, type VotesMove, type VotesState } from '../../rules/types'
 import { countOf, CubeChip, PlayerChip, TILE_NAMES, TileIcon, useColorNameOf, useOwnerOf } from '../names'
 import type { TurnControls } from '../useTurnControls'
@@ -56,7 +56,10 @@ function placementEffects(state: VotesState, tile: TileKind, at: HexKey): string
   if (tile === 'factory') {
     effects.push(`Adds 5 jobs. Worth ${hexAt(at).bordersRail ? '2 points (it borders a rail)' : '1 point'} at elections.`)
   }
-  if (tile === 'school') effects.push(`School bonus: you add ${countOf(schoolBonusAt(state, at), 'cube')} to the bag.`)
+  if (tile === 'school') {
+    const enfranchised = residencesEnfranchisedBy(state, at).length
+    effects.push(enfranchised ? `Gives the vote to ${countOf(enfranchised, 'Residence')} next to it.` : 'No Residence next to it gains the vote.')
+  }
   const joins = citiesJoinedBy(state, at)
   if (joins.length) {
     const cities = joins.map(join => join.city.join('+')).join(' and ')
@@ -113,7 +116,8 @@ function useDescribeResidence(state: VotesState): (key: HexKey) => string {
     const tile = state.tiles[key]
     if (tile?.kind !== 'residence') return key
     const owner = tile.owner ? `${ownerOf(tile.owner)} Residence` : `Printed Residence ${districtOf(key)}`
-    return `${owner} · ${tile.families.length}/${HOMES_PER_RESIDENCE} homes`
+    const vote = isNextToSchool(state, key) ? 'votes' : 'no School, no vote'
+    return `${owner} · ${tile.families.length}/${HOMES_PER_RESIDENCE} homes · ${vote}`
   }
 }
 

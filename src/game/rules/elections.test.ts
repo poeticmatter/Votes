@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { awardSeats, cityScorers } from './elections'
+import { awardSeats, cityScorers, countVotes } from './elections'
+import { newGame, residence, school, withTiles } from './testStates'
 import type { CubeColor, PlayerColor } from './types'
 
 const TURN_ORDER: PlayerColor[] = ['pink', 'vermillion', 'blue']
@@ -39,6 +40,25 @@ describe('awarding seats', () => {
     // After pink's seat, vermillion and blue tie on 1 and pink has 0.
     const awards = awardSeats({ blue: 1, vermillion: 1, pink: 1 }, 3, TURN_ORDER)
     expect(awards.map(award => award.color)).toEqual(['pink', 'vermillion', 'blue'])
+  })
+})
+
+describe('district votes', () => {
+  // District E: the School at [7, 6] borders the printed Residence at [8, 7], and no
+  // School borders the Residence at [10, 7].
+  const board = withTiles(newGame(), {
+    '7,6': school(),
+    '8,7': residence(null, ['pink', 'pink']),
+    '10,7': residence('vermillion', ['vermillion', 'vermillion', 'vermillion']),
+  })
+  const districtE = countVotes(board).districts.find(result => result.district === 'E')
+
+  it('counts only families in Residences next to a School', () => {
+    expect(districtE?.voters).toEqual({ pink: 2 })
+  })
+
+  it('still gives a seat for a Residence where nobody votes', () => {
+    expect(districtE?.awards.map(award => award.color)).toEqual(['pink', 'pink'])
   })
 })
 

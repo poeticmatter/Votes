@@ -1,7 +1,6 @@
 import { IllegalMoveError } from 'game-kit/turns'
 import { BOARD, hexAt } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
-import { addToBag } from './bag'
 import { activePlayerState } from './boardQueries'
 import type { PlayerColor, PlayerState, Tile, TileKind, VotesState } from './types'
 
@@ -49,21 +48,6 @@ export function hasAnyLegalPlacement(state: VotesState): boolean {
   return TILE_KINDS.some(kind => legalPlacements(state, kind).length > 0)
 }
 
-/**
- * Families in Residences next to `at` that a School there would reward. Residences
- * already next to another School don't count.
- */
-export function schoolBonusAt(state: VotesState, at: HexKey): number {
-  return hexAt(at).neighbors.reduce((total, { key }) => {
-    const tile = state.tiles[key]
-    if (tile?.kind !== 'residence') return total
-    const isNextToOtherSchool = hexAt(key).neighbors.some(
-      neighbor => neighbor.key !== at && state.tiles[neighbor.key]?.kind === 'school',
-    )
-    return isNextToOtherSchool ? total : total + tile.families.length
-  }, 0)
-}
-
 /** A fresh tile of `kind` from `owner`'s stock or, for public tiles, the supply. */
 export function newTile(kind: TileKind, owner: PlayerColor): Tile {
   if (kind === 'residence') return { kind, owner, families: [] }
@@ -77,23 +61,13 @@ function takeFromStock(player: PlayerState, kind: TileKind): PlayerState {
   return player
 }
 
-function awardSchoolBonus(state: VotesState, at: HexKey): VotesState {
-  const cubes = schoolBonusAt(state, at)
-  if (cubes === 0) return state
-  const player = activePlayerState(state).color
-  return {
-    ...addToBag(state, player, cubes),
-    log: [...state.log, { kind: 'schoolBonus', turn: state.turn.number, player, cubes }],
-  }
-}
-
-/** Places the active player's tile and pays any School bonus. */
+/** Places the active player's tile. */
 export function placeTile(state: VotesState, kind: TileKind, at: HexKey): VotesState {
   const player = activePlayerState(state)
   if (!hasTileInStock(player, kind)) throw new IllegalMoveError(`${player.color} has no ${kind} left`)
   if (!isLegalHex(state, kind, at)) throw new IllegalMoveError(`A ${kind} can't go on ${at}`)
 
-  const placed: VotesState = {
+  return {
     ...state,
     tiles: { ...state.tiles, [at]: newTile(kind, player.color) },
     players: state.players.map((entry, index) => (index === state.turn.playerIndex ? takeFromStock(entry, kind) : entry)),
@@ -101,5 +75,4 @@ export function placeTile(state: VotesState, kind: TileKind, at: HexKey): VotesS
     consecutivePasses: 0,
     log: [...state.log, { kind: 'placed', turn: state.turn.number, player: player.color, tile: kind, at }],
   }
-  return kind === 'school' ? awardSchoolBonus(placed, at) : placed
 }
