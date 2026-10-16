@@ -73,6 +73,11 @@ describe('board rendering', () => {
     expect(render(finished, { role: 'spectator' })).toContain('Game over')
   })
 
+  it('explains a game saved by another version instead of crashing on it', () => {
+    const olderGame = { ...start, rulesVersion: 1 }
+    expect(render(olderGame, { role: 0 })).toContain('started with a different version of Votes')
+  })
+
   it('names players instead of saying "You" in a hot-seat game', () => {
     expect(render(start, { role: activeRole(start), seating: 'hot_seat' })).not.toContain('Your turn')
   })

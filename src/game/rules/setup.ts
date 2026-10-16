@@ -9,6 +9,7 @@ import {
   PLAYER_COLORS,
   STARTING_PEOPLE_PER_PLAYER,
   STARTING_PEOPLE_PER_RESIDENCE,
+  RULES_VERSION,
   STATIONS_BY_PLAYER_COUNT,
   type CubeColor,
   type PlayerColor,
@@ -81,6 +82,8 @@ export interface VotesSetup {
 
 export function createInitialState({ settings, playerCount, seed }: VotesSetup): VotesState {
   if (!isPlayerCount(playerCount)) throw new Error(`Votes is for ${MIN_PLAYERS}–${MAX_PLAYERS} players, not ${playerCount}`)
+  // A lobby running an older deploy sends settings without the newer dials.
+  if (!settings.arrivals) throw new Error('These settings come from an older version of Votes; reload the page and start again')
   const greyPeople = greyPeopleAtSetup(playerCount)
   const greyInBag = settings.greyCubes - greyPeople
   if (greyInBag < 0) {
@@ -96,6 +99,7 @@ export function createInitialState({ settings, playerCount, seed }: VotesSetup):
   }
 
   return {
+    rulesVersion: RULES_VERSION,
     players: colors.map(color => ({
       color,
       score: 0,

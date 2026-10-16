@@ -142,7 +142,16 @@ export type LogEntry =
   | { kind: 'merger'; turn: number; city: DistrictId[]; electionNumber: number }
   | { kind: 'gameOver'; turn: number; winners: PlayerColor[]; reason: 'lastMerger' | 'nobodyCanBuild' }
 
+/**
+ * Bump this whenever the rules or the saved state's shape change, so a game saved by
+ * another version (an async room, or a browser still running an older deploy) is
+ * recognised instead of misread. 2 is Draft 5.4.
+ */
+export const RULES_VERSION = 2
+
 export interface VotesState {
+  /** {@link RULES_VERSION} when the game was created; missing in games from before it existed. */
+  rulesVersion: number
   /** In seat order. */
   players: PlayerState[]
   firstPlayerIndex: number

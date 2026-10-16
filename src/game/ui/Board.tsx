@@ -1,6 +1,6 @@
-import type { BoardProps } from 'game-kit/turns'
+import { Card, type BoardProps } from 'game-kit/turns'
 import { activePlayerIndex } from '../rules/turnFlow'
-import type { VotesMove, VotesState } from '../rules/types'
+import { RULES_VERSION, type VotesMove, type VotesState } from '../rules/types'
 import { MapView } from './map/MapView'
 import { ActionPanel } from './panels/ActionPanel'
 import { CitiesPanel } from './panels/CitiesPanel'
@@ -16,7 +16,31 @@ import { ViewerProvider } from './viewer'
 
 type VotesBoardProps = BoardProps<VotesState, VotesMove>
 
-export function VotesBoard({ state, role, players, onMove, seating, lookOf }: VotesBoardProps) {
+/** A game saved by another version can't be read by this one, so it says so instead of crashing. */
+function OtherVersionGame() {
+  return (
+    <div className="mx-auto max-w-lg p-4">
+      <Card className="flex flex-col gap-2 text-center">
+        <p className="font-bold">This game was started with a different version of Votes.</p>
+        <p className="text-sm text-ink-soft">
+          The rules have changed since, so it can’t be loaded. Reload the page to get the latest version, then start a
+          new game.
+        </p>
+        <a href="./" className="text-sm underline">
+          Back to the lobby
+        </a>
+      </Card>
+    </div>
+  )
+}
+
+export function VotesBoard(props: VotesBoardProps) {
+  // Games from before the version existed have none, which also doesn't match.
+  if (props.state.rulesVersion !== RULES_VERSION) return <OtherVersionGame />
+  return <CurrentVersionBoard {...props} />
+}
+
+function CurrentVersionBoard({ state, role, players, onMove, seating, lookOf }: VotesBoardProps) {
   const isViewersTurn = role === activePlayerIndex(state)
   const controls = useTurnControls(state, isViewersTurn, onMove)
   const isWide = useMediaQuery(WIDE_LAYOUT_QUERY)

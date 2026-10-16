@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { countByColor } from './elections'
 import { factoryKeys, peopleOnBoard, residences } from './boardQueries'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
-import { INDEPENDENT } from './types'
+import { INDEPENDENT, type VotesSettings } from './types'
 
 const game = (playerCount: number, seed = 3) => createInitialState({ settings: DEFAULT_SETTINGS, playerCount, seed })
 const threePlayers = (seed = 3) => game(3, seed)
@@ -32,6 +32,13 @@ describe('setup', () => {
     const dealOf = (seed: number) => residences(threePlayers(seed)).map(({ tile }) => tile.people)
     const deals = new Set([1, 2, 3, 4, 5].map(seed => JSON.stringify(dealOf(seed))))
     expect(deals.size).toBeGreaterThan(1)
+  })
+
+  it('refuses settings from a lobby running an older version', () => {
+    const { arrivals: _, ...olderSettings } = DEFAULT_SETTINGS
+    // An older lobby's settings lack fields the type requires, so only a cast can stand in for them.
+    const settings = olderSettings as VotesSettings
+    expect(() => createInitialState({ settings, playerCount: 3, seed: 1 })).toThrow('older version')
   })
 
   it('refuses too few grey cubes to seed the Residences', () => {
