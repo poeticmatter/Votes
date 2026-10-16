@@ -1,5 +1,5 @@
 import type { PlayerIndex, PlayerProfile } from 'game-kit/turns'
-import { familiesOnBoard } from '../../rules/boardQueries'
+import { peopleOnBoard } from '../../rules/boardQueries'
 import type { VotesState } from '../../rules/types'
 import { countOf, PlayerChip, useIsViewer } from '../names'
 import { useViewer } from '../viewer'
@@ -19,7 +19,7 @@ function useSeatsFromViewer(state: VotesState): PlayerIndex[] {
 export function PlayersPanel({ state, players }: { state: VotesState; players: PlayerProfile[] }) {
   const isViewer = useIsViewer()
   const seats = useSeatsFromViewer(state)
-  const families = familiesOnBoard(state)
+  const people = peopleOnBoard(state)
   const isOver = state.phase.kind === 'gameOver'
 
   return (
@@ -43,7 +43,7 @@ export function PlayersPanel({ state, players }: { state: VotesState; players: P
                 </span>
                 <span className="text-xs font-normal text-ink-soft">
                   {countOf(player.residencesLeft, 'Residence')} · {countOf(player.stationsLeft, 'Station')} left ·{' '}
-                  {countOf(families.filter(color => color === player.color).length, 'cube')} on the board
+                  {countOf(people.filter(color => color === player.color).length, 'cube')} on the board
                 </span>
               </div>
               <span className="text-2xl font-bold tabular-nums" aria-label={`${player.score} points`}>

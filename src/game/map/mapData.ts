@@ -24,7 +24,9 @@ export const LAKES: readonly HexCoord[] = [
 
 // Unbuildable, like mountains and lakes.
 export const FORESTS: readonly HexCoord[] = [
-  [0, 8], [10, 0], [10, 8],
+  [0, 8],
+  [5, 7], [5, 8], [6, 7], [6, 8], [7, 7], [7, 8],
+  [10, 0], [10, 8],
 ]
 
 // One printed Residence per district; its letter names the district.
@@ -41,6 +43,26 @@ export type DistrictId = keyof typeof STARTING_RESIDENCES
 // Public Factories on the map at setup, both in district E.
 export const STARTING_FACTORIES: readonly HexCoord[] = [
   [9, 7], [10, 7],
+]
+
+export interface StationSite {
+  at: HexCoord
+  /** The site is only in use at this player count or more; the map labels those 4+ and 5. */
+  minPlayers: number
+}
+
+// Stations may only be built on these.
+export const STATION_SITES: readonly StationSite[] = [
+  { at: [0, 4], minPlayers: 2 },
+  { at: [1, 4], minPlayers: 2 },
+  { at: [5, 0], minPlayers: 2 },
+  { at: [7, 6], minPlayers: 2 },
+  { at: [9, 3], minPlayers: 2 },
+  { at: [10, 5], minPlayers: 2 },
+  { at: [4, 3], minPlayers: 4 },
+  { at: [6, 2], minPlayers: 4 },
+  { at: [7, 3], minPlayers: 5 },
+  { at: [8, 4], minPlayers: 5 },
 ]
 
 export const RAIL_LINES: readonly (readonly EdgeRef[])[] = [

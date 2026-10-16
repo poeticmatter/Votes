@@ -33,6 +33,8 @@ export const MAP_STYLE = {
   forestGlyphSize: 56,
   wavesGlyphSize: 54,
   wavesStrokeWidth: 3.5,
+  // Printed like a slot: a grey disc where a Station goes. A tile covers it once built.
+  stationSite: { radius: 40, glyphSize: 52, strokeWidth: 2 },
 } as const
 
 export const TILE_STYLE = {

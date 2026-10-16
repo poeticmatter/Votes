@@ -1,91 +1,65 @@
 import { describe, expect, it } from 'vitest'
-import { IllegalMoveError } from 'game-kit/turns'
-import { beginImmigration, callStation, canStationBringFamily, settleFamily } from './immigration'
-import { factory, newGame, residence, station, withBag, withTiles } from './testStates'
+import type { HexKey } from '../map/hexGrid'
+import { bagSize } from './boardQueries'
+import { immigrate } from './immigration'
+import { placeTile } from './placement'
+import { newGame, residence, station, withBag, withTiles } from './testStates'
 import type { VotesState } from './types'
 
-// District C: printed Residence at [9, 2]; [8, 3] borders the rail.
-const STATION = '8,3'
-const PRINTED_C = '9,2'
-const OWNED_C = '10,2'
+// Pink, the active player, places the tile; immigration runs before any housing. The
+// bags hold a single cube, so every draw is certain: each owner's payment is the only
+// cube left for the next draw.
 
-function boardWithStation(extraTiles: VotesState['tiles'] = {}): VotesState {
-  const state = withTiles(newGame(), { [STATION]: station('vermillion'), '10,3': factory(), ...extraTiles })
-  return withBag(state, { grey: 4 })
-}
+const placeAndImmigrate = (state: VotesState, tile: 'station' | 'factory', at: HexKey) => immigrate(placeTile(state, tile, at))
 
-function bringFamilyTo(state: VotesState, residenceKey: string): VotesState {
-  return settleFamily(callStation(beginImmigration(state), STATION), residenceKey)
-}
+describe('a new Station', () => {
+  // [9, 3] is a station site in C, beside C's printed Residence.
+  const arrived = placeAndImmigrate(withBag(newGame(), { grey: 1 }), 'station', '9,3')
 
-describe('which Stations can bring a family', () => {
-  it('needs an open job', () => {
-    const noFactory = withTiles(newGame(), { [STATION]: station('vermillion') })
-    expect(canStationBringFamily(noFactory, STATION)).toBe(false)
+  it('draws 2 people from the bag onto itself', () => {
+    expect(arrived.tiles['9,3']).toEqual(station('pink', ['grey', 'pink']))
   })
 
-  it('stops once families fill every job', () => {
-    const fiveFamilies = residence(null, ['grey', 'grey', 'grey'])
-    const state = boardWithStation({ [PRINTED_C]: fiveFamilies, [OWNED_C]: residence('vermillion', ['grey', 'grey']) })
-    expect(canStationBringFamily(state, STATION)).toBe(false)
+  it('has its owner add a cube to the bag right after each draw', () => {
+    expect(arrived.bag).toEqual({ grey: 0, pink: 1 })
   })
 
-  it('needs an empty home in its own district', () => {
-    const state = boardWithStation({ [PRINTED_C]: residence(null, ['grey', 'grey', 'grey']) })
-    expect(canStationBringFamily(state, STATION)).toBe(false)
+  it('brings nobody from an empty bag', () => {
+    expect(placeAndImmigrate(withBag(newGame(), {}), 'station', '9,3').tiles['9,3']).toEqual(station('pink'))
   })
 
-  it('brings one when there is a home and a job', () => {
-    expect(canStationBringFamily(boardWithStation(), STATION)).toBe(true)
+  it('draws the same cubes from the same state', () => {
+    const state = withBag(newGame(), { grey: 3, vermillion: 3, pink: 3 })
+    expect(placeAndImmigrate(state, 'station', '9,3').tiles).toEqual(placeAndImmigrate(state, 'station', '9,3').tiles)
   })
 })
 
-describe('bringing a family', () => {
-  it('moves the drawn cube into the chosen Residence', () => {
-    const state = bringFamilyTo(boardWithStation(), PRINTED_C)
-    expect(state.tiles[PRINTED_C]).toEqual(residence(null, ['grey']))
+describe('a new Factory', () => {
+  // [8, 6] touches E's printed Residence; E has Stations at [7, 6] and [10, 5], C one at [9, 3].
+  const board = withBag(
+    withTiles(newGame(), { '7,6': station('vermillion'), '10,5': station('pink', ['grey']), '9,3': station('pink') }),
+    { grey: 1 },
+  )
+  const arrived = placeAndImmigrate(board, 'factory', '8,6')
+
+  it('draws 2 people onto every Station in its district, in board order', () => {
+    expect([arrived.tiles['7,6'], arrived.tiles['10,5']]).toEqual([
+      station('vermillion', ['grey', 'vermillion']),
+      station('pink', ['grey', 'vermillion', 'pink']),
+    ])
   })
 
-  it('has the Station’s owner add a cube for the first family into the district', () => {
-    const state = bringFamilyTo(boardWithStation(), PRINTED_C)
-    expect(state.bag).toEqual({ grey: 3, vermillion: 1 })
+  it('brings nobody to Stations in other districts', () => {
+    expect(arrived.tiles['9,3']).toEqual(station('pink'))
   })
 
-  it('pays the Station’s owner only once however many families enter the district', () => {
-    const twice = settleFamily(callStation(bringFamilyTo(boardWithStation(), PRINTED_C), STATION), PRINTED_C)
-    expect(twice.log.at(-1)).toMatchObject({ kind: 'family', addedToBag: [] })
+  it('never shrinks the bag', () => {
+    expect(bagSize(arrived)).toBe(bagSize(board))
   })
 
-  it('pays each Station owner in the district once', () => {
-    const state = bringFamilyTo(boardWithStation({ '7,3': station('pink'), '9,3': station('vermillion') }), PRINTED_C)
-    expect(state.bag).toEqual({ grey: 3, vermillion: 1, pink: 1 })
-  })
-
-  it('has the Residence’s owner add a cube for every family', () => {
-    const first = bringFamilyTo(boardWithStation({ [OWNED_C]: residence('pink') }), OWNED_C)
-    const second = settleFamily(callStation(first, STATION), OWNED_C)
-    expect(second.log.at(-1)).toMatchObject({ kind: 'family', addedToBag: ['pink'] })
-  })
-
-  it('pays one player twice when they own both the Station and the Residence', () => {
-    const state = bringFamilyTo(boardWithStation({ [OWNED_C]: residence('vermillion') }), OWNED_C)
-    expect(state.bag).toEqual({ grey: 3, vermillion: 2 })
-  })
-
-  it('refuses a Residence outside the Station’s district', () => {
-    const drawn = callStation(beginImmigration(boardWithStation({ '4,1': residence('vermillion') })), STATION)
-    expect(() => settleFamily(drawn, '4,1')).toThrow(IllegalMoveError)
-  })
-
-  it('lets a Station bring another family while there is room', () => {
-    const state = bringFamilyTo(boardWithStation(), PRINTED_C)
-    expect(canStationBringFamily(state, STATION)).toBe(true)
-  })
-})
-
-describe('drawing from the bag', () => {
-  it('draws the same cube from the same state', () => {
-    const state = beginImmigration(withBag(boardWithStation(), { grey: 3, vermillion: 3, pink: 3 }))
-    expect(callStation(state, STATION).phase).toEqual(callStation(state, STATION).phase)
+  it('brings nobody to a district with no Station', () => {
+    // [4, 1] touches B's printed Residence; B has no Station.
+    const state = withTiles(newGame(), { '5,1': residence(null) })
+    expect(placeAndImmigrate(state, 'factory', '4,1').log.some(entry => entry.kind === 'arrived')).toBe(false)
   })
 })

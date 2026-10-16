@@ -1,11 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { nextIndex, type PlayerIndex, type PlayerProfile, type Seating, type UserRole } from 'game-kit/turns'
-import { callableStations, homesForDrawnFamily } from '../rules/immigration'
-import { legalPlacements, TILE_KINDS } from '../rules/placement'
 import { createInitialState, DEFAULT_SETTINGS } from '../rules/setup'
+import { legalMoves } from '../rules/testStates'
 import { applyMove } from '../rules/turnFlow'
-import type { VotesMove, VotesState } from '../rules/types'
+import type { VotesState } from '../rules/types'
 import { PIECE_COLORS } from './pieceColors'
 import { VotesBoard } from './Board'
 
@@ -14,27 +13,16 @@ import { VotesBoard } from './Board'
 
 const PLAYERS: PlayerProfile[] = [{ name: 'Ana' }, { name: 'Ben', isOnline: false }, { name: 'Cleo' }]
 
-function anyLegalMove(state: VotesState, random: number): { move: VotesMove; random: number } {
-  const { phase } = state
-  const options: VotesMove[] =
-    phase.kind === 'immigration'
-      ? phase.drawn
-        ? homesForDrawnFamily(state).map(residence => ({ kind: 'settleFamily', residence }))
-        : callableStations(state).map(station => ({ kind: 'callStation', station }))
-      : TILE_KINDS.flatMap(tile => legalPlacements(state, tile).map(at => ({ kind: 'place' as const, tile, at })))
-  const { index, nextState } = nextIndex(random, options.length)
-  return { move: options.length ? options[index] : { kind: 'pass' }, random: nextState }
-}
-
 /** Plays a seeded game from the start until `isWanted` holds. */
 function playUntil(isWanted: (state: VotesState) => boolean): VotesState {
   let state = createInitialState({ settings: DEFAULT_SETTINGS, playerCount: PLAYERS.length, seed: 21 })
   let random = 21
   while (!isWanted(state)) {
     if (state.phase.kind === 'gameOver') throw new Error('The game ended before reaching the wanted state')
-    const next = anyLegalMove(state, random)
-    state = applyMove(state, next.move)
-    random = next.random
+    const options = legalMoves(state)
+    const { index, nextState } = nextIndex(random, options.length)
+    state = applyMove(state, options[index])
+    random = nextState
   }
   return state
 }
@@ -56,8 +44,8 @@ const otherRole = (state: VotesState) => (state.turn.playerIndex + 1) % PLAYERS.
 
 describe('board rendering', () => {
   const start = playUntil(() => true)
-  const choosingStation = playUntil(state => state.phase.kind === 'immigration' && !state.phase.drawn)
-  const housingFamily = playUntil(state => state.phase.kind === 'immigration' && state.phase.drawn !== null)
+  const relocating = playUntil(state => state.phase.kind === 'relocation')
+  const housing = playUntil(state => state.phase.kind === 'housing')
   const afterElection = playUntil(state => state.elections.length > 0 && state.phase.kind === 'placement')
   const finished = playUntil(state => state.phase.kind === 'gameOver')
 
@@ -69,12 +57,12 @@ describe('board rendering', () => {
     expect(render(start, { role: otherRole(start) })).toContain('is placing a tile')
   })
 
-  it('lists the Stations that can still bring a family', () => {
-    expect(render(choosingStation, { role: activeRole(choosingStation) })).toContain('Station in district')
+  it('asks who a School relocates', () => {
+    expect(render(relocating, { role: activeRole(relocating) })).toContain('Your School moves 1 person')
   })
 
-  it('asks where the drawn family should live', () => {
-    expect(render(housingFamily, { role: activeRole(housingFamily) })).toContain('Choose its home')
+  it('lists the Stations with people to house', () => {
+    expect(render(housing, { role: activeRole(housing) })).toContain('Station in')
   })
 
   it('shows past elections', () => {

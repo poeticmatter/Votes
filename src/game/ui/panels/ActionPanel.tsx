@@ -1,14 +1,15 @@
 import { Button } from 'game-kit/turns'
-import { districtOf, hexAt } from '../../map/board'
+import { districtOf } from '../../map/board'
 import type { HexKey } from '../../map/hexGrid'
-import { activePlayerState, isNextToSchool, residencesEnfranchisedBy } from '../../rules/boardQueries'
-import { callableStations, homesForDrawnFamily } from '../../rules/immigration'
+import { activePlayerState, factoryPoints, stations } from '../../rules/boardQueries'
 import { citiesJoinedBy } from '../../rules/mergers'
 import { legalPlacements, newTile, TILE_KINDS } from '../../rules/placement'
-import { HOMES_PER_RESIDENCE, type PlayerState, type TileKind, type VotesMove, type VotesState } from '../../rules/types'
-import { countOf, CubeChip, PlayerChip, TILE_NAMES, TileIcon, useColorNameOf, useOwnerOf } from '../names'
+import { residencesNextTo } from '../../rules/relocation'
+import { RESIDENCE_CAPACITY, type PlayerState, type TileKind, type VotesMove, type VotesState } from '../../rules/types'
+import { countOf, PlayerChip, TILE_NAMES, TileIcon } from '../names'
 import type { TurnControls } from '../useTurnControls'
 import { Panel } from './Panel'
+import { PersonChoices } from './PersonChoices'
 
 const TILE_ICON_WIDTH = 34
 
@@ -48,22 +49,41 @@ function TilePicker({ state, controls }: { state: VotesState; controls: TurnCont
   )
 }
 
+function immigrationEffect(state: VotesState, tile: TileKind, at: HexKey): string | null {
+  const district = districtOf(at)
+  if (tile === 'station') {
+    const count = state.arrivals.perStation
+    return `Immigration: draws ${countOf(count, 'person', 'people')} from the bag onto it, and you add ${countOf(count, 'cube')} to the bag.`
+  }
+  if (tile !== 'factory') return null
+  const stationCount = stations(state).filter(({ key }) => districtOf(key) === district).length
+  if (stationCount === 0) return `Immigration: no Station in district ${district} yet, so nobody arrives.`
+  return `Immigration: draws ${countOf(state.arrivals.perFactory, 'person', 'people')} onto each of the ${countOf(stationCount, 'Station')} in district ${district}; each owner adds a cube to the bag per person.`
+}
+
 /** What placing the chosen tile here would do, so the player can confirm with eyes open. */
 function placementEffects(state: VotesState, tile: TileKind, at: HexKey): string[] {
   const district = districtOf(at)
   const effects: string[] = []
-  if (tile === 'station') effects.push(`Brings a family into district ${district} at the end of every turn.`)
+  if (tile === 'residence') effects.push(`A seat, with space for ${countOf(RESIDENCE_CAPACITY, 'person', 'people')}.`)
+  const immigration = immigrationEffect(state, tile, at)
+  if (immigration) effects.push(immigration)
   if (tile === 'factory') {
-    effects.push(`Adds 5 jobs. Worth ${hexAt(at).bordersRail ? '2 points (it borders a rail)' : '1 point'} at elections.`)
+    const points = factoryPoints(at)
+    effects.push(`Worth ${countOf(points, 'point')} at elections${points > 1 ? ' (it borders a rail)' : ''}.`)
   }
   if (tile === 'school') {
-    const enfranchised = residencesEnfranchisedBy(state, at).length
-    effects.push(enfranchised ? `Gives the vote to ${countOf(enfranchised, 'Residence')} next to it.` : 'No Residence next to it gains the vote.')
+    const neighbors = residencesNextTo(state, at).length
+    effects.push(
+      neighbors
+        ? `Relocation: you move 1 person from anywhere into each of the ${countOf(neighbors, 'Residence')} next to it, even a full one.`
+        : 'No Residence next to it, so nobody is relocated.',
+    )
   }
   const joins = citiesJoinedBy(state, at)
   if (joins.length) {
     const cities = joins.map(join => join.city.join('+')).join(' and ')
-    effects.push(`Merges district ${district}’s city with ${cities}. An election follows.`)
+    effects.push(`Merges district ${district}’s city with ${cities}. That city votes.`)
   }
   return effects
 }
@@ -73,7 +93,7 @@ function PlacementChoices({ state, controls, onMove }: { state: VotesState; cont
   if (!canPlaceAnything) {
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-sm">No tile you have fits anywhere, so you pass. Immigration still happens.</p>
+        <p className="text-sm">No tile you have fits anywhere, so you pass.</p>
         <Button onClick={() => onMove({ kind: 'pass' })}>Pass</Button>
       </div>
     )
@@ -110,79 +130,11 @@ function PlacementChoices({ state, controls, onMove }: { state: VotesState; cont
   )
 }
 
-function useDescribeResidence(state: VotesState): (key: HexKey) => string {
-  const ownerOf = useOwnerOf()
-  return key => {
-    const tile = state.tiles[key]
-    if (tile?.kind !== 'residence') return key
-    const owner = tile.owner ? `${ownerOf(tile.owner)} Residence` : `Printed Residence ${districtOf(key)}`
-    const vote = isNextToSchool(state, key) ? 'votes' : 'no School, no vote'
-    return `${owner} · ${tile.families.length}/${HOMES_PER_RESIDENCE} homes · ${vote}`
-  }
-}
-
-function ChoiceList({ keys, describe, onChoose }: { keys: HexKey[]; describe: (key: HexKey) => string; onChoose: (key: HexKey) => void }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      {keys.map(key => (
-        <Button key={key} tone="secondary" onClick={() => onChoose(key)} className="px-3 py-2 text-left text-sm">
-          {describe(key)}
-        </Button>
-      ))}
-    </div>
-  )
-}
-
-function ImmigrationChoices({ state, onMove }: { state: VotesState; onMove: (move: VotesMove) => void }) {
-  const ownerOf = useOwnerOf()
-  const describeResidence = useDescribeResidence(state)
-  const colorNameOf = useColorNameOf()
-  const { phase } = state
-  if (phase.kind !== 'immigration') return null
-
-  if (phase.drawn) {
-    const { color, station } = phase.drawn
-    return (
-      <div className="flex flex-col gap-3">
-        <p className="flex items-center gap-2 text-sm">
-          <CubeChip color={color} size={22} />
-          <span>
-            A <strong>{colorNameOf(color)}</strong> family arrives in district {districtOf(station)}. Choose its home.
-          </span>
-        </p>
-        <ChoiceList
-          keys={homesForDrawnFamily(state)}
-          describe={describeResidence}
-          onChoose={residence => onMove({ kind: 'settleFamily', residence })}
-        />
-      </div>
-    )
-  }
-
-  const stations = callableStations(state)
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm text-ink-soft">
-        Families arrive while there are homes and jobs for them. Choose the Station that brings the next one; a family is
-        drawn from the bag when you do.
-      </p>
-      <ChoiceList
-        keys={stations}
-        describe={key => {
-          const tile = state.tiles[key]
-          const owner = tile?.kind === 'station' ? ownerOf(tile.owner) : ''
-          return `${owner} Station in district ${districtOf(key)}`
-        }}
-        onChoose={station => onMove({ kind: 'callStation', station })}
-      />
-    </div>
-  )
-}
-
 function waitingText(state: VotesState): string {
   const { phase } = state
   if (phase.kind === 'placement') return 'is placing a tile'
-  if (phase.kind === 'immigration') return phase.drawn ? 'is housing a new family' : 'is bringing in families'
+  if (phase.kind === 'relocation') return 'is moving people for their School'
+  if (phase.kind === 'housing') return 'is housing people'
   return ''
 }
 
@@ -213,9 +165,16 @@ export function ActionPanel({
       </Panel>
     )
   }
+  if (state.phase.kind === 'relocation') {
+    return (
+      <Panel title="Relocation">
+        <PersonChoices state={state} picker={controls.person} />
+      </Panel>
+    )
+  }
   return (
-    <Panel title="Immigration">
-      <ImmigrationChoices state={state} onMove={onMove} />
+    <Panel title="Housing">
+      <PersonChoices state={state} picker={controls.person} />
     </Panel>
   )
 }

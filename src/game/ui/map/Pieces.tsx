@@ -1,9 +1,9 @@
 import { hexCorners, roundedPolygonPath, type Point } from '../../map/hexGrid'
 import type { DistrictId } from '../../map/mapData'
-import { JOBS_PER_FACTORY, type CubeColor, type PlayerColor, type Tile } from '../../rules/types'
+import type { CubeColor, PlayerColor, Tile } from '../../rules/types'
 import { COLORS, FONT_FAMILY, TILE_STYLE } from '../theme'
 import { usePieceColorOf } from '../viewer'
-import { homeCenters, TILE_LAYOUT, TILE_RADIUS } from './geometry'
+import { homeCenters, residentCenters, TILE_LAYOUT, TILE_RADIUS, waitingCenters } from './geometry'
 import { FactoryGlyph, HouseGlyph, LetteredHouseGlyph, PlaceGlyph, SchoolGlyph, StationGlyph } from './glyphs'
 
 // Pieces on the map, ported from the asset generator's src/pieces/Tile.jsx and
@@ -41,16 +41,23 @@ export const Cube = ({ center, color, size = TILE_LAYOUT.cubeSize }: { center: P
   )
 }
 
+const Cubes = ({ colors, positions }: { colors: CubeColor[]; positions: Point[] }) => (
+  <g>
+    {colors.map((color, index) => (
+      <Cube key={`${index}-${color}`} center={positions[index]} color={color} />
+    ))}
+  </g>
+)
+
 /**
  * Empty homes are white with a dashed outline. No cube is white, so an empty home can't
- * be mistaken for a family of the tile's colour (or for grey on a printed Residence).
+ * be mistaken for a person of the tile's colour (or for grey on a printed Residence).
  */
-const Homes = ({ center, emptySlotColor, families }: { center: Point; emptySlotColor: string; families: CubeColor[] }) => {
+const Homes = ({ center, emptySlotColor, people }: { center: Point; emptySlotColor: string; people: CubeColor[] }) => {
   const { slotSize } = TILE_LAYOUT
-  const slots = homeCenters(center)
   return (
     <g>
-      {slots.slice(families.length).map(slot => (
+      {homeCenters(center).slice(people.length).map(slot => (
         <rect
           key={slot.x}
           x={slot.x - slotSize / 2}
@@ -64,14 +71,12 @@ const Homes = ({ center, emptySlotColor, families }: { center: Point; emptySlotC
           strokeDasharray={TILE_STYLE.emptySlotDash}
         />
       ))}
-      {families.map((color, index) => (
-        <Cube key={`${index}-${color}`} center={slots[index]} color={color} />
-      ))}
+      <Cubes colors={people} positions={residentCenters(center, people.length)} />
     </g>
   )
 }
 
-const ResidenceTile = ({ center, owner, families }: { center: Point; owner: PlayerColor; families: CubeColor[] }) => {
+const ResidenceTile = ({ center, owner, people }: { center: Point; owner: PlayerColor; people: CubeColor[] }) => {
   const color = usePieceColorOf()(owner)
   const { houseSize, houseY } = TILE_LAYOUT
   return (
@@ -80,13 +85,13 @@ const ResidenceTile = ({ center, owner, families }: { center: Point; owner: Play
       <PlaceGlyph center={offset(center, 0, houseY)} size={houseSize}>
         <HouseGlyph size={houseSize} color={color.ink} />
       </PlaceGlyph>
-      <Homes center={center} emptySlotColor={color.ink} families={families} />
+      <Homes center={center} emptySlotColor={color.ink} people={people} />
     </g>
   )
 }
 
 /** Printed on the board, but laid out like a tile so players see it works the same way. */
-const PrintedResidence = ({ center, district, families }: { center: Point; district: DistrictId; families: CubeColor[] }) => {
+const PrintedResidence = ({ center, district, people }: { center: Point; district: DistrictId; people: CubeColor[] }) => {
   const { printed } = TILE_STYLE
   const { printedHouseSize, houseY } = TILE_LAYOUT
   return (
@@ -101,12 +106,12 @@ const PrintedResidence = ({ center, district, families }: { center: Point; distr
           fontFamily={FONT_FAMILY}
         />
       </PlaceGlyph>
-      <Homes center={center} emptySlotColor={printed.emptySlot} families={families} />
+      <Homes center={center} emptySlotColor={printed.emptySlot} people={people} />
     </g>
   )
 }
 
-const StationTile = ({ center, owner }: { center: Point; owner: PlayerColor }) => {
+const StationTile = ({ center, owner, people }: { center: Point; owner: PlayerColor; people: CubeColor[] }) => {
   const color = usePieceColorOf()(owner)
   const { stationSize } = TILE_LAYOUT
   return (
@@ -115,25 +120,20 @@ const StationTile = ({ center, owner }: { center: Point; owner: PlayerColor }) =
       <PlaceGlyph center={center} size={stationSize}>
         <StationGlyph size={stationSize} color={color.ink} />
       </PlaceGlyph>
+      <Cubes colors={people} positions={waitingCenters(center, people.length)} />
     </g>
   )
 }
 
 const FactoryTile = ({ center }: { center: Point }) => {
   const { fill, ink } = TILE_STYLE.factory
-  const { factorySize, factoryY, jobY, jobRadius, jobPitch } = TILE_LAYOUT
-  const jobs = Array.from({ length: JOBS_PER_FACTORY }, (_, index) =>
-    offset(center, (index - (JOBS_PER_FACTORY - 1) / 2) * jobPitch, jobY),
-  )
+  const { factorySize } = TILE_LAYOUT
   return (
     <g>
       <TileBase center={center} fill={fill} />
-      <PlaceGlyph center={offset(center, 0, factoryY)} size={factorySize}>
+      <PlaceGlyph center={center} size={factorySize}>
         <FactoryGlyph size={factorySize} color={ink} />
       </PlaceGlyph>
-      {jobs.map(job => (
-        <circle key={job.x} cx={job.x} cy={job.y} r={jobRadius} fill={ink} />
-      ))}
     </g>
   )
 }
@@ -155,11 +155,11 @@ const SchoolTile = ({ center }: { center: Point }) => {
 export function TilePiece({ tile, center, district }: { tile: Tile; center: Point; district: DistrictId | null }) {
   switch (tile.kind) {
     case 'residence':
-      if (tile.owner) return <ResidenceTile center={center} owner={tile.owner} families={tile.families} />
+      if (tile.owner) return <ResidenceTile center={center} owner={tile.owner} people={tile.people} />
       if (!district) throw new Error('A printed Residence needs its district letter')
-      return <PrintedResidence center={center} district={district} families={tile.families} />
+      return <PrintedResidence center={center} district={district} people={tile.people} />
     case 'station':
-      return <StationTile center={center} owner={tile.owner} />
+      return <StationTile center={center} owner={tile.owner} people={tile.people} />
     case 'factory':
       return <FactoryTile center={center} />
     case 'school':

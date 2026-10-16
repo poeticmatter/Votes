@@ -1,7 +1,15 @@
-import { BOARD, hexAt } from '../map/board'
+import { BOARD, districtOf, hexAt } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import type { DistrictId } from '../map/mapData'
-import { JOBS_PER_FACTORY, type CubeColor, type PlayerState, type ResidenceTile, type StationTile, type Tile, type VotesState } from './types'
+import {
+  RESIDENCE_CAPACITY,
+  type CubeColor,
+  type PlayerState,
+  type ResidenceTile,
+  type StationTile,
+  type Tile,
+  type VotesState,
+} from './types'
 
 // Read-only questions about a state, shared by the rules and the UI. Every list walks
 // the map in board order, never object-key order, so results are deterministic.
@@ -22,8 +30,8 @@ export function residences(state: VotesState): Located<ResidenceTile>[] {
   return tilesInBoardOrder(state).filter((entry): entry is Located<ResidenceTile> => entry.tile.kind === 'residence')
 }
 
-export function residencesIn(state: VotesState, district: DistrictId): Located<ResidenceTile>[] {
-  return residences(state).filter(({ key }) => hexAt(key).district === district)
+export function residencesInCity(state: VotesState, city: DistrictId[]): Located<ResidenceTile>[] {
+  return residences(state).filter(({ key }) => city.includes(districtOf(key)))
 }
 
 export function stations(state: VotesState): Located<StationTile>[] {
@@ -41,29 +49,24 @@ export function factoryPoints(key: HexKey): number {
   return hexAt(key).bordersRail ? 2 : 1
 }
 
-/** Whether a School borders `key`, across a district line or not. */
-export function isNextToSchool(state: VotesState, key: HexKey): boolean {
-  return hexAt(key).neighbors.some(neighbor => state.tiles[neighbor.key]?.kind === 'school')
+export function hasRoom(residence: ResidenceTile): boolean {
+  return residence.people.length < RESIDENCE_CAPACITY
 }
 
-/** Only families in a Residence next to a School vote. */
-export function votingResidencesIn(state: VotesState, district: DistrictId): Located<ResidenceTile>[] {
-  return residencesIn(state, district).filter(({ key }) => isNextToSchool(state, key))
+/** Residences and Stations hold people; other tiles hold none. */
+export function peopleAt(state: VotesState, key: HexKey): CubeColor[] {
+  const tile = state.tiles[key]
+  return tile?.kind === 'residence' || tile?.kind === 'station' ? tile.people : []
 }
 
-/** The Residences next to `at` that a School there would give the vote to. */
-export function residencesEnfranchisedBy(state: VotesState, at: HexKey): HexKey[] {
-  return hexAt(at)
-    .neighbors.filter(({ key }) => state.tiles[key]?.kind === 'residence' && !isNextToSchool(state, key))
-    .map(({ key }) => key)
+/** Everyone in a Residence or waiting at a Station. */
+export function peopleOnBoard(state: VotesState): CubeColor[] {
+  return tilesInBoardOrder(state).flatMap(({ key }) => peopleAt(state, key))
 }
 
-export function familiesOnBoard(state: VotesState): CubeColor[] {
-  return residences(state).flatMap(({ tile }) => tile.families)
-}
-
-export function openJobs(state: VotesState): number {
-  return factoryKeys(state).length * JOBS_PER_FACTORY - familiesOnBoard(state).length
+/** Each colour once, in the order it first appears. */
+export function distinctColors(people: readonly CubeColor[]): CubeColor[] {
+  return [...new Set(people)]
 }
 
 export function bagSize(state: VotesState): number {
@@ -78,10 +81,4 @@ export function cityOf(state: VotesState, district: DistrictId): DistrictId[] {
   const city = state.cities.find(candidate => candidate.includes(district))
   if (!city) throw new Error(`District ${district} belongs to no city`)
   return city
-}
-
-/** Player colours in turn order, starting with the first player. Breaks seat ties. */
-export function turnOrderColors(state: VotesState): CubeColor[] {
-  const count = state.players.length
-  return state.players.map((_, offset) => state.players[(state.firstPlayerIndex + offset) % count].color)
 }

@@ -1,13 +1,12 @@
 import { districtOf } from '../../map/board'
 import type { LogEntry, VotesState } from '../../rules/types'
-import { CubeChip, PlayerChip, TILE_NAMES } from '../names'
-import { useByLook } from '../viewer'
+import { countOf, CubeChip, PlayerChip, TILE_NAMES, useOwnerOf } from '../names'
 import { Panel } from './Panel'
 
 const RECENT_ENTRY_COUNT = 15
 
 function EntryText({ entry }: { entry: LogEntry }) {
-  const byLook = useByLook()
+  const ownerOf = useOwnerOf()
   switch (entry.kind) {
     case 'placed':
       return (
@@ -21,14 +20,33 @@ function EntryText({ entry }: { entry: LogEntry }) {
           <PlayerChip color={entry.player} /> couldn’t place a tile and passed.
         </>
       )
-    case 'family':
+    case 'relocated':
       return (
         <>
-          <CubeChip color={entry.color} /> A family moved into {districtOf(entry.residence)}. Into the bag:{' '}
-          {byLook(entry.addedToBag).map((color, position) => (
-            // A player can add two cubes for one family, so the colour alone isn't unique.
+          <CubeChip color={entry.color} /> A person was relocated from {districtOf(entry.from)} to {districtOf(entry.to)}.
+        </>
+      )
+    case 'arrived':
+      return (
+        <>
+          {entry.people.map((color, position) => (
+            // Two people of one colour can arrive together, so the colour alone isn't unique.
             <CubeChip key={`${color}-${position}`} color={color} />
-          ))}
+          ))}{' '}
+          arrived at {ownerOf(entry.owner)} Station in {districtOf(entry.station)}. Into the bag:{' '}
+          {countOf(entry.people.length, 'cube')} <CubeChip color={entry.owner} />
+        </>
+      )
+    case 'housed':
+      return (
+        <>
+          <CubeChip color={entry.color} /> A person moved into a Residence in {districtOf(entry.to)}.
+          {entry.paid && (
+            <>
+              {' '}
+              Into the bag: <CubeChip color={entry.paid} />
+            </>
+          )}
         </>
       )
     case 'merger':

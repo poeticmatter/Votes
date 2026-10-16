@@ -1,12 +1,10 @@
-import { countVotes } from '../../rules/elections'
-import { INDEPENDENT, PLAYER_COLORS, type CityElection, type CubeColor, type ElectionResult, type VotesState } from '../../rules/types'
-import { CubeChip, PlayerChip } from '../names'
+import { countVotes, type ColorCounts } from '../../rules/elections'
+import { INDEPENDENT, PLAYER_COLORS, type CubeColor, type ElectionResult, type VotesState } from '../../rules/types'
+import { countOf, CubeChip, PlayerChip } from '../names'
 import { useByLook } from '../viewer'
 import { Panel } from './Panel'
 
 const ALL_COLORS: CubeColor[] = [INDEPENDENT, ...PLAYER_COLORS]
-
-type ColorCounts = Partial<Record<CubeColor, number>>
 
 /** Equal counts keep the order `colors` gives them. */
 function largestFirst(counts: ColorCounts, colors: readonly CubeColor[]): [CubeColor, number][] {
@@ -31,45 +29,46 @@ export function ColorTally({ counts, emptyText }: { counts: ColorCounts; emptyTe
   )
 }
 
-export function Scorers({ city }: { city: CityElection }) {
+function Scorers({ result }: { result: ElectionResult }) {
   const byLook = useByLook()
-  if (city.scorers.length === 0) {
-    const greyLeads = largestFirst(city.seats, ALL_COLORS)[0]?.[0] === INDEPENDENT
+  if (result.scorers.length === 0) {
+    const greyLeads = largestFirst(result.seatsByColor, ALL_COLORS)[0]?.[0] === INDEPENDENT
     return <span className="text-ink-soft">{greyLeads ? 'Grey leads: nobody scores' : 'Nobody scores'}</span>
   }
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2">
-      {byLook(city.scorers).map(color => (
+      {byLook(result.scorers).map(color => (
         <PlayerChip key={color} color={color} />
       ))}
-      <span className="text-ink-soft">
-        +{city.factoryPoints} {city.factoryPoints === 1 ? 'point' : 'points'}
-      </span>
+      <span className="text-ink-soft">+{countOf(result.factoryPoints, 'point')}</span>
     </span>
   )
 }
 
-export function CityRows({ result }: { result: ElectionResult }) {
+/** A city's seats by colour and who scores its Factories. */
+export function CityResult({ result }: { result: ElectionResult }) {
   return (
-    <ul className="flex flex-col divide-y divide-slot text-sm">
-      {result.cities.map(city => (
-        <li key={city.districts.join('')} className="flex flex-col gap-1 py-2">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="font-bold">{city.districts.join(' + ')}</span>
-            <ColorTally counts={city.seats} emptyText="no seats filled" />
-          </div>
-          <Scorers city={city} />
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="font-bold">{result.city.join(' + ')}</span>
+        <ColorTally counts={result.seatsByColor} emptyText="no seats" />
+      </div>
+      <Scorers result={result} />
+    </div>
   )
 }
 
-/** Where every city stands if an election were held now. */
+/** Where every city stands if it voted now. Only a newly merged city ever votes. */
 export function CitiesPanel({ state }: { state: VotesState }) {
   return (
-    <Panel title="Cities: if the vote were now">
-      <CityRows result={countVotes(state)} />
+    <Panel title="Cities: if they voted now">
+      <ul className="flex flex-col divide-y divide-slot text-sm">
+        {state.cities.map(city => (
+          <li key={city.join('')} className="py-2">
+            <CityResult result={countVotes(state, city)} />
+          </li>
+        ))}
+      </ul>
     </Panel>
   )
 }

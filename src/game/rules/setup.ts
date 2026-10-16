@@ -7,9 +7,9 @@ import {
   MAX_PLAYERS,
   MIN_PLAYERS,
   PLAYER_COLORS,
-  STARTING_FAMILIES_PER_PLAYER,
-  STARTING_FAMILIES_PER_RESIDENCE,
-  STATIONS_PER_PLAYER,
+  STARTING_PEOPLE_PER_PLAYER,
+  STARTING_PEOPLE_PER_RESIDENCE,
+  STATIONS_BY_PLAYER_COUNT,
   type CubeColor,
   type PlayerColor,
   type PlayerCount,
@@ -23,31 +23,32 @@ export const DEFAULT_SETTINGS: VotesSettings = {
   residencesByPlayerCount: { 2: 15, 3: 10, 4: 8, 5: 6 },
   greyCubes: 10,
   startingCubesPerPlayer: 2,
+  arrivals: { perStation: 2, perFactory: 2 },
 }
 
-const STARTING_FAMILIES = DISTRICT_IDS.length * STARTING_FAMILIES_PER_RESIDENCE
+const STARTING_PEOPLE = DISTRICT_IDS.length * STARTING_PEOPLE_PER_RESIDENCE
 
 export function isPlayerCount(count: number): count is PlayerCount {
   return Number.isInteger(count) && count >= MIN_PLAYERS && count <= MAX_PLAYERS
 }
 
-/** Grey cubes that top the seeded families up to one full set: 4 in a 3-player game. */
-export function greyFamiliesAtSetup(playerCount: PlayerCount): number {
-  return STARTING_FAMILIES - playerCount * STARTING_FAMILIES_PER_PLAYER
+/** Grey cubes that top the seeded people up to 10: 4 in a 3-player game. */
+export function greyPeopleAtSetup(playerCount: PlayerCount): number {
+  return STARTING_PEOPLE - playerCount * STARTING_PEOPLE_PER_PLAYER
 }
 
 /** The fewest grey cubes that can seed the printed Residences at any player count. */
-export const MIN_GREY_CUBES = greyFamiliesAtSetup(MIN_PLAYERS)
+export const MIN_GREY_CUBES = greyPeopleAtSetup(MIN_PLAYERS)
 
-interface SeededFamilies {
-  familiesByDistrict: CubeColor[][]
+interface SeededPeople {
+  peopleByDistrict: CubeColor[][]
   randomState: number
 }
 
-/** Deals the starting families to the printed Residences at random, two to each. */
-function seedFamilies(colors: readonly PlayerColor[], greyCount: number, randomState: number): SeededFamilies {
+/** Deals the starting people to the printed Residences at random, two to each. */
+function seedPeople(colors: readonly PlayerColor[], greyCount: number, randomState: number): SeededPeople {
   const pool: CubeColor[] = [
-    ...colors.flatMap(color => Array<CubeColor>(STARTING_FAMILIES_PER_PLAYER).fill(color)),
+    ...colors.flatMap(color => Array<CubeColor>(STARTING_PEOPLE_PER_PLAYER).fill(color)),
     ...Array<CubeColor>(greyCount).fill(INDEPENDENT),
   ]
   const dealt: CubeColor[] = []
@@ -57,16 +58,16 @@ function seedFamilies(colors: readonly PlayerColor[], greyCount: number, randomS
     state = nextState
     dealt.push(...pool.splice(index, 1))
   }
-  const familiesByDistrict = DISTRICT_IDS.map((_, position) =>
-    dealt.slice(position * STARTING_FAMILIES_PER_RESIDENCE, (position + 1) * STARTING_FAMILIES_PER_RESIDENCE),
+  const peopleByDistrict = DISTRICT_IDS.map((_, position) =>
+    dealt.slice(position * STARTING_PEOPLE_PER_RESIDENCE, (position + 1) * STARTING_PEOPLE_PER_RESIDENCE),
   )
-  return { familiesByDistrict, randomState: state }
+  return { peopleByDistrict, randomState: state }
 }
 
-function printedTiles(familiesByDistrict: CubeColor[][]): Record<HexKey, Tile> {
+function printedTiles(peopleByDistrict: CubeColor[][]): Record<HexKey, Tile> {
   const residences = DISTRICT_IDS.map((district, position): [HexKey, Tile] => [
     startingResidenceKey(district),
-    { kind: 'residence', owner: null, families: familiesByDistrict[position] },
+    { kind: 'residence', owner: null, people: peopleByDistrict[position] },
   ])
   const factories = STARTING_FACTORIES.map(([col, row]): [HexKey, Tile] => [hexKey(col, row), { kind: 'factory' }])
   return Object.fromEntries([...residences, ...factories])
@@ -80,15 +81,15 @@ export interface VotesSetup {
 
 export function createInitialState({ settings, playerCount, seed }: VotesSetup): VotesState {
   if (!isPlayerCount(playerCount)) throw new Error(`Votes is for ${MIN_PLAYERS}–${MAX_PLAYERS} players, not ${playerCount}`)
-  const greyFamilies = greyFamiliesAtSetup(playerCount)
-  const greyInBag = settings.greyCubes - greyFamilies
+  const greyPeople = greyPeopleAtSetup(playerCount)
+  const greyInBag = settings.greyCubes - greyPeople
   if (greyInBag < 0) {
-    throw new Error(`${settings.greyCubes} grey cubes can't seed a ${playerCount}-player setup; it needs ${greyFamilies}`)
+    throw new Error(`${settings.greyCubes} grey cubes can't seed a ${playerCount}-player setup; it needs ${greyPeople}`)
   }
 
   const colors = PLAYER_COLORS.slice(0, playerCount)
   const { index: firstPlayerIndex, nextState: afterFirstPlayer } = nextIndex(seed >>> 0, playerCount)
-  const { familiesByDistrict, randomState } = seedFamilies(colors, greyFamilies, afterFirstPlayer)
+  const { peopleByDistrict, randomState } = seedPeople(colors, greyPeople, afterFirstPlayer)
   const bag: Partial<Record<CubeColor, number>> = {
     [INDEPENDENT]: greyInBag,
     ...Object.fromEntries(colors.map(color => [color, settings.startingCubesPerPlayer])),
@@ -99,16 +100,17 @@ export function createInitialState({ settings, playerCount, seed }: VotesSetup):
       color,
       score: 0,
       residencesLeft: settings.residencesByPlayerCount[playerCount],
-      stationsLeft: STATIONS_PER_PLAYER,
+      stationsLeft: STATIONS_BY_PLAYER_COUNT[playerCount],
     })),
     firstPlayerIndex,
     turn: { number: 1, playerIndex: firstPlayerIndex, placedAt: null },
     phase: { kind: 'placement' },
-    tiles: printedTiles(familiesByDistrict),
+    tiles: printedTiles(peopleByDistrict),
     cities: DISTRICT_IDS.map(district => [district]),
     mergers: [],
     bag,
     randomState,
+    arrivals: settings.arrivals,
     consecutivePasses: 0,
     elections: [],
     log: [],

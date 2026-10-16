@@ -1,14 +1,17 @@
 import { IllegalMoveError, type GameOutcome } from 'game-kit/turns'
-import { activePlayerState, familiesOnBoard } from './boardQueries'
+import { activePlayerState, peopleOnBoard } from './boardQueries'
 import { holdElection } from './elections'
-import { beginImmigration, callStation, isImmigrationOver, settleFamily } from './immigration'
+import { beginHousing, house, houseWhileForced, isHousingOver } from './housing'
+import { immigrate } from './immigration'
 import { citiesJoinedBy, mergeCities } from './mergers'
 import { hasAnyLegalPlacement, placeTile } from './placement'
+import { beginRelocation, isRelocationOver, relocate } from './relocation'
 import type { Phase, PlayerColor, VotesMove, VotesState } from './types'
 
-// A turn: place a tile, immigration until no Station can bring anyone, then a merger
-// and its election if the tile joined cities. Each move is one decision by the active
-// player; everything that needs no decision runs straight on.
+// A turn: place a tile, then its relocation (a School), its immigration (a Station or
+// Factory), housing, and a merger with its election if the tile joined cities. Each
+// move is one decision by the active player; everything that needs no decision runs
+// straight on.
 
 type GameOverReason = 'lastMerger' | 'nobodyCanBuild'
 
@@ -22,7 +25,7 @@ function requirePhase(state: VotesState, kind: Phase['kind']): void {
 }
 
 function cubesOnBoardOf(state: VotesState, color: PlayerColor): number {
-  return familiesOnBoard(state).filter(family => family === color).length
+  return peopleOnBoard(state).filter(person => person === color).length
 }
 
 /** Most points wins; most cubes on the board breaks a tie. Anyone still tied shares the win. */
@@ -65,7 +68,7 @@ function resolveMerger(state: VotesState): VotesState {
     ...merged,
     log: [...merged.log, { kind: 'merger', turn: state.turn.number, city, electionNumber: merged.elections.length + 1 }],
   }
-  return holdElection(logged)
+  return holdElection(logged, city)
 }
 
 function startNextTurn(state: VotesState): VotesState {
@@ -89,8 +92,16 @@ function endTurn(state: VotesState): VotesState {
   return startNextTurn(afterMerger)
 }
 
-function continueTurn(state: VotesState): VotesState {
-  return isImmigrationOver(state) ? endTurn(state) : state
+/** Runs the turn on until the active player has a decision to make, or the turn ends. */
+function advance(state: VotesState): VotesState {
+  if (state.phase.kind === 'relocation') {
+    return isRelocationOver(state) ? advance(beginHousing(immigrate(state))) : state
+  }
+  if (state.phase.kind === 'housing') {
+    const housed = houseWhileForced(state)
+    return isHousingOver(housed) ? endTurn(housed) : housed
+  }
+  return state
 }
 
 function pass(state: VotesState): VotesState {
@@ -107,15 +118,15 @@ export function applyMove(state: VotesState, move: VotesMove): VotesState {
   switch (move.kind) {
     case 'place':
       requirePhase(state, 'placement')
-      return continueTurn(beginImmigration(placeTile(state, move.tile, move.at)))
+      return advance(beginRelocation(placeTile(state, move.tile, move.at)))
     case 'pass':
       requirePhase(state, 'placement')
-      return continueTurn(beginImmigration(pass(state)))
-    case 'callStation':
-      requirePhase(state, 'immigration')
-      return callStation(state, move.station)
-    case 'settleFamily':
-      requirePhase(state, 'immigration')
-      return continueTurn(settleFamily(state, move.residence))
+      return advance(beginRelocation(pass(state)))
+    case 'relocate':
+      requirePhase(state, 'relocation')
+      return advance(relocate(state, move))
+    case 'house':
+      requirePhase(state, 'housing')
+      return advance(house(state, move))
   }
 }

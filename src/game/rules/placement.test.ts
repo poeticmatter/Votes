@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { IllegalMoveError } from 'game-kit/turns'
 import { legalPlacements, placeTile } from './placement'
-import { newGame, residence, school, withTiles } from './testStates'
+import { newGame, residence, school, station, withTiles } from './testStates'
 
 describe('legal placements', () => {
   it('allows a tile next to a tile in its own district', () => {
@@ -13,17 +13,25 @@ describe('legal placements', () => {
     expect(legalPlacements(newGame(), 'residence')).not.toContain('6,1')
   })
 
-  it('only lets a Station go beside a rail', () => {
-    const state = withTiles(newGame(), { '4,1': school() })
-    const stationHexes = legalPlacements(state, 'station')
-    expect(stationHexes).toContain('5,2')
-    expect(stationHexes).not.toContain('3,1')
+  it('only lets a Station go on a station site', () => {
+    // Both touch B's printed Residence and border a rail; only [5, 0] is a site.
+    const stationHexes = legalPlacements(newGame(), 'station')
+    expect(stationHexes).toContain('5,0')
+    expect(stationHexes).not.toContain('5,2')
   })
 
-  it('keeps Factories away from Schools', () => {
-    const state = withTiles(newGame(), { '4,1': school() })
-    expect(legalPlacements(state, 'factory')).not.toContain('4,0')
-    expect(legalPlacements(state, 'residence')).toContain('4,0')
+  it('leaves a 4+ station site unused with fewer players', () => {
+    const besideSite = { '4,2': residence('pink') }
+    expect(legalPlacements(withTiles(newGame(3), besideSite), 'station')).not.toContain('4,3')
+    expect(legalPlacements(withTiles(newGame(4), besideSite), 'station')).toContain('4,3')
+  })
+
+  it('lets any other tile take an empty station site', () => {
+    expect(legalPlacements(newGame(), 'residence')).toContain('5,0')
+  })
+
+  it('lets a Factory go next to a School', () => {
+    expect(legalPlacements(withTiles(newGame(), { '4,1': school() }), 'factory')).toContain('4,0')
   })
 
   it('offers nothing from an empty stock', () => {
@@ -44,15 +52,12 @@ describe('placing a tile', () => {
     expect(placed.tiles['4,1']).toEqual(residence('pink'))
   })
 
+  it('puts down an empty Station in the player’s colour', () => {
+    expect(placeTile(newGame(), 'station', '5,0').tiles['5,0']).toEqual(station('pink'))
+  })
+
   it('leaves the stock alone for a public tile', () => {
     const placed = placeTile(newGame(), 'factory', '4,1')
     expect(placed.players).toEqual(newGame().players)
-  })
-})
-
-describe('placing a School', () => {
-  it('adds no cubes to the bag, however many families live next to it', () => {
-    const nextToFamilies = withTiles(newGame(), { '9,6': residence('vermillion', ['vermillion', 'pink']) })
-    expect(placeTile(nextToFamilies, 'school', '9,7').bag).toEqual(nextToFamilies.bag)
   })
 })

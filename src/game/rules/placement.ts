@@ -1,20 +1,10 @@
 import { IllegalMoveError } from 'game-kit/turns'
-import { BOARD, hexAt } from '../map/board'
+import { BOARD, hexAt, isStationSiteInUse } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import { activePlayerState } from './boardQueries'
 import type { PlayerColor, PlayerState, Tile, TileKind, VotesState } from './types'
 
 export const TILE_KINDS: readonly TileKind[] = ['residence', 'station', 'factory', 'school']
-
-/** Factories and Schools may never be neighbours. */
-const FORBIDDEN_NEIGHBOR: Partial<Record<TileKind, TileKind>> = {
-  factory: 'school',
-  school: 'factory',
-}
-
-function hasNeighborOfKind(state: VotesState, at: HexKey, kind: TileKind): boolean {
-  return hexAt(at).neighbors.some(({ key }) => state.tiles[key]?.kind === kind)
-}
 
 function touchesTileInSameDistrict(state: VotesState, at: HexKey): boolean {
   const { district } = hexAt(at)
@@ -28,14 +18,15 @@ export function hasTileInStock(player: PlayerState, kind: TileKind): boolean {
   return true
 }
 
-/** The hex rules for placing `kind` at `at`, ignoring whose stock it comes from. */
+/**
+ * The hex rules for placing `kind` at `at`, ignoring whose stock it comes from. Only a
+ * Station needs a station site; any other tile may take an empty one.
+ */
 function isLegalHex(state: VotesState, kind: TileKind, at: HexKey): boolean {
   const hex = BOARD.hexByKey.get(at)
   if (!hex || hex.terrain !== 'open' || state.tiles[at]) return false
-  if (!touchesTileInSameDistrict(state, at)) return false
-  if (kind === 'station' && !hex.bordersRail) return false
-  const forbidden = FORBIDDEN_NEIGHBOR[kind]
-  return !forbidden || !hasNeighborOfKind(state, at, forbidden)
+  if (kind === 'station' && !isStationSiteInUse(hex, state.players.length)) return false
+  return touchesTileInSameDistrict(state, at)
 }
 
 /** Hexes where the active player may place `kind` right now. */
@@ -50,8 +41,7 @@ export function hasAnyLegalPlacement(state: VotesState): boolean {
 
 /** A fresh tile of `kind` from `owner`'s stock or, for public tiles, the supply. */
 export function newTile(kind: TileKind, owner: PlayerColor): Tile {
-  if (kind === 'residence') return { kind, owner, families: [] }
-  if (kind === 'station') return { kind, owner }
+  if (kind === 'residence' || kind === 'station') return { kind, owner, people: [] }
   return { kind }
 }
 

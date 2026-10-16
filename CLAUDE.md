@@ -17,8 +17,8 @@ npm run deploy     # build and publish to GitHub Pages
 Votes: a 2–5 player, take-turns-in-order browser game with no backend of its own. It is part of the game lab (poeticmatter/game-lab). Its multiplayer platform (lobby, seats, async, live and hot-seat play) comes from **GameKit** (`game-kit/turns`), a package pinned in `package.json` to a release tag of poeticmatter/GameKit (local copy: `C:\Code\GameKit`).
 
 - `src/game/`: the game, and `index.ts` exporting `game: GameModule`.
-  - `map/`: map content (`mapData.ts`) and everything derived from it (`board.ts`: districts, rail borders, adjacency). Ported from the asset generator.
-  - `rules/`: pure rules. `turnFlow.ts` (`applyMove`) runs a turn through `placement.ts`, `immigration.ts`, `mergers.ts` and `elections.ts`. Tests sit beside them; `fullGame.test.ts` plays seeded games end to end and checks invariants.
+  - `map/`: map content (`mapData.ts`) and everything derived from it (`board.ts`: districts, rail borders, station sites, adjacency). Ported from the asset generator.
+  - `rules/`: pure rules. `turnFlow.ts` (`applyMove`) runs a turn through `placement.ts`, `relocation.ts` (Schools), `immigration.ts`, `housing.ts`, `mergers.ts` and `elections.ts`; `people.ts` moves one cube for relocation and housing. Tests sit beside them; `fullGame.test.ts` plays seeded games end to end and checks invariants.
   - `ui/`: the board. `map/` draws the Metro map and pieces; `panels/` are the side panels; `useTurnControls.ts` turns the phase into clickable targets; `viewer.tsx` holds who is looking and the colour each player is drawn in.
 - `src/game.config.ts`: the game's `GameConfig` (id, title, tagline, Supabase settings from `.env.local`).
 - `src/App.tsx`: renders `<TurnBasedGameApp config={GAME_CONFIG} game={game} />`; GameKit routes on the URL (`?room=CODE[&mode=async]`).
@@ -48,10 +48,12 @@ Votes: a 2–5 player, take-turns-in-order browser game with no backend of its o
 - **Rules:** `C:\Code\assets\VotesAssets\Rules\Votes.md` is the current draft and the source of truth. Values in [brackets] are playtest dials and live in `VotesSettings` (the lobby's "Playtest dials").
 - **Board and visuals:** the asset generator at `C:\Code\assets\VotesAssets` (local only) is the reference. `src/game/map/` ports its map data and district derivation, `src/game/ui/theme.ts` its Metro theme, `src/game/ui/pieceColors.ts` its colour-blind-safe colours, and `src/game/rules/elections.ts` its seat allocation. Change the map in the asset generator first, then port it.
 - **Rule interpretations** the draft doesn't settle, chosen here (revisit with the designer):
-  - Immigration fills every home and job it can in the turn the room appears: the active player calls any Station that can bring a family, as often as needed, and the cube is drawn after the Station is chosen. It stops when no Station can bring anyone (no open job, no empty home in a stationed district, or an empty bag).
-  - The first family into a district in a turn pays each Station owner there 1 cube (once per owner, however many Stations). Every family still pays its Residence's owner 1 cube, so one player can add 2 for the same family.
+  - Only a Station needs a station site; any other tile may take an empty one. Sites not in use at the player count are ordinary hexes, and the map draws only the sites in use.
+  - A School's relocation: the active player picks each person (any colour, from any Residence or Station, including another Residence next to the School) and which owed Residence they go to, in any order. A Residence across a district line counts as next to the School. A Residence goes without only if nobody is left elsewhere on the board.
+  - Immigration draws one person at a time, and the Station's owner pays their cube in before the next draw, so the bag never shrinks. A bag that starts empty (only possible at extreme dial settings) brings nobody.
+  - Housing runs every turn, across the whole board: the active player picks each person (Station and colour) and their Residence, one at a time, until nobody waiting has space in their city. When only one move is possible it happens by itself. People who don't fit keep waiting for a later turn.
+  - Housing comes before the merger, so people only move into the merged city's new space on the next turn's housing.
   - A tile touching several other cities merges them all in one election, with one merger marker per city joined. The game ends with the election that leaves one city.
-  - Only families in a Residence next to a School vote, and a School across a district line counts. Every Residence still adds a seat to its district.
   - Players tied with grey for a city's most seats still score; grey blocks only when it leads alone.
-  - A colour with no cubes left can't win a seat as the compromise candidate, and seats no cube can fill stay empty.
-  - Public tiles never run out. A player with no legal placement passes (immigration still runs); a full round of passes ends the game.
+  - The tiebreak's "cubes on the board" counts people waiting at Stations too.
+  - Public tiles never run out. A player with no legal placement passes; a full round of passes ends the game.

@@ -1,14 +1,14 @@
 import { memo, type ReactNode } from 'react'
-import { BOARD, type BoardHex, type Terrain } from '../../map/board'
+import { BOARD, isStationSiteInUse, type BoardHex, type Terrain } from '../../map/board'
 import { apothemOf, hexCenter, hexCorners, polygonPath, roundedPolygonPath, sideCorners, towards, type EdgeRef, type Point } from '../../map/hexGrid'
 import { COLORS, MAP_STYLE } from '../theme'
 import { edgeEndpoints, HEX_RADIUS } from './geometry'
-import { ForestGlyph, MountainGlyph, PlaceGlyph, WavesGlyph } from './glyphs'
+import { ForestGlyph, MountainGlyph, PlaceGlyph, StationGlyph, WavesGlyph } from './glyphs'
 import { sleeperPositions, trackPath, type TrackPosition } from './trackGeometry'
 
-// The printed map: cells, terrain, rail-side bands, river, track and bridges. Ported
-// from the asset generator's src/map/layers.jsx. It never changes during a game, so
-// everything is computed once and the component is memoised.
+// The printed map: cells, terrain, rail-side bands, station sites, river, track and
+// bridges. Ported from the asset generator's src/map/layers.jsx. It never changes during
+// a game, so everything is computed once and the component is memoised.
 
 const CELL_RADIUS = HEX_RADIUS * (1 - MAP_STYLE.cellInset)
 
@@ -56,9 +56,31 @@ const TerrainArt = () => (
   </g>
 )
 
+/** Only the sites in use at this player count are drawn, so they need no 4+ or 5 label. */
+const StationSites = ({ playerCount }: { playerCount: number }) => {
+  const { radius, glyphSize, strokeWidth } = MAP_STYLE.stationSite
+  return (
+    <g>
+      {BOARD.hexes
+        .filter(hex => isStationSiteInUse(hex, playerCount))
+        .map(hex => {
+          const center = centerOf(hex)
+          return (
+            <g key={hex.key}>
+              <circle cx={center.x} cy={center.y} r={radius} fill={COLORS.slot} stroke={COLORS.rule} strokeWidth={strokeWidth} />
+              <PlaceGlyph center={center} size={glyphSize}>
+                <StationGlyph size={glyphSize} color={COLORS.inkFaint} />
+              </PlaceGlyph>
+            </g>
+          )
+        })}
+    </g>
+  )
+}
+
 /**
- * A faint strip inside every hex side that borders a rail: it marks where Stations may
- * go and shows which Factories score double, and it stays visible around a placed tile.
+ * A faint strip inside every hex side that borders a rail: it shows which Factories
+ * score double, and it stays visible around a placed tile.
  */
 const RailSideBands = () => {
   const depth = MAP_STYLE.railSideBandWidth / apothemOf(CELL_RADIUS)
@@ -214,12 +236,13 @@ const Track = () => {
   )
 }
 
-export const MapSurface = memo(function MapSurface() {
+export const MapSurface = memo(function MapSurface({ playerCount }: { playerCount: number }) {
   return (
     <g>
       <HexCells />
       <TerrainArt />
       <RailSideBands />
+      <StationSites playerCount={playerCount} />
       <River />
       <Track />
       <Bridges />

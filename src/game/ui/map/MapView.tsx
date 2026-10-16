@@ -29,7 +29,7 @@ interface MapViewProps {
   describeTarget: (key: HexKey) => string
   onTarget: (key: HexKey) => void
   preview: TilePreview | null
-  /** Hexes to draw attention to, such as the Station whose family is waiting. */
+  /** Hexes to draw attention to, such as where the person being moved comes from. */
   emphasized: HexKey[]
 }
 
@@ -65,7 +65,7 @@ export function MapView({ state, targets, describeTarget, onTarget, preview, emp
   const lastPlaced = state.turn.placedAt
   return (
     <svg viewBox={VIEW_BOX} className="block h-auto w-full select-none" role="group" aria-label="Map">
-      <MapSurface />
+      <MapSurface playerCount={state.players.length} />
 
       {tilesInBoardOrder(state).map(({ key, tile }) => (
         <TilePiece key={key} tile={tile} center={centerOfHex(key)} district={hexAt(key).startingResidence} />

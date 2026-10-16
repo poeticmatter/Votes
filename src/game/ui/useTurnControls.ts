@@ -2,50 +2,78 @@ import { useState } from 'react'
 import { districtOf } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import { activePlayerState } from '../rules/boardQueries'
-import { callableStations, homesForDrawnFamily } from '../rules/immigration'
+import { housingMoves } from '../rules/housing'
 import { legalPlacements, newTile } from '../rules/placement'
-import type { TileKind, VotesMove, VotesState } from '../rules/types'
+import { relocationMoves } from '../rules/relocation'
+import type { CubeColor, PersonMove, TileKind, VotesMove, VotesState } from '../rules/types'
 import type { TilePreview } from './map/MapView'
 import { TILE_NAMES } from './names'
 
-// Turns the current phase into what the active player can click on the map, plus the
-// tile they're about to place. Placement is chosen first and confirmed second, because
-// it can't be taken back; immigration choices commit as soon as they're clicked.
+// Turns the current phase into what the active player can click on the map. Placement
+// is chosen first and confirmed second, because it can't be taken back. Moving a person
+// (a School's relocation, or housing) is picked in steps: where from, which colour when
+// there's a choice, then where to; it commits on that last click.
 
 export interface PlacementChoice {
   tile: TileKind | null
   at: HexKey | null
 }
 
-export interface TurnControls {
-  targets: HexKey[]
-  describeTarget: (key: HexKey) => string
-  onTarget: (key: HexKey) => void
-  preview: TilePreview | null
-  emphasized: HexKey[]
+export interface PlacementControls {
   placement: PlacementChoice
   chooseTile: (tile: TileKind) => void
   confirmPlacement: () => void
   cancelPlacement: () => void
 }
 
+export interface PersonPicker {
+  /** Every person the active player may move right now. */
+  moves: PersonMove[]
+  from: HexKey | null
+  color: CubeColor | null
+  /** Colours that can move from `from`. */
+  colorsAtFrom: CubeColor[]
+  /** Where the chosen person may go. */
+  destinations: HexKey[]
+  chooseFrom: (key: HexKey) => void
+  chooseColor: (color: CubeColor) => void
+  chooseDestination: (key: HexKey) => void
+  reset: () => void
+}
+
+export interface MapControls {
+  targets: HexKey[]
+  describeTarget: (key: HexKey) => string
+  onTarget: (key: HexKey) => void
+  preview: TilePreview | null
+  emphasized: HexKey[]
+}
+
+export interface TurnControls extends MapControls, PlacementControls {
+  person: PersonPicker
+}
+
 const NO_PLACEMENT: PlacementChoice = { tile: null, at: null }
+
+const IDLE_MAP: MapControls = { targets: [], describeTarget: () => '', onTarget: () => {}, preview: null, emphasized: [] }
+
+const distinct = <T>(items: T[]): T[] => [...new Set(items)]
 
 /** A choice belongs to the turn it was made in, so it never carries over to the next player. */
 interface TurnPlacementChoice extends PlacementChoice {
   turn: number
 }
 
-/** `canAct` is true when the viewer is the player the game is waiting for. */
-export function useTurnControls(state: VotesState, canAct: boolean, onMove: (move: VotesMove) => void): TurnControls {
+function usePlacementControls(state: VotesState, onMove: (move: VotesMove) => void): PlacementControls & { setAt: (at: HexKey) => void } {
   const turn = state.turn.number
   const [choice, setChoice] = useState<TurnPlacementChoice>({ turn, ...NO_PLACEMENT })
   const placement: PlacementChoice = choice.turn === turn ? choice : NO_PLACEMENT
   const setPlacement = (next: PlacementChoice) => setChoice({ turn, ...next })
 
-  const placementControls = {
+  return {
     placement,
-    chooseTile: (tile: TileKind) => setPlacement(placement.tile === tile ? NO_PLACEMENT : { tile, at: null }),
+    chooseTile: tile => setPlacement(placement.tile === tile ? NO_PLACEMENT : { tile, at: null }),
+    setAt: at => setPlacement({ ...placement, at }),
     confirmPlacement: () => {
       if (!placement.tile || !placement.at) return
       onMove({ kind: 'place', tile: placement.tile, at: placement.at })
@@ -53,40 +81,95 @@ export function useTurnControls(state: VotesState, canAct: boolean, onMove: (mov
     },
     cancelPlacement: () => setPlacement(NO_PLACEMENT),
   }
-  const idle = { targets: [], describeTarget: () => '', onTarget: () => {}, preview: null, emphasized: [] }
+}
+
+function personMovesNow(state: VotesState): PersonMove[] {
+  if (state.phase.kind === 'relocation') return relocationMoves(state)
+  if (state.phase.kind === 'housing') return housingMoves(state)
+  return []
+}
+
+/**
+ * A pick belongs to the position it was made in: every move adds to the log, so the
+ * log's length tells positions apart, even after an undo.
+ */
+interface PositionPersonChoice {
+  position: number
+  from: HexKey | null
+  color: CubeColor | null
+}
+
+function usePersonPicker(state: VotesState, onMove: (move: VotesMove) => void): PersonPicker {
+  const position = state.log.length
+  const [choice, setChoice] = useState<PositionPersonChoice>({ position, from: null, color: null })
+  const current = choice.position === position ? choice : { position, from: null, color: null }
+
+  const moves = personMovesNow(state)
+  const from = current.from && moves.some(move => move.from === current.from) ? current.from : null
+  const colorsAtFrom = from ? distinct(moves.filter(move => move.from === from).map(move => move.color)) : []
+  const pickedColor = current.color && colorsAtFrom.includes(current.color) ? current.color : null
+  const color = pickedColor ?? (colorsAtFrom.length === 1 ? colorsAtFrom[0] : null)
+  const destinations = moves.filter(move => move.from === from && move.color === color).map(move => move.to)
+
+  const reset = () => setChoice({ position, from: null, color: null })
+  return {
+    moves,
+    from,
+    color,
+    colorsAtFrom,
+    destinations,
+    chooseFrom: key => setChoice({ position, from: key, color: null }),
+    chooseColor: picked => setChoice({ position, from, color: picked }),
+    chooseDestination: to => {
+      if (!from || !color) return
+      onMove({ kind: state.phase.kind === 'relocation' ? 'relocate' : 'house', from, color, to })
+      reset()
+    },
+    reset,
+  }
+}
+
+function placementMap(state: VotesState, placement: PlacementChoice, setAt: (at: HexKey) => void): MapControls {
+  const { tile, at } = placement
+  return {
+    targets: tile ? legalPlacements(state, tile) : [],
+    describeTarget: key => `Place a ${tile ? TILE_NAMES[tile] : 'tile'} here, in district ${districtOf(key)}`,
+    onTarget: setAt,
+    preview: tile && at ? { tile: newTile(tile, activePlayerState(state).color), at } : null,
+    emphasized: [],
+  }
+}
+
+function personMap(state: VotesState, person: PersonPicker): MapControls {
+  const { phase } = state
+  const isRelocation = phase.kind === 'relocation'
+  if (!person.from) {
+    return {
+      ...IDLE_MAP,
+      targets: distinct(person.moves.map(move => move.from)),
+      describeTarget: key => (isRelocation ? 'Take a person from here' : `House a person waiting at this Station in ${districtOf(key)}`),
+      onTarget: person.chooseFrom,
+      // While the player looks for someone to move, show where they're owed.
+      emphasized: isRelocation ? phase.residences : [],
+    }
+  }
+  return {
+    ...IDLE_MAP,
+    targets: person.destinations,
+    describeTarget: key => `Move the person into this Residence in ${districtOf(key)}`,
+    onTarget: person.chooseDestination,
+    emphasized: [person.from],
+  }
+}
+
+/** `canAct` is true when the viewer is the player the game is waiting for. */
+export function useTurnControls(state: VotesState, canAct: boolean, onMove: (move: VotesMove) => void): TurnControls {
+  const { setAt, ...placementControls } = usePlacementControls(state, onMove)
+  const person = usePersonPicker(state, onMove)
+  const shared = { ...placementControls, person }
 
   const { phase } = state
-  if (!canAct || phase.kind === 'gameOver') return { ...idle, ...placementControls }
-
-  if (phase.kind === 'placement') {
-    const { tile, at } = placement
-    return {
-      ...placementControls,
-      targets: tile ? legalPlacements(state, tile) : [],
-      describeTarget: key => `Place a ${tile ? TILE_NAMES[tile] : 'tile'} here, in district ${districtOf(key)}`,
-      onTarget: key => setPlacement({ ...placement, at: key }),
-      preview: tile && at ? { tile: newTile(tile, activePlayerState(state).color), at } : null,
-      emphasized: [],
-    }
-  }
-
-  if (!phase.drawn) {
-    return {
-      ...placementControls,
-      targets: callableStations(state),
-      describeTarget: key => `Call this Station to bring a family to district ${districtOf(key)}`,
-      onTarget: station => onMove({ kind: 'callStation', station }),
-      preview: null,
-      emphasized: [],
-    }
-  }
-
-  return {
-    ...placementControls,
-    targets: homesForDrawnFamily(state),
-    describeTarget: () => 'House the family in this Residence',
-    onTarget: residence => onMove({ kind: 'settleFamily', residence }),
-    preview: null,
-    emphasized: [phase.drawn.station],
-  }
+  if (!canAct || phase.kind === 'gameOver') return { ...IDLE_MAP, ...shared }
+  if (phase.kind === 'placement') return { ...placementMap(state, placementControls.placement, setAt), ...shared }
+  return { ...personMap(state, person), ...shared }
 }

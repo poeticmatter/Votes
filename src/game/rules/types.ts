@@ -9,9 +9,10 @@ export const PLAYER_COLORS = ['pink', 'vermillion', 'blue', 'yellow', 'green'] a
 
 export type PlayerColor = (typeof PLAYER_COLORS)[number]
 
-/** Grey cubes are independents: families no player brought in. */
+/** Grey cubes are independents: people no player brought in. */
 export const INDEPENDENT = 'grey' as const
 
+/** A cube is a person. */
 export type CubeColor = PlayerColor | typeof INDEPENDENT
 
 export type PlayerCount = 2 | 3 | 4 | 5
@@ -19,13 +20,21 @@ export type PlayerCount = 2 | 3 | 4 | 5
 export const MIN_PLAYERS: PlayerCount = 2
 export const MAX_PLAYERS: PlayerCount = 5
 
-export const HOMES_PER_RESIDENCE = 3
-export const JOBS_PER_FACTORY = 5
-export const STATIONS_PER_PLAYER = 3
-/** Families seeded on each printed Residence at setup. */
-export const STARTING_FAMILIES_PER_RESIDENCE = 2
-/** Cubes of each player's colour among the families seeded at setup. */
-export const STARTING_FAMILIES_PER_PLAYER = 2
+/** A Residence holding this many people is full, though a School can push more in. */
+export const RESIDENCE_CAPACITY = 3
+export const STATIONS_BY_PLAYER_COUNT: Record<PlayerCount, number> = { 2: 3, 3: 2, 4: 2, 5: 2 }
+/** People seeded on each printed Residence at setup. */
+export const STARTING_PEOPLE_PER_RESIDENCE = 2
+/** Cubes of each player's colour among the people seeded at setup. */
+export const STARTING_PEOPLE_PER_PLAYER = 2
+
+/** People drawn from the bag when a tile's immigration runs. */
+export interface Arrivals {
+  /** At a Station when it's built. */
+  perStation: number
+  /** At each Station in a Factory's district when the Factory is built. */
+  perFactory: number
+}
 
 /** The [bracketed] playtest dials from the rules. */
 export interface VotesSettings {
@@ -35,6 +44,7 @@ export interface VotesSettings {
   greyCubes: number
   /** Cubes of each player's colour in the bag at setup. */
   startingCubesPerPlayer: number
+  arrivals: Arrivals
 }
 
 export type TileKind = 'residence' | 'station' | 'factory' | 'school'
@@ -43,13 +53,15 @@ export type TileKind = 'residence' | 'station' | 'factory' | 'school'
 export interface ResidenceTile {
   kind: 'residence'
   owner: PlayerColor | null
-  /** Families living here, in the order they arrived. */
-  families: CubeColor[]
+  /** People living here, in the order they moved in. */
+  people: CubeColor[]
 }
 
 export interface StationTile {
   kind: 'station'
   owner: PlayerColor
+  /** People who arrived here and are waiting to be housed. */
+  people: CubeColor[]
 }
 
 export interface PublicTile {
@@ -65,21 +77,12 @@ export interface PlayerState {
   stationsLeft: number
 }
 
-export interface DrawnFamily {
-  /** The Station bringing this family. */
-  station: HexKey
-  color: CubeColor
-}
-
 export type Phase =
   | { kind: 'placement' }
-  | {
-      kind: 'immigration'
-      /** Districts families have entered this turn; their Station owners have been paid. */
-      districtsEntered: DistrictId[]
-      /** A family drawn from the bag that the active player must now house. */
-      drawn: DrawnFamily | null
-    }
+  /** A new School's relocation: the Residences next to it still owed a person. */
+  | { kind: 'relocation'; residences: HexKey[] }
+  /** People waiting at Stations move into Residences with space in their city. */
+  | { kind: 'housing' }
   | { kind: 'gameOver'; winners: PlayerColor[] }
 
 export interface TurnState {
@@ -96,49 +99,43 @@ export interface MergerMarker {
   between: [HexKey, HexKey]
 }
 
-export type SeatReason = 'mostCubes' | 'didNotTakeLastSeat' | 'compromise' | 'playerOrder'
+/** Why a Residence's seat went where it did. */
+export type SeatReason = 'mostPeople' | 'tieToOwner' | 'tieToGrey'
 
-export interface SeatAward {
-  color: CubeColor
+/** Every Residence is a seat. */
+export interface SeatResult {
+  residence: HexKey
+  owner: PlayerColor | null
+  winner: CubeColor
   reason: SeatReason
 }
 
-export interface DistrictElection {
-  district: DistrictId
-  /** One seat per Residence in the district, whether or not anyone there votes. */
-  seatCount: number
-  /** Families in the district's Residences next to a School, by colour: the only ones who vote. */
-  voters: Partial<Record<CubeColor, number>>
-  /** One entry per filled seat, in award order. Seats nobody can fill stay empty. */
-  awards: SeatAward[]
-}
-
-export interface CityElection {
-  districts: DistrictId[]
-  seats: Partial<Record<CubeColor, number>>
+/** The vote in one city, newly merged or (for a preview) as it stands. */
+export interface ElectionResult {
+  number: number
+  turn: number
+  city: DistrictId[]
+  seats: SeatResult[]
+  seatsByColor: Partial<Record<CubeColor, number>>
   factoryPoints: number
   /** Players who scored the city's Factories; empty when grey leads or nobody has a seat. */
   scorers: PlayerColor[]
 }
 
-export interface ElectionResult {
-  number: number
-  turn: number
-  districts: DistrictElection[]
-  cities: CityElection[]
-}
-
 export type LogEntry =
   | { kind: 'placed'; turn: number; player: PlayerColor; tile: TileKind; at: HexKey }
   | { kind: 'passed'; turn: number; player: PlayerColor }
+  | { kind: 'relocated'; turn: number; color: CubeColor; from: HexKey; to: HexKey }
+  /** People drawn for a Station; its owner added as many of their cubes to the bag. */
+  | { kind: 'arrived'; turn: number; station: HexKey; owner: PlayerColor; people: CubeColor[] }
   | {
-      kind: 'family'
+      kind: 'housed'
       turn: number
       color: CubeColor
-      station: HexKey
-      residence: HexKey
-      /** Cubes added to the bag because this family arrived; a player may appear twice. */
-      addedToBag: PlayerColor[]
+      from: HexKey
+      to: HexKey
+      /** The Residence's owner, when they added a cube to the bag for this person. */
+      paid: PlayerColor | null
     }
   | { kind: 'merger'; turn: number; city: DistrictId[]; electionNumber: number }
   | { kind: 'gameOver'; turn: number; winners: PlayerColor[]; reason: 'lastMerger' | 'nobodyCanBuild' }
@@ -156,17 +153,25 @@ export interface VotesState {
   bag: Partial<Record<CubeColor, number>>
   /** Seeded generator state, so every client draws the same cubes. */
   randomState: number
+  arrivals: Arrivals
   /** Turns in a row that ended without a tile being placed. */
   consecutivePasses: number
   elections: ElectionResult[]
   log: LogEntry[]
 }
 
+/** One person moved from a Residence or Station into a Residence. */
+export interface PersonMove {
+  from: HexKey
+  color: CubeColor
+  to: HexKey
+}
+
 export type VotesMove =
   | { kind: 'place'; tile: TileKind; at: HexKey }
   /** Only legal when the active player has no tile they can place anywhere. */
   | { kind: 'pass' }
-  /** Draws a family from the bag for this Station. */
-  | { kind: 'callStation'; station: HexKey }
-  /** Houses the drawn family in a Residence in the Station's district. */
-  | { kind: 'settleFamily'; residence: HexKey }
+  /** A School's relocation: `to` is one of the Residences next to it. */
+  | ({ kind: 'relocate' } & PersonMove)
+  /** Houses a person waiting at Station `from` in Residence `to`. */
+  | ({ kind: 'house' } & PersonMove)

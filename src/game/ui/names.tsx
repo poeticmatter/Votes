@@ -13,9 +13,9 @@ export const TILE_NAMES: Record<TileKind, string> = {
   school: 'School',
 }
 
-/** "1 cube", "3 cubes". Every noun the board counts takes a plain -s plural. */
-export function countOf(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`
+/** "1 cube", "3 cubes"; "2 people" with an irregular `plural`. */
+export function countOf(count: number, noun: string, plural = `${noun}s`): string {
+  return `${count} ${count === 1 ? noun : plural}`
 }
 
 /** "You" for the viewer's own colour in an online game, otherwise the player's name. */
@@ -58,7 +58,7 @@ export function CubeChip({ color, size = 14 }: { color: CubeColor; size?: number
   return <ColorSwatch color={pieceColorOf(color).fill} size={size} />
 }
 
-/** "Blue", for a cube or family of that colour. */
+/** "Blue", for a cube or person of that colour. */
 export function useColorNameOf(): (color: CubeColor) => string {
   const pieceColorOf = usePieceColorOf()
   return color => pieceColorOf(color).name

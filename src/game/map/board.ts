@@ -1,5 +1,5 @@
 import { edgeKey, hexKey, neighborOf, SIDES, type EdgeRef, type HexCoord, type HexKey, type HexSide } from './hexGrid'
-import { FORESTS, GRID, LAKES, MOUNTAINS, RAIL_LINES, RIVER, STARTING_RESIDENCES, type DistrictId } from './mapData'
+import { FORESTS, GRID, LAKES, MOUNTAINS, RAIL_LINES, RIVER, STARTING_FACTORIES, STARTING_RESIDENCES, STATION_SITES, type DistrictId } from './mapData'
 
 // Everything derived from mapData.ts: terrain lookup, districts, rail borders and
 // adjacency. Ported from the asset generator's src/map/board.js.
@@ -18,6 +18,8 @@ export interface BoardHex {
   terrain: Terrain
   /** The district whose printed Residence sits here, if any. */
   startingResidence: DistrictId | null
+  /** The fewest players at which this hex's printed station site is in use; null without one. */
+  stationSiteMinPlayers: number | null
   /** Null only for unbuildable hexes: mountains, lakes and forests. */
   district: DistrictId | null
   railSides: HexSide[]
@@ -111,16 +113,23 @@ function buildBoard() {
     new Set([...railEdgeKeys, ...riverEdgeKeys]),
   )
   const startByKey = new Map(DISTRICT_IDS.map(districtId => [startingResidenceKey(districtId), districtId] as const))
+  const printedKeys = new Set([...startByKey.keys(), ...STARTING_FACTORIES.map(([col, row]) => hexKey(col, row))])
+  const siteMinPlayersByKey = new Map(STATION_SITES.map(({ at: [col, row], minPlayers }) => [hexKey(col, row), minPlayers]))
 
   const hexes: BoardHex[] = baseHexes.map(hex => {
     const isOpen = hex.terrain === 'open'
     if (isOpen && !districtByKey.has(hex.key)) {
       throw new Error(`Open hex ${hex.key} isn't in any district; it's walled off from every printed Residence.`)
     }
+    const stationSiteMinPlayers = siteMinPlayersByKey.get(hex.key) ?? null
+    if (stationSiteMinPlayers !== null && (!isOpen || printedKeys.has(hex.key))) {
+      throw new Error(`Station site ${hex.key} isn't on an empty open hex.`)
+    }
     const railSides = isOpen ? SIDES.filter(side => railEdgeKeys.has(edgeKey(hex.col, hex.row, side))) : []
     return {
       ...hex,
       startingResidence: startByKey.get(hex.key) ?? null,
+      stationSiteMinPlayers,
       district: districtByKey.get(hex.key) ?? null,
       railSides,
       bordersRail: railSides.length > 0,
@@ -157,4 +166,8 @@ export function districtOf(key: HexKey): DistrictId {
 export function startingResidenceKey(districtId: DistrictId): HexKey {
   const [col, row] = STARTING_RESIDENCES[districtId]
   return hexKey(col, row)
+}
+
+export function isStationSiteInUse(hex: BoardHex, playerCount: number): boolean {
+  return hex.stationSiteMinPlayers !== null && hex.stationSiteMinPlayers <= playerCount
 }

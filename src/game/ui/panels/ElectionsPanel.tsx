@@ -1,37 +1,25 @@
-import type { DistrictElection, SeatReason, VotesState } from '../../rules/types'
-import { CubeChip, useColorNameOf } from '../names'
-import { CityRows, ColorTally } from './CitiesPanel'
+import { districtOf } from '../../map/board'
+import type { SeatReason, SeatResult, VotesState } from '../../rules/types'
+import { CubeChip, useColorNameOf, useOwnerOf } from '../names'
+import { CityResult } from './CitiesPanel'
 import { Panel } from './Panel'
 
 const TIE_EXPLANATIONS: Record<SeatReason, string | null> = {
-  mostCubes: null,
-  didNotTakeLastSeat: 'tie, went to the colour that didn’t take the last seat',
-  compromise: 'tie, went to the compromise candidate',
-  playerOrder: 'tie, settled by player order',
+  mostPeople: null,
+  tieToOwner: 'tie, to its owner',
+  tieToGrey: 'tie on a printed Residence, to grey',
 }
 
-function DistrictSeats({ result }: { result: DistrictElection }) {
+function SeatLine({ seat }: { seat: SeatResult }) {
   const colorNameOf = useColorNameOf()
-  const unfilled = result.seatCount - result.awards.length
+  const ownerOf = useOwnerOf()
+  const residence = seat.owner ? `${ownerOf(seat.owner)} Residence` : 'Printed Residence'
+  const tie = TIE_EXPLANATIONS[seat.reason]
   return (
-    <li className="flex flex-col gap-0.5 py-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="font-semibold">
-          District {result.district} · {result.seatCount} {result.seatCount === 1 ? 'seat' : 'seats'}
-        </span>
-        <span className="text-xs text-ink-soft">
-          voters: <ColorTally counts={result.voters} emptyText="none" />
-        </span>
-      </div>
-      <ol className="flex flex-col text-xs text-ink-soft">
-        {result.awards.map((award, index) => (
-          <li key={index} className="flex items-center gap-1.5">
-            Seat {index + 1}: <CubeChip color={award.color} size={11} /> {colorNameOf(award.color)}
-            {TIE_EXPLANATIONS[award.reason] && <span className="italic">({TIE_EXPLANATIONS[award.reason]})</span>}
-          </li>
-        ))}
-        {unfilled > 0 && <li>{unfilled} left empty: no voters left to fill them</li>}
-      </ol>
+    <li className="flex flex-wrap items-center gap-x-1.5">
+      <span className="text-ink-faint">{districtOf(seat.residence)}</span> {residence}: <CubeChip color={seat.winner} size={11} />{' '}
+      {colorNameOf(seat.winner)}
+      {tie && <span className="italic">({tie})</span>}
     </li>
   )
 }
@@ -46,13 +34,13 @@ export function ElectionsPanel({ state }: { state: VotesState }) {
           <summary className="cursor-pointer text-sm font-bold select-none">
             Election {result.number} <span className="font-normal text-ink-soft">· turn {result.turn}</span>
           </summary>
-          <div className="flex flex-col gap-2 pt-1">
-            <CityRows result={result} />
+          <div className="flex flex-col gap-2 pt-1 text-sm">
+            <CityResult result={result} />
             <details>
-              <summary className="cursor-pointer text-xs font-semibold text-ink-soft select-none">Seats by district</summary>
-              <ul className="flex flex-col divide-y divide-slot text-sm">
-                {result.districts.map(district => (
-                  <DistrictSeats key={district.district} result={district} />
+              <summary className="cursor-pointer text-xs font-semibold text-ink-soft select-none">Seats</summary>
+              <ul className="flex flex-col gap-0.5 pt-1 text-xs text-ink-soft">
+                {result.seats.map(seat => (
+                  <SeatLine key={seat.residence} seat={seat} />
                 ))}
               </ul>
             </details>

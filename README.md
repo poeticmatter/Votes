@@ -1,6 +1,6 @@
 # Votes
 
-Build districts, bring in families, win the seats when cities merge. A cube rail game for 2–5 players.
+Build districts, bring people in by train, win the seats when cities merge. A cube rail game for 2–5 players.
 
 Play it at [poeticmatter.github.io/Votes](https://poeticmatter.github.io/Votes/). Part of the [game lab](https://poeticmatter.github.io/game-lab/), built from [poeticmatter/game-template](https://github.com/poeticmatter/game-template).
 

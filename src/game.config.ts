@@ -10,6 +10,6 @@ import { supabaseFromEnv, type GameConfig } from 'game-kit/turns'
 export const GAME_CONFIG: GameConfig = {
   id: 'votes',
   title: 'Votes',
-  tagline: 'Build districts, bring in families, win the seats when cities merge. For 2–5 players.',
+  tagline: 'Build districts, bring people in by train, win the seats when cities merge. For 2–5 players.',
   supabase: supabaseFromEnv(import.meta.env),
 }

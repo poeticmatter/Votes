@@ -6,6 +6,7 @@ const RESIDENCE_RANGE = { min: 1, max: 30 }
 // Below this the 2-player setup can't seed the printed Residences.
 const GREY_CUBE_RANGE = { min: MIN_GREY_CUBES, max: 30 }
 const STARTING_CUBE_RANGE = { min: 0, max: 10 }
+const ARRIVALS_RANGE = { min: 1, max: 5 }
 
 function Stepper({
   label,
@@ -65,6 +66,18 @@ export function VotesSettingsForm({ settings, playerCount, onChange }: SettingsF
           value={settings.startingCubesPerPlayer}
           range={STARTING_CUBE_RANGE}
           onChange={value => onChange({ ...settings, startingCubesPerPlayer: value })}
+        />
+        <Stepper
+          label="People a Station brings"
+          value={settings.arrivals.perStation}
+          range={ARRIVALS_RANGE}
+          onChange={value => onChange({ ...settings, arrivals: { ...settings.arrivals, perStation: value } })}
+        />
+        <Stepper
+          label="People a Factory brings to each Station"
+          value={settings.arrivals.perFactory}
+          range={ARRIVALS_RANGE}
+          onChange={value => onChange({ ...settings, arrivals: { ...settings.arrivals, perFactory: value } })}
         />
       </div>
     </details>

@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { IllegalMoveError } from 'game-kit/turns'
 import { BOARD } from '../map/board'
 import { applyMove, gameOutcome } from './turnFlow'
-import { factory, newGame, residence, school, station, withBag, withTiles } from './testStates'
+import { factory, newGame, residence, station, withTiles } from './testStates'
 import type { Tile, VotesState } from './types'
 
 describe('a quiet turn', () => {
-  it('passes play to the next player when no Station can bring anyone', () => {
+  it('passes play to the next player when nothing needs a decision', () => {
     const state = applyMove(newGame(), { kind: 'place', tile: 'residence', at: '4,1' })
     expect(state.turn).toEqual({ number: 2, playerIndex: 1, placedAt: null })
     expect(state.phase).toEqual({ kind: 'placement' })
@@ -15,43 +15,22 @@ describe('a quiet turn', () => {
   it('refuses a pass while a tile still fits', () => {
     expect(() => applyMove(newGame(), { kind: 'pass' })).toThrow(IllegalMoveError)
   })
-})
 
-describe('immigration within a turn', () => {
-  const ready = withBag(withTiles(newGame(), { '8,3': station('vermillion'), '10,3': factory() }), { grey: 2 })
-
-  const placed = applyMove(ready, { kind: 'place', tile: 'residence', at: '4,1' })
-  const houseOneFamily = (state: VotesState) =>
-    applyMove(applyMove(state, { kind: 'callStation', station: '8,3' }), { kind: 'settleFamily', residence: '9,2' })
-
-  it('waits for the active player to call a Station', () => {
-    expect(placed.phase).toEqual({ kind: 'immigration', districtsEntered: [], drawn: null })
-  })
-
-  it('keeps bringing families while there are homes and jobs', () => {
-    expect(houseOneFamily(placed).turn.playerIndex).toBe(0)
-  })
-
-  it('ends the turn once no Station can bring anyone', () => {
-    // The first family pays vermillion's single cube back; the second pays nothing, emptying the bag.
-    const drained = houseOneFamily(houseOneFamily(withBag(placed, { grey: 1 })))
-    expect(drained.turn.playerIndex).toBe(1)
+  it('refuses a move from another phase', () => {
+    expect(() => applyMove(newGame(), { kind: 'house', from: '0,4', color: 'grey', to: '1,2' })).toThrow(IllegalMoveError)
   })
 })
 
 describe('mergers', () => {
-  // [6, 1] in C touches B's printed Residence across the rail. The Schools give B's, C's
-  // and E's printed Residences the vote.
+  // [6, 1] in C touches B's printed Residence across the rail. Pink's new Residence there
+  // and vermillion's empty one at [7, 1] each hold their owner's seat.
   const beforeMerger = withTiles(newGame(), {
-    '5,1': residence(null, ['pink']),
-    '5,2': school(),
+    '5,1': residence(null, ['pink', 'pink']),
     '7,1': residence('vermillion'),
     '9,2': residence(null, ['vermillion']),
-    '10,2': school(),
     '4,1': factory(),
-    '10,5': factory(),
-    '8,7': residence(null, ['grey', 'grey']),
-    '7,6': school(),
+    '8,7': residence(null, ['pink', 'pink']),
+    '8,6': factory(),
   })
   const merged = applyMove(beforeMerger, { kind: 'place', tile: 'residence', at: '6,1' })
 
@@ -63,13 +42,12 @@ describe('mergers', () => {
     expect(merged.mergers).toEqual([{ number: 1, between: ['6,1', '5,1'] }])
   })
 
-  it('pays tied leaders the city’s Factories', () => {
-    expect(merged.players.map(player => player.score)).toEqual([1, 1])
+  it('holds the election in the merged city only', () => {
+    expect(merged.elections.map(election => election.city)).toEqual([['B', 'C']])
   })
 
-  it('pays nobody in a city grey leads', () => {
-    const cityE = merged.elections[0].cities.find(city => city.districts.includes('E'))
-    expect(cityE).toMatchObject({ factoryPoints: 2, scorers: [] })
+  it('pays tied leaders the city’s Factories', () => {
+    expect(merged.players.map(player => player.score)).toEqual([1, 1])
   })
 
   it('merges every city a tile touches in one election', () => {
@@ -82,20 +60,24 @@ describe('mergers', () => {
 })
 
 describe('game end', () => {
+  const nearlyDone: VotesState = { ...newGame(), cities: [['A', 'B', 'D', 'E'], ['C']] }
+
   it('ends after the merger that leaves one city', () => {
-    const nearlyDone: VotesState = { ...newGame(), cities: [['A', 'B', 'D', 'E'], ['C']] }
-    const state = applyMove(withTiles(nearlyDone, { '7,1': residence('vermillion') }), {
-      kind: 'place',
-      tile: 'residence',
-      at: '6,1',
-    })
+    const state = applyMove(withTiles(nearlyDone, { '7,1': residence('vermillion') }), { kind: 'place', tile: 'residence', at: '6,1' })
     expect(state.phase.kind).toBe('gameOver')
   })
 
-  it('breaks a tied score on cubes on the board', () => {
-    const tied = withTiles({ ...newGame(), cities: [['A', 'B', 'D', 'E'], ['C']] }, {
+  it('breaks a tied score on cubes on the board, people waiting at Stations included', () => {
+    // Grey wins the five printed Residences, so nobody scores. The four outside C are
+    // full, so vermillion's cube keeps waiting at its Station in A.
+    const fullOfGrey = residence(null, ['grey', 'grey', 'grey'])
+    const tied = withTiles(nearlyDone, {
+      '1,2': fullOfGrey,
+      '5,1': fullOfGrey,
+      '2,7': fullOfGrey,
+      '8,7': fullOfGrey,
       '7,1': residence('vermillion'),
-      '1,2': residence(null, ['vermillion']),
+      '0,4': station('vermillion', ['vermillion']),
     })
     const state = applyMove(tied, { kind: 'place', tile: 'residence', at: '6,1' })
     expect(state.phase).toEqual({ kind: 'gameOver', winners: ['vermillion'] })
@@ -111,15 +93,10 @@ describe('game end', () => {
   })
 
   it('ends when a full round passes without anyone able to build', () => {
-    // Every open hex is a Factory except [4, 1], which also touches a School.
     const filled: Record<string, Tile> = Object.fromEntries(
       BOARD.hexes.filter(hex => hex.terrain === 'open').map(hex => [hex.key, factory()]),
     )
-    delete filled['4,1']
-    const stuck = withTiles(newGame(), { ...filled, '5,1': school() })
-    const noStock = { ...stuck, players: stuck.players.map(player => ({ ...player, residencesLeft: 0, stationsLeft: 0 })) }
-
-    const state = applyMove(applyMove(noStock, { kind: 'pass' }), { kind: 'pass' })
+    const state = applyMove(applyMove(withTiles(newGame(), filled), { kind: 'pass' }), { kind: 'pass' })
     expect(state.phase.kind).toBe('gameOver')
   })
 })
