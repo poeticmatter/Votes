@@ -19,13 +19,15 @@ export function hasTileInStock(player: PlayerState, kind: TileKind): boolean {
 }
 
 /**
- * The hex rules for placing `kind` at `at`, ignoring whose stock it comes from. Only a
- * Station needs a station site; any other tile may take an empty one.
+ * The hex rules for placing `kind` at `at`, ignoring whose stock it comes from. A Station
+ * needs a station site in use, and such a site takes nothing else; a site not in use at
+ * this player count is an ordinary hex.
  */
 function isLegalHex(state: VotesState, kind: TileKind, at: HexKey): boolean {
   const hex = BOARD.hexByKey.get(at)
   if (!hex || hex.terrain !== 'open' || state.tiles[at]) return false
-  if (kind === 'station' && !isStationSiteInUse(hex, state.players.length)) return false
+  const isSiteInUse = isStationSiteInUse(hex, state.players.length)
+  if (isSiteInUse !== (kind === 'station')) return false
   return touchesTileInSameDistrict(state, at)
 }
 

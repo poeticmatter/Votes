@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { nextIndex } from 'game-kit/turns'
 import { BOARD, isStationSiteInUse } from '../map/board'
-import { bagSize, peopleOnBoard, residences, stations } from './boardQueries'
+import { bagSize, peopleOnBoard, residences, tilesInBoardOrder } from './boardQueries'
 import { beginHousing, housingMoves } from './housing'
 import { citiesJoinedBy } from './mergers'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
@@ -32,9 +32,10 @@ function expectInvariants(state: VotesState, peopleBefore: number): void {
     // Only a School pushes people into a full Residence.
     if (tile.people.length > RESIDENCE_CAPACITY) expect(isNextToSchool(state, key)).toBe(true)
   }
-  for (const { key } of stations(state)) {
+  for (const { key, tile } of tilesInBoardOrder(state)) {
     const hex = BOARD.hexByKey.get(key)
-    expect(hex && isStationSiteInUse(hex, state.players.length)).toBe(true)
+    // A station site in use takes a Station and nothing else.
+    expect(tile.kind === 'station').toBe(hex !== undefined && isStationSiteInUse(hex, state.players.length))
   }
   // Cubes never leave the board.
   expect(peopleOnBoard(state).length).toBeGreaterThanOrEqual(peopleBefore)

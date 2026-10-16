@@ -26,8 +26,13 @@ describe('legal placements', () => {
     expect(legalPlacements(withTiles(newGame(4), besideSite), 'station')).toContain('4,3')
   })
 
-  it('lets any other tile take an empty station site', () => {
-    expect(legalPlacements(newGame(), 'residence')).toContain('5,0')
+  it('keeps a station site in use for Stations', () => {
+    expect(legalPlacements(newGame(), 'residence')).not.toContain('5,0')
+  })
+
+  it('treats a station site not in use as an ordinary hex', () => {
+    const besideSite = { '4,2': residence('pink') }
+    expect(legalPlacements(withTiles(newGame(3), besideSite), 'residence')).toContain('4,3')
   })
 
   it('lets a Factory go next to a School', () => {
