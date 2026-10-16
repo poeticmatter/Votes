@@ -6,6 +6,7 @@ import { COLORS } from '../theme'
 import { centerOfHex, HEX_RADIUS, MAP_SIZE, sharedEdgeMidpoint, TILE_RADIUS } from './geometry'
 import { MapSurface } from './MapSurface'
 import { MergerMarker, TilePiece } from './Pieces'
+import { StationSitesInUse } from './StationSites'
 
 // Room around the grid for merger markers on edge hexes.
 const MAP_MARGIN = 24
@@ -65,7 +66,8 @@ export function MapView({ state, targets, describeTarget, onTarget, preview, emp
   const lastPlaced = state.turn.placedAt
   return (
     <svg viewBox={VIEW_BOX} className="block h-auto w-full select-none" role="group" aria-label="Map">
-      <MapSurface playerCount={state.players.length} />
+      <MapSurface />
+      <StationSitesInUse playerCount={state.players.length} />
 
       {tilesInBoardOrder(state).map(({ key, tile }) => (
         <TilePiece key={key} tile={tile} center={centerOfHex(key)} district={hexAt(key).startingResidence} />

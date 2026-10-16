@@ -34,7 +34,7 @@ export const MAP_STYLE = {
   wavesGlyphSize: 54,
   wavesStrokeWidth: 3.5,
   // Printed like a slot: a grey disc where a Station goes. A tile covers it once built.
-  stationSite: { radius: 40, glyphSize: 52, strokeWidth: 2 },
+  stationSite: { radius: 40, glyphSize: 52, strokeWidth: 2, label: { width: 38, height: 24, fontSize: 17 } },
 } as const
 
 export const TILE_STYLE = {

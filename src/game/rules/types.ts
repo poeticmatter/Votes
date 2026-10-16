@@ -106,6 +106,8 @@ export type SeatReason = 'mostPeople' | 'tieToOwner' | 'tieToGrey'
 export interface SeatResult {
   residence: HexKey
   owner: PlayerColor | null
+  /** Who lived there when the city voted. */
+  people: CubeColor[]
   winner: CubeColor
   reason: SeatReason
 }

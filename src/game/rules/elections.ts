@@ -44,7 +44,12 @@ export function cityScorers(seats: ColorCounts, players: PlayerColor[]): PlayerC
 
 /** Counts `city`'s votes as the board stands. Doesn't change any scores. */
 export function countVotes(state: VotesState, city: DistrictId[]): ElectionResult {
-  const seats = residencesInCity(state, city).map(({ key, tile }) => ({ residence: key, owner: tile.owner, ...seatWinner(tile) }))
+  const seats = residencesInCity(state, city).map(({ key, tile }) => ({
+    residence: key,
+    owner: tile.owner,
+    people: tile.people,
+    ...seatWinner(tile),
+  }))
   const seatsByColor = countByColor(seats.map(seat => seat.winner))
   const factoryPointsInCity = factoryKeys(state)
     .filter(key => city.includes(districtOf(key)))

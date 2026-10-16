@@ -9,6 +9,7 @@ import { LogPanel } from './panels/LogPanel'
 import { PlayersPanel } from './panels/PlayersPanel'
 import { SupplyPanel } from './panels/SupplyPanel'
 import { TurnBanner } from './panels/TurnBanner'
+import { RulesButton } from './rulesSheet/RulesButton'
 import { useMediaQuery, WIDE_LAYOUT_QUERY } from './useMediaQuery'
 import { useTurnControls } from './useTurnControls'
 import { ViewerProvider } from './viewer'
@@ -27,7 +28,12 @@ export function VotesBoard({ state, role, players, onMove, seating, lookOf }: Vo
     <ViewerProvider viewer={{ players, role, seating, lookOf }}>
       <div className="mx-auto flex max-w-[1500px] flex-col gap-3 p-3 lg:flex-row lg:items-start lg:gap-4 lg:p-4">
         <main className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:flex-1">
-          <TurnBanner state={state} isViewersTurn={isViewersTurn} seating={seating} />
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <TurnBanner state={state} isViewersTurn={isViewersTurn} seating={seating} />
+            </div>
+            <RulesButton />
+          </div>
           {!isWide && actionPanel}
           <div className="mx-auto w-full max-w-[calc((100svh-1.5rem)*1.03)] lg:max-w-[calc((100vh-7rem)*1.03)]">
             <MapView
