@@ -77,23 +77,6 @@ export const MountainGlyph = ({ size, color }: GlyphProps) => (
   </Glyph>
 )
 
-/** Two pines, the nearer one larger. */
-export const ForestGlyph = ({ size, color }: GlyphProps) => (
-  <Glyph size={size}>
-    <path d="M30 6 L40 20 H36 L43 31 H33 V36 H27 V31 H17 L24 20 H20 Z" fill={color} />
-    <path d="M15 14 L24 27 H20.5 L27 38 H18 V43 H12 V38 H3 L9.5 27 H6 Z" fill={color} />
-  </Glyph>
-)
-
-export const WavesGlyph = ({ size, color, strokeWidth }: GlyphProps & { strokeWidth: number }) => (
-  <Glyph size={size}>
-    <g fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round">
-      <path d="M8 19 q4 -4 8 0 t8 0 t8 0 t8 0" />
-      <path d="M8 29 q4 -4 8 0 t8 0 t8 0 t8 0" />
-    </g>
-  </Glyph>
-)
-
 /** The draw bag: a pouch with its tie showing as a cut-out band. */
 export const BagGlyph = ({ size, color }: GlyphProps) => (
   <Glyph size={size}>

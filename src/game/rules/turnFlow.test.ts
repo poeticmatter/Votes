@@ -50,7 +50,8 @@ describe('mergers', () => {
   })
 
   it('pays tied leaders the city’s Factories', () => {
-    expect(merged.players.map(player => player.score)).toEqual([1, 1])
+    // B's Factory at [4, 1] borders the rail, so it's worth 2.
+    expect(merged.players.map(player => player.score)).toEqual([2, 2])
   })
 
   it('merges every city a tile touches in one election', () => {

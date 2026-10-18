@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { hexAt, residenceSiteKey } from '../../map/board'
 import type { HexKey } from '../../map/hexGrid'
-import { peopleAt } from '../../rules/boardQueries'
+import { factoryPoints, peopleAt } from '../../rules/boardQueries'
 import { beginHousing, housingMoves } from '../../rules/housing'
 import { citiesJoinedBy } from '../../rules/mergers'
 import { legalPlacements } from '../../rules/placement'
@@ -101,6 +101,10 @@ describe('the placement example', () => {
 })
 
 describe('the immigration example', () => {
+  it('builds a Factory off the rail, worth 1 point as its caption says', () => {
+    expect(factoryPoints(IMMIGRATION_EXAMPLE.placed)).toBe(1)
+  })
+
   it('brings as many people as a Factory does', () => {
     expect(peopleAt(stateOf(IMMIGRATION_EXAMPLE.position), '7,6')).toHaveLength(DEFAULT_SETTINGS.factoryArrivals)
   })
@@ -131,8 +135,8 @@ describe('the merger example', () => {
 })
 
 describe('the election example', () => {
-  it('has Cobalt score the city’s 3 Factory points, as its caption says', () => {
-    expect(ELECTION_EXAMPLE.result).toMatchObject({ scorers: ['blue'], factoryPoints: 3 })
+  it('has Cobalt score the city’s 4 Factory points, as its caption says', () => {
+    expect(ELECTION_EXAMPLE.result).toMatchObject({ scorers: ['blue'], factoryPoints: 4 })
   })
 
   it('lists C’s seats before E’s', () => {

@@ -1,10 +1,10 @@
 import { edgeKey, hexKey, neighborOf, SIDES, type EdgeRef, type HexCoord, type HexKey, type HexSide } from './hexGrid'
-import { FORESTS, GRID, LAKES, MOUNTAINS, RAIL_LINES, RIVER, TOWN_SITES, type TownId } from './mapData'
+import { GRID, MOUNTAINS, RAIL, TOWN_SITES, type TownId } from './mapData'
 
 // Everything derived from mapData.ts: terrain lookup, town sites, rail sides and
 // adjacency.
 
-export type Terrain = 'open' | 'mountain' | 'lake' | 'forest'
+export type Terrain = 'open' | 'mountain'
 
 export interface HexNeighbor {
   side: HexSide
@@ -46,16 +46,10 @@ function isOnMap(col: number, row: number): boolean {
   return col >= 0 && col < GRID.columns && row >= 0 && row < GRID.rows
 }
 
-const keysOf = (coords: readonly HexCoord[]) => new Set(coords.map(coordKey))
-
-const UNBUILDABLE: readonly { terrain: Exclude<Terrain, 'open'>; keys: Set<HexKey> }[] = [
-  { terrain: 'mountain', keys: keysOf(MOUNTAINS) },
-  { terrain: 'lake', keys: keysOf(LAKES) },
-  { terrain: 'forest', keys: keysOf(FORESTS) },
-]
+const MOUNTAIN_KEYS = new Set(MOUNTAINS.map(coordKey))
 
 function terrainAt(key: HexKey): Terrain {
-  return UNBUILDABLE.find(({ keys }) => keys.has(key))?.terrain ?? 'open'
+  return MOUNTAIN_KEYS.has(key) ? 'mountain' : 'open'
 }
 
 function neighborsOf(col: number, row: number): HexNeighbor[] {
@@ -82,7 +76,7 @@ function checkTownSites(): void {
 
 function buildBoard() {
   checkTownSites()
-  const railEdgeKeys = edgeKeysOf(RAIL_LINES.flat())
+  const railEdgeKeys = edgeKeysOf(RAIL)
   const residenceSiteByKey = new Map(TOWN_IDS.map(town => [residenceSiteKey(town), town] as const))
   const stationSiteByKey = new Map(TOWN_IDS.map(town => [stationKeyOf(town), town] as const))
 
@@ -110,10 +104,7 @@ function buildBoard() {
     grid: GRID,
     hexes,
     hexByKey: new Map(hexes.map(hex => [hex.key, hex])),
-    railLines: RAIL_LINES,
-    river: RIVER,
-    // Where a rail runs along the river it crosses on a bridge.
-    bridges: RIVER.filter(([col, row, side]) => railEdgeKeys.has(edgeKey(col, row, side))),
+    rail: RAIL,
   }
 }
 

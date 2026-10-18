@@ -27,7 +27,7 @@ export const LEDE = [
 export const COMPONENTS: LeadText[] = [
   {
     lead: 'Board',
-    text: 'The map, with 5 town sites, each with a printed Station beside it, rails and a river along hex edges, and lakes, mountains and forests that can’t be built on.',
+    text: 'The map, with 5 town sites, each with a printed Station beside it, a rail along hex edges that runs past every Station, and mountains that can’t be built on.',
   },
   {
     lead: 'Tiles',
@@ -95,7 +95,7 @@ export const BUILDINGS: BuildingEntry[] = [
   {
     tile: { kind: 'factory', color: 'sage', town: 'A' },
     name: 'Factory',
-    text: `Immigration: ${ARRIVALS} people at its town’s Station. At elections, worth 1 point, or 2 if it borders a rail.`,
+    text: `Immigration: ${ARRIVALS} people at its town’s Station. At elections, worth 1 point, or 2 if it borders the rail.`,
   },
   {
     tile: { kind: 'school', color: 'sage', town: 'A' },
@@ -119,7 +119,7 @@ export const ELECTIONS: TitledText[] = [
   },
   {
     title: 'Payout',
-    text: 'The player with the most seats in the city scores its Factories: 1 point each, or 2 for one bordering a rail. Tied players each score. If grey has the most, nobody scores.',
+    text: 'The player with the most seats in the city scores its Factories: 1 point each, or 2 for one bordering the rail. Tied players each score. If grey has the most, nobody scores.',
   },
 ]
 

@@ -31,11 +31,11 @@ describe('the rules sheet', () => {
   })
 
   it('names the election’s winner in the figure', () => {
-    expect(markup).toContain('Cobalt +3')
+    expect(markup).toContain('Cobalt +4')
   })
 
   it('keeps the examples’ colours in a disguised hot-seat game', () => {
     // A disguise that turns Cobalt (seat 2) into Saffron must not reach the examples.
-    expect(renderSheet(seat => (seat === 2 ? 3 : seat))).toContain('Cobalt +3')
+    expect(renderSheet(seat => (seat === 2 ? 3 : seat))).toContain('Cobalt +4')
   })
 })

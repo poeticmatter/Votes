@@ -143,9 +143,10 @@ export type LogEntry =
 /**
  * Bump this whenever the rules or the saved state's shape change, so a game saved by
  * another version (an async room, or a browser still running an older deploy) is
- * recognised instead of misread. 2 is Draft 5.4, 3 Draft 5.7.
+ * recognised instead of misread. 2 is Draft 5.4, 3 Draft 5.7, 4 Draft 5.7 on the
+ * mountains-only map with one rail.
  */
-export const RULES_VERSION = 3
+export const RULES_VERSION = 4
 
 export interface VotesState {
   /** {@link RULES_VERSION} when the game was created; missing in games from before it existed. */

@@ -222,6 +222,6 @@ export const ELECTION_EXAMPLE = {
     'Each of the new city’s 5 Residences is a seat.',
     'In C, Cobalt wins the starting Residence outright. Saffron’s new Residence holds an Orchid and a grey, tied, so grey takes it.',
     'In E, Orchid wins the starting Residence, Saffron one of the new ones and Cobalt the other.',
-    'Cobalt has the most seats, 2, and scores the city’s 3 Factory points: 2 for C’s Factory on the rail, 1 for E’s.',
+    'Cobalt has the most seats, 2, and scores the city’s Factories: both border the rail, so 4 points.',
   ],
 }

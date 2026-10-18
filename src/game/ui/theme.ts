@@ -1,5 +1,5 @@
 // The Metro look, ported from the asset generator's src/theme.js: white rounded cells
-// on a cool grey ground, charcoal rails in the gutters, one blue for all water.
+// on a cool grey ground, charcoal rails in the gutters.
 
 export const FONT_FAMILY = "'Barlow', 'Segoe UI', Helvetica, Arial, sans-serif"
 
@@ -7,9 +7,6 @@ export const COLORS = {
   ground: '#e7eaef',
   cell: '#ffffff',
   mountain: '#b4bcc8',
-  water: '#72b7e4',
-  // Darker and greyer than sage tiles and the jade player colour.
-  forest: '#6f9468',
   ink: '#262a31',
   inkSoft: '#5b6370',
   inkFaint: '#8a93a0',
@@ -25,18 +22,12 @@ export const MAP_STYLE = {
   // Two rails on sleepers. Bends are curves starting `curveTangent` px before each
   // corner; sleepers are counted per hex edge so spacing never drifts.
   track: { gauge: 8, railWidth: 2.5, curveTangent: 24, sleepersPerEdge: 8, sleeperLength: 22, sleeperWidth: 4.5 },
-  // Wider than the rails so the water still shows on both sides of a bridge.
-  riverWidth: 18,
   railSideBandWidth: 9,
-  bridge: { offset: 16, lengthFraction: 0.42, armLength: 16, armAngleDegrees: 40, cornerRadius: 3, strokeWidth: 4 },
   mountainGlyphSize: 58,
-  forestGlyphSize: 56,
-  wavesGlyphSize: 54,
-  wavesStrokeWidth: 3.5,
 } as const
 
 export const TILE_STYLE = {
-  // Tiles cover 74% of their hex, leaving a ring where rails, river and rail markings
+  // Tiles cover 74% of their hex, leaving a ring where the rail and its markings
   // stay readable once a tile is down.
   sizeRatio: 0.74,
   cornerRadius: 12,

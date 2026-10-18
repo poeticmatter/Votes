@@ -2,21 +2,22 @@ import { describe, expect, it } from 'vitest'
 import { BOARD, hexAt, residenceSiteKey, stationKeyOf, TOWN_IDS } from './board'
 
 describe('derived board', () => {
-  it('has forest along the rail south of E', () => {
-    expect(hexAt('6,7').terrain).toBe('forest')
+  it('has only open hexes and mountains', () => {
+    expect(new Set(BOARD.hexes.map(hex => hex.terrain))).toEqual(new Set(['open', 'mountain']))
+  })
+
+  it('has mountains along the south edge below E', () => {
+    expect(hexAt('6,7').terrain).toBe('mountain')
   })
 
   it('marks hexes beside the track as bordering a rail', () => {
-    // [5, 2] borders the north-south line.
-    expect(hexAt('5,2').bordersRail).toBe(true)
-    // [3, 1] only borders the river.
-    expect(hexAt('3,1').bordersRail).toBe(false)
+    // [4, 1] is between B and A, where the rail runs south-west.
+    expect(hexAt('4,1').bordersRail).toBe(true)
+    expect(hexAt('5,2').bordersRail).toBe(false)
   })
 
-  it('runs the western line along the lakeshore into D', () => {
-    expect(hexAt('1,5').bordersRail).toBe(true)
-    // The west edge of the map has no rail any more.
-    expect(hexAt('0,4').bordersRail).toBe(false)
+  it('runs the rail down the west edge from A to D', () => {
+    expect(hexAt('0,5').bordersRail).toBe(true)
   })
 })
 
@@ -32,7 +33,7 @@ describe('town sites', () => {
     expect(TOWN_IDS.every(town => hexAt(stationKeyOf(town)).bordersRail)).toBe(true)
   })
 
-  it('ends the western line at D’s Station', () => {
+  it('ends the rail at D’s Station', () => {
     expect(hexAt(stationKeyOf('D')).railSides).toEqual(['NW'])
   })
 
