@@ -1,68 +1,51 @@
 import { describe, expect, it } from 'vitest'
 import { IllegalMoveError } from 'game-kit/turns'
 import { legalPlacements, placeTile } from './placement'
-import { newGame, residence, school, station, withTiles } from './testStates'
+import { factory, newGame, residence, withTiles } from './testStates'
+
+// In newGame, A and D are sand, B and E sage, C slate. A's Station is at [1, 3] and D's
+// Residence at [1, 7], with the lakeshore hexes [1, 4] to [1, 6] between them.
 
 describe('legal placements', () => {
-  it('allows a tile next to a tile in its own district', () => {
-    expect(legalPlacements(newGame(), 'residence')).toContain('4,1')
+  it('allows a tile next to a tile of its colour', () => {
+    // [4, 1] touches B's Residence.
+    expect(legalPlacements(newGame(), 'sage')).toContain('4,1')
   })
 
-  it('refuses a hex that only touches another district across a rail', () => {
-    // [6, 1] is in C; its only neighbouring tile is B's printed Residence.
-    expect(legalPlacements(newGame(), 'residence')).not.toContain('6,1')
+  it('counts a town’s Station as a tile of its colour', () => {
+    // [5, 0] is B's Station; [4, 0] touches only it.
+    expect(legalPlacements(newGame(), 'sage')).toContain('4,0')
   })
 
-  it('only lets a Station go on a station site', () => {
-    // Both touch B's printed Residence and border a rail; only [5, 0] is a site.
-    const stationHexes = legalPlacements(newGame(), 'station')
-    expect(stationHexes).toContain('5,0')
-    expect(stationHexes).not.toContain('5,2')
+  it('refuses a hex with no tile of that colour next to it', () => {
+    expect(legalPlacements(newGame(), 'slate')).not.toContain('4,1')
   })
 
-  it('leaves a 4+ station site unused with fewer players', () => {
-    const besideSite = { '4,2': residence('pink') }
-    expect(legalPlacements(withTiles(newGame(3), besideSite), 'station')).not.toContain('4,3')
-    expect(legalPlacements(withTiles(newGame(4), besideSite), 'station')).toContain('4,3')
+  it('allows a tile next to tiles of other colours too', () => {
+    // [6, 1] touches B's sage Residence across the rail and C's slate tile at [7, 1].
+    expect(legalPlacements(withTiles(newGame(), { '7,1': residence('C') }), 'slate')).toContain('6,1')
   })
 
-  it('keeps a station site in use for Stations', () => {
-    expect(legalPlacements(newGame(), 'residence')).not.toContain('5,0')
+  it('refuses a tile that would connect two towns of its colour', () => {
+    const state = withTiles(newGame(), { '1,4': residence('A'), '1,6': residence('D') })
+    expect(legalPlacements(state, 'sand')).not.toContain('1,5')
   })
 
-  it('treats a station site not in use as an ordinary hex', () => {
-    const besideSite = { '4,2': residence('pink') }
-    expect(legalPlacements(withTiles(newGame(3), besideSite), 'residence')).toContain('4,3')
-  })
-
-  it('lets a Factory go next to a School', () => {
-    expect(legalPlacements(withTiles(newGame(), { '4,1': school() }), 'factory')).toContain('4,0')
-  })
-
-  it('offers nothing from an empty stock', () => {
-    const state = newGame()
-    const outOfStations = { ...state, players: state.players.map(player => ({ ...player, stationsLeft: 0 })) }
-    expect(legalPlacements(outOfStations, 'station')).toEqual([])
+  it('refuses a hex that is taken', () => {
+    expect(legalPlacements(newGame(), 'sage')).not.toContain('5,1')
   })
 
   it('rejects an illegal hex', () => {
-    expect(() => placeTile(newGame(), 'residence', '6,1')).toThrow(IllegalMoveError)
+    expect(() => placeTile(newGame(), 'residence', 'slate', '4,1')).toThrow(IllegalMoveError)
   })
 })
 
 describe('placing a tile', () => {
-  it('takes a private tile from the active player’s stock', () => {
-    const placed = placeTile(newGame(), 'residence', '4,1')
-    expect(placed.players[0].residencesLeft).toBe(newGame().players[0].residencesLeft - 1)
-    expect(placed.tiles['4,1']).toEqual(residence('pink'))
+  it('builds it onto the town it touches', () => {
+    expect(placeTile(newGame(), 'factory', 'sage', '4,1').tiles['4,1']).toEqual(factory('B'))
   })
 
-  it('puts down an empty Station in the player’s colour', () => {
-    expect(placeTile(newGame(), 'station', '5,0').tiles['5,0']).toEqual(station('pink'))
-  })
-
-  it('leaves the stock alone for a public tile', () => {
-    const placed = placeTile(newGame(), 'factory', '4,1')
-    expect(placed.players).toEqual(newGame().players)
+  it('puts down an empty Residence', () => {
+    expect(placeTile(newGame(), 'residence', 'sand', '1,4').tiles['1,4']).toEqual(residence('A'))
   })
 })

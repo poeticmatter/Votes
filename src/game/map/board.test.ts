@@ -1,50 +1,43 @@
 import { describe, expect, it } from 'vitest'
-import { BOARD, DISTRICT_IDS, isStationSiteInUse } from './board'
+import { BOARD, hexAt, residenceSiteKey, stationKeyOf, TOWN_IDS } from './board'
 
 describe('derived board', () => {
-  it('splits the open hexes into the five lettered districts', () => {
-    const districts = new Set(BOARD.hexes.filter(hex => hex.terrain === 'open').map(hex => hex.district))
-    expect([...districts].sort()).toEqual(DISTRICT_IDS)
-  })
-
-  it('leaves mountains, lakes and forests outside every district', () => {
-    const unbuildable = BOARD.hexes.filter(hex => hex.terrain !== 'open')
-    expect(unbuildable.every(hex => hex.district === null)).toBe(true)
-  })
-
-  it('has forest along the rail south of D and E', () => {
-    expect(BOARD.hexByKey.get('6,7')?.terrain).toBe('forest')
-  })
-
-  it('puts each printed Residence in the district it names', () => {
-    const starts = BOARD.hexes.filter(hex => hex.startingResidence)
-    expect(starts.map(hex => [hex.startingResidence, hex.district])).toEqual(
-      starts.map(hex => [hex.startingResidence, hex.startingResidence]),
-    )
+  it('has forest along the rail south of E', () => {
+    expect(hexAt('6,7').terrain).toBe('forest')
   })
 
   it('marks hexes beside the track as bordering a rail', () => {
     // [5, 2] borders the north-south line.
-    expect(BOARD.hexByKey.get('5,2')?.bordersRail).toBe(true)
+    expect(hexAt('5,2').bordersRail).toBe(true)
     // [3, 1] only borders the river.
-    expect(BOARD.hexByKey.get('3,1')?.bordersRail).toBe(false)
+    expect(hexAt('3,1').bordersRail).toBe(false)
   })
 
-  it('separates B from C along the north-south rail', () => {
-    expect(BOARD.hexByKey.get('5,1')?.district).toBe('B')
-    expect(BOARD.hexByKey.get('6,1')?.district).toBe('C')
+  it('runs the western line along the lakeshore into D', () => {
+    expect(hexAt('1,5').bordersRail).toBe(true)
+    // The west edge of the map has no rail any more.
+    expect(hexAt('0,4').bordersRail).toBe(false)
   })
 })
 
-describe('station sites', () => {
-  const sitesInUse = (playerCount: number) => BOARD.hexes.filter(hex => isStationSiteInUse(hex, playerCount)).length
-
-  it('uses as many sites as the rules table says for each player count', () => {
-    expect([2, 3, 4, 5].map(sitesInUse)).toEqual([6, 6, 8, 10])
+describe('town sites', () => {
+  it('puts every Station beside its town’s Residence', () => {
+    for (const town of TOWN_IDS) {
+      const neighbors = hexAt(residenceSiteKey(town)).neighbors.map(neighbor => neighbor.key)
+      expect(neighbors).toContain(stationKeyOf(town))
+    }
   })
 
-  it('puts every site on an open hex', () => {
-    const sites = BOARD.hexes.filter(hex => hex.stationSiteMinPlayers !== null)
-    expect(sites.every(hex => hex.district !== null)).toBe(true)
+  it('puts every Station on the rail, where trains bring people', () => {
+    expect(TOWN_IDS.every(town => hexAt(stationKeyOf(town)).bordersRail)).toBe(true)
+  })
+
+  it('ends the western line at D’s Station', () => {
+    expect(hexAt(stationKeyOf('D')).railSides).toEqual(['NW'])
+  })
+
+  it('marks each site with its town', () => {
+    expect(BOARD.hexes.filter(hex => hex.residenceSite).map(hex => hex.residenceSite).sort()).toEqual(TOWN_IDS)
+    expect(BOARD.hexes.filter(hex => hex.stationSite).map(hex => hex.stationSite).sort()).toEqual(TOWN_IDS)
   })
 })

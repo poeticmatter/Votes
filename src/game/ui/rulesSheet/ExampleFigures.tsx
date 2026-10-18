@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react'
-import { BOARD, hexAt } from '../../map/board'
+import { BOARD, hexAt, stationKeyOf } from '../../map/board'
 import { apothemOf, hexCenter, midpoint, type HexKey, type Point } from '../../map/hexGrid'
 import { peopleAt } from '../../rules/boardQueries'
+import { newTile } from '../../rules/placement'
 import { centerOfHex, HEX_RADIUS, residentCenters, waitingCenters } from '../map/geometry'
 import { MapSurface } from '../map/MapSurface'
 import { MergerMarker, TilePiece } from '../map/Pieces'
-import { PrintedStationSites } from '../map/StationSites'
 import { COLORS } from '../theme'
 import { CubeRing, CubeTag, GhostTile, GutterArrow, JustPlacedOutline, NumberBadge } from './annotations'
 import {
@@ -51,9 +51,8 @@ function MapExcerpt({ position, label, children }: { position: ExamplePosition; 
     >
       <rect x={box.x} y={box.y} width={box.width} height={box.height} fill={COLORS.ground} />
       <MapSurface />
-      <PrintedStationSites />
       {Object.entries(position.tiles).map(([key, tile]) => (
-        <TilePiece key={key} tile={tile} center={centerOfHex(key)} district={hexAt(key).startingResidence} />
+        <TilePiece key={key} tile={tile} center={centerOfHex(key)} townLetter={hexAt(key).residenceSite} />
       ))}
       {children}
     </svg>
@@ -70,9 +69,10 @@ const residentCenter = (position: ExamplePosition, at: HexKey, home: number) =>
 const BADGE_OFFSET = { x: 54, y: -50 }
 
 export const PlacementFigure = () => (
-  <MapExcerpt position={PLACEMENT_EXAMPLE.position} label="Four hexes in district B, numbered as in the text">
+  <MapExcerpt position={PLACEMENT_EXAMPLE.position} label="Four hexes around town A's Station, numbered as in the text">
     {PLACEMENT_EXAMPLE.candidates.map(candidate => (
-      <GhostTile key={candidate.number} tile={candidate.tile} center={centerOfHex(candidate.at)} />
+      // A ghost only shows the tile's look, so any town will do for one that can't go there.
+      <GhostTile key={candidate.number} tile={newTile(candidate.kind, candidate.color, 'A')} center={centerOfHex(candidate.at)} />
     ))}
     {PLACEMENT_EXAMPLE.candidates.map(candidate => (
       <NumberBadge
@@ -97,21 +97,14 @@ const BagTags = ({ tags }: { tags: BagTag[] }) => (
 )
 
 export const ImmigrationFigure = () => {
-  const { position, placed, arrivals } = IMMIGRATION_EXAMPLE
-  const state = stateOf(position)
-  const tags = arrivals.flatMap(({ station, side }): BagTag[] => {
-    const tile = state.tiles[station]
-    return tile?.kind === 'station' ? [{ at: station, color: tile.owner, amount: tile.people.length, side }] : []
-  })
+  const { position, placed } = IMMIGRATION_EXAMPLE
+  const station = stationKeyOf('E')
   return (
-    <MapExcerpt position={position} label="District E after a Factory brings people to its two Stations">
+    <MapExcerpt position={position} label="Town E after a Factory brings people to its Station">
       <JustPlacedOutline center={centerOfHex(placed)} />
-      {arrivals.flatMap(({ station }) =>
-        waitingCenters(centerOfHex(station), peopleAt(state, station).length).map(center => (
-          <CubeRing key={`${center.x},${center.y}`} center={center} />
-        )),
-      )}
-      <BagTags tags={tags} />
+      {waitingCenters(centerOfHex(station), peopleAt(stateOf(position), station).length).map(center => (
+        <CubeRing key={`${center.x},${center.y}`} center={center} />
+      ))}
     </MapExcerpt>
   )
 }
@@ -128,14 +121,14 @@ const Moves = ({ position, moves }: { position: ExamplePosition; moves: PersonAr
 )
 
 export const HousingFigure = () => (
-  <MapExcerpt position={HOUSING_EXAMPLE.position} label="District E after housing, with arrows from the Stations">
+  <MapExcerpt position={HOUSING_EXAMPLE.position} label="Town E after housing, with arrows from its Station">
     <Moves position={HOUSING_EXAMPLE.position} moves={HOUSING_EXAMPLE.moves} />
     <BagTags tags={HOUSING_EXAMPLE.bagTags} />
   </MapExcerpt>
 )
 
 export const SchoolFigure = () => (
-  <MapExcerpt position={SCHOOL_EXAMPLE.position} label="District B after a School's relocation and housing">
+  <MapExcerpt position={SCHOOL_EXAMPLE.position} label="Town B after a School's relocation">
     <JustPlacedOutline center={centerOfHex(SCHOOL_EXAMPLE.placed)} />
     <Moves position={SCHOOL_EXAMPLE.position} moves={SCHOOL_EXAMPLE.moves} />
     <BagTags tags={SCHOOL_EXAMPLE.bagTags} />
@@ -146,7 +139,7 @@ export const MergerFigure = () => {
   const { position, placed, housed, marker } = MERGER_EXAMPLE
   const [newTile, otherTile] = marker.between.map(centerOfHex)
   return (
-    <MapExcerpt position={position} label="A new Residence in E joining E and C, with merger marker 1">
+    <MapExcerpt position={position} label="A new Residence in C joining C and E, with merger marker 1">
       <JustPlacedOutline center={centerOfHex(placed)} />
       <GutterArrow from={centerOfHex(housed.from)} to={centerOfHex(housed.to)} />
       {housed.homes.map(home => (

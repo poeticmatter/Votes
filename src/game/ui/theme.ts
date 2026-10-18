@@ -8,7 +8,7 @@ export const COLORS = {
   cell: '#ffffff',
   mountain: '#b4bcc8',
   water: '#72b7e4',
-  // Darker and greyer than the sage printed Residences and the jade player colour.
+  // Darker and greyer than sage tiles and the jade player colour.
   forest: '#6f9468',
   ink: '#262a31',
   inkSoft: '#5b6370',
@@ -33,8 +33,6 @@ export const MAP_STYLE = {
   forestGlyphSize: 56,
   wavesGlyphSize: 54,
   wavesStrokeWidth: 3.5,
-  // Printed like a slot: a grey disc where a Station goes. A tile covers it once built.
-  stationSite: { radius: 40, glyphSize: 52, strokeWidth: 2, label: { width: 38, height: 24, fontSize: 17 } },
 } as const
 
 export const TILE_STYLE = {
@@ -43,9 +41,9 @@ export const TILE_STYLE = {
   sizeRatio: 0.74,
   cornerRadius: 12,
   emptySlotDash: '3 2.5',
-  factory: { fill: '#383d45', ink: '#ffffff' },
-  school: { fill: '#ffffff', ink: '#383d45', outline: { color: '#383d45', width: 2.5 } },
-  // A pale sage: far lighter and yellower than the green player's #009e73, so a printed
-  // Residence never reads as theirs.
-  printed: { fill: '#d6e9c6', ink: COLORS.ink, emptySlot: COLORS.inkFaint },
+  // Tiles take their town's colour (townColors.ts); the outline keeps the palest clear
+  // of the white cells.
+  ink: COLORS.ink,
+  outline: { color: 'rgba(38, 42, 49, 0.4)', width: 2 },
+  emptySlot: COLORS.inkSoft,
 } as const

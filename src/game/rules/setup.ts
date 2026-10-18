@@ -1,33 +1,32 @@
 import { nextIndex } from 'game-kit/turns'
-import { DISTRICT_IDS, startingResidenceKey } from '../map/board'
-import { hexKey, type HexKey } from '../map/hexGrid'
-import { STARTING_FACTORIES } from '../map/mapData'
+import { residenceSiteKey, stationKeyOf, TOWN_IDS } from '../map/board'
+import type { HexKey } from '../map/hexGrid'
+import type { TownId } from '../map/mapData'
 import {
   INDEPENDENT,
   MAX_PLAYERS,
   MIN_PLAYERS,
   PLAYER_COLORS,
+  RULES_VERSION,
   STARTING_PEOPLE_PER_PLAYER,
   STARTING_PEOPLE_PER_RESIDENCE,
-  RULES_VERSION,
-  STATIONS_BY_PLAYER_COUNT,
+  STARTING_RESIDENCE_COLORS,
   type CubeColor,
-  type PlayerColor,
   type PlayerCount,
   type Tile,
+  type TownColor,
   type VotesSettings,
   type VotesState,
 } from './types'
 
 /** The rules' playtest values. */
 export const DEFAULT_SETTINGS: VotesSettings = {
-  residencesByPlayerCount: { 2: 15, 3: 10, 4: 8, 5: 6 },
   greyCubes: 10,
   startingCubesPerPlayer: 2,
-  arrivals: { perStation: 2, perFactory: 2 },
+  factoryArrivals: 3,
 }
 
-const STARTING_PEOPLE = DISTRICT_IDS.length * STARTING_PEOPLE_PER_RESIDENCE
+const STARTING_PEOPLE = TOWN_IDS.length * STARTING_PEOPLE_PER_RESIDENCE
 
 export function isPlayerCount(count: number): count is PlayerCount {
   return Number.isInteger(count) && count >= MIN_PLAYERS && count <= MAX_PLAYERS
@@ -38,40 +37,43 @@ export function greyPeopleAtSetup(playerCount: PlayerCount): number {
   return STARTING_PEOPLE - playerCount * STARTING_PEOPLE_PER_PLAYER
 }
 
-/** The fewest grey cubes that can seed the printed Residences at any player count. */
+/** The fewest grey cubes that can seed the starting Residences at any player count. */
 export const MIN_GREY_CUBES = greyPeopleAtSetup(MIN_PLAYERS)
 
-interface SeededPeople {
-  peopleByDistrict: CubeColor[][]
+interface Shuffled<T> {
+  items: T[]
   randomState: number
 }
 
-/** Deals the starting people to the printed Residences at random, two to each. */
-function seedPeople(colors: readonly PlayerColor[], greyCount: number, randomState: number): SeededPeople {
-  const pool: CubeColor[] = [
-    ...colors.flatMap(color => Array<CubeColor>(STARTING_PEOPLE_PER_PLAYER).fill(color)),
-    ...Array<CubeColor>(greyCount).fill(INDEPENDENT),
-  ]
-  const dealt: CubeColor[] = []
+function shuffle<T>(items: readonly T[], randomState: number): Shuffled<T> {
+  const pool = [...items]
+  const shuffled: T[] = []
   let state = randomState
   while (pool.length) {
     const { index, nextState } = nextIndex(state, pool.length)
     state = nextState
-    dealt.push(...pool.splice(index, 1))
+    shuffled.push(...pool.splice(index, 1))
   }
-  const peopleByDistrict = DISTRICT_IDS.map((_, position) =>
-    dealt.slice(position * STARTING_PEOPLE_PER_RESIDENCE, (position + 1) * STARTING_PEOPLE_PER_RESIDENCE),
-  )
-  return { peopleByDistrict, randomState: state }
+  return { items: shuffled, randomState: state }
 }
 
-function printedTiles(peopleByDistrict: CubeColor[][]): Record<HexKey, Tile> {
-  const residences = DISTRICT_IDS.map((district, position): [HexKey, Tile] => [
-    startingResidenceKey(district),
-    { kind: 'residence', owner: null, people: peopleByDistrict[position] },
-  ])
-  const factories = STARTING_FACTORIES.map(([col, row]): [HexKey, Tile] => [hexKey(col, row), { kind: 'factory' }])
-  return Object.fromEntries([...residences, ...factories])
+/** Each town's starting Residence, its Station and the two people living there. */
+function startingTiles(townColors: Record<TownId, TownColor>, peopleByTown: CubeColor[][]): Record<HexKey, Tile> {
+  return Object.fromEntries(
+    TOWN_IDS.flatMap((town, position): [HexKey, Tile][] => {
+      const color = townColors[town]
+      return [
+        [residenceSiteKey(town), { kind: 'residence', color, town, people: peopleByTown[position] }],
+        [stationKeyOf(town), { kind: 'station', color, town, people: [] }],
+      ]
+    }),
+  )
+}
+
+function peopleInGroups(people: CubeColor[]): CubeColor[][] {
+  return TOWN_IDS.map((_, position) =>
+    people.slice(position * STARTING_PEOPLE_PER_RESIDENCE, (position + 1) * STARTING_PEOPLE_PER_RESIDENCE),
+  )
 }
 
 export interface VotesSetup {
@@ -83,7 +85,9 @@ export interface VotesSetup {
 export function createInitialState({ settings, playerCount, seed }: VotesSetup): VotesState {
   if (!isPlayerCount(playerCount)) throw new Error(`Votes is for ${MIN_PLAYERS}–${MAX_PLAYERS} players, not ${playerCount}`)
   // A lobby running an older deploy sends settings without the newer dials.
-  if (!settings.arrivals) throw new Error('These settings come from an older version of Votes; reload the page and start again')
+  if (typeof settings.factoryArrivals !== 'number') {
+    throw new Error('These settings come from an older version of Votes; reload the page and start again')
+  }
   const greyPeople = greyPeopleAtSetup(playerCount)
   const greyInBag = settings.greyCubes - greyPeople
   if (greyInBag < 0) {
@@ -92,7 +96,16 @@ export function createInitialState({ settings, playerCount, seed }: VotesSetup):
 
   const colors = PLAYER_COLORS.slice(0, playerCount)
   const { index: firstPlayerIndex, nextState: afterFirstPlayer } = nextIndex(seed >>> 0, playerCount)
-  const { peopleByDistrict, randomState } = seedPeople(colors, greyPeople, afterFirstPlayer)
+  const dealtColors = shuffle(STARTING_RESIDENCE_COLORS, afterFirstPlayer)
+  const townColors = Object.fromEntries(TOWN_IDS.map((town, position) => [town, dealtColors.items[position]])) as Record<
+    TownId,
+    TownColor
+  >
+  const startingPeople: CubeColor[] = [
+    ...colors.flatMap(color => Array<CubeColor>(STARTING_PEOPLE_PER_PLAYER).fill(color)),
+    ...Array<CubeColor>(greyPeople).fill(INDEPENDENT),
+  ]
+  const dealtPeople = shuffle(startingPeople, dealtColors.randomState)
   const bag: Partial<Record<CubeColor, number>> = {
     [INDEPENDENT]: greyInBag,
     ...Object.fromEntries(colors.map(color => [color, settings.startingCubesPerPlayer])),
@@ -100,21 +113,17 @@ export function createInitialState({ settings, playerCount, seed }: VotesSetup):
 
   return {
     rulesVersion: RULES_VERSION,
-    players: colors.map(color => ({
-      color,
-      score: 0,
-      residencesLeft: settings.residencesByPlayerCount[playerCount],
-      stationsLeft: STATIONS_BY_PLAYER_COUNT[playerCount],
-    })),
+    players: colors.map(color => ({ color, score: 0 })),
     firstPlayerIndex,
     turn: { number: 1, playerIndex: firstPlayerIndex, placedAt: null },
     phase: { kind: 'placement' },
-    tiles: printedTiles(peopleByDistrict),
-    cities: DISTRICT_IDS.map(district => [district]),
+    tiles: startingTiles(townColors, peopleInGroups(dealtPeople.items)),
+    townColors,
+    cities: TOWN_IDS.map(town => [town]),
     mergers: [],
     bag,
-    randomState,
-    arrivals: settings.arrivals,
+    randomState: dealtPeople.randomState,
+    factoryArrivals: settings.factoryArrivals,
     consecutivePasses: 0,
     elections: [],
     log: [],

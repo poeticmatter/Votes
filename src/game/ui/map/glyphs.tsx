@@ -27,7 +27,7 @@ export const HouseGlyph = ({ size, color }: GlyphProps) => (
   </Glyph>
 )
 
-/** A printed Residence carries its district letter inside the house. */
+/** A town's starting Residence carries the town's letter inside the house. */
 export const LetteredHouseGlyph = ({
   size,
   color,

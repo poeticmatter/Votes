@@ -1,27 +1,35 @@
 import { useState } from 'react'
-import { districtOf } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
-import { activePlayerState } from '../rules/boardQueries'
+import { townOf } from '../rules/boardQueries'
 import { housingMoves } from '../rules/housing'
-import { legalPlacements, newTile } from '../rules/placement'
+import { legalPlacements, newTile, townJoinedAt } from '../rules/placement'
 import { relocationMoves } from '../rules/relocation'
-import type { CubeColor, PersonMove, TileKind, VotesMove, VotesState } from '../rules/types'
+import type { CubeColor, PersonMove, PlaceableKind, TownColor, VotesMove, VotesState } from '../rules/types'
 import type { TilePreview } from './map/MapView'
-import { TILE_NAMES } from './names'
+import { tileName } from './names'
 
 // Turns the current phase into what the active player can click on the map. Placement
 // is chosen first and confirmed second, because it can't be taken back. Moving a person
 // (a School's relocation, or housing) is picked in steps: where from, which colour when
 // there's a choice, then where to; it commits on that last click.
 
+/** A tile from the supply: a kind in a town colour. */
+export interface TileChoice {
+  kind: PlaceableKind
+  color: TownColor
+}
+
 export interface PlacementChoice {
-  tile: TileKind | null
+  tile: TileChoice | null
   at: HexKey | null
 }
 
+export const isSameTile = (a: TileChoice | null, b: TileChoice | null): boolean =>
+  a !== null && b !== null && a.kind === b.kind && a.color === b.color
+
 export interface PlacementControls {
   placement: PlacementChoice
-  chooseTile: (tile: TileKind) => void
+  chooseTile: (tile: TileChoice) => void
   confirmPlacement: () => void
   cancelPlacement: () => void
 }
@@ -72,11 +80,15 @@ function usePlacementControls(state: VotesState, onMove: (move: VotesMove) => vo
 
   return {
     placement,
-    chooseTile: tile => setPlacement(placement.tile === tile ? NO_PLACEMENT : { tile, at: null }),
+    chooseTile: tile => {
+      if (isSameTile(placement.tile, tile)) setPlacement(NO_PLACEMENT)
+      // The same colour fits the same hexes, so a chosen hex survives a change of kind.
+      else setPlacement({ tile, at: placement.tile?.color === tile.color ? placement.at : null })
+    },
     setAt: at => setPlacement({ ...placement, at }),
     confirmPlacement: () => {
       if (!placement.tile || !placement.at) return
-      onMove({ kind: 'place', tile: placement.tile, at: placement.at })
+      onMove({ kind: 'place', tile: placement.tile.kind, color: placement.tile.color, at: placement.at })
       setPlacement(NO_PLACEMENT)
     },
     cancelPlacement: () => setPlacement(NO_PLACEMENT),
@@ -131,11 +143,13 @@ function usePersonPicker(state: VotesState, onMove: (move: VotesMove) => void): 
 
 function placementMap(state: VotesState, placement: PlacementChoice, setAt: (at: HexKey) => void): MapControls {
   const { tile, at } = placement
+  if (!tile) return IDLE_MAP
+  const town = at ? townJoinedAt(state, tile.color, at) : null
   return {
-    targets: tile ? legalPlacements(state, tile) : [],
-    describeTarget: key => `Place a ${tile ? TILE_NAMES[tile] : 'tile'} here, in district ${districtOf(key)}`,
+    targets: legalPlacements(state, tile.color),
+    describeTarget: key => `Place a ${tileName(tile.kind, tile.color)} here, in town ${townJoinedAt(state, tile.color, key)}`,
     onTarget: setAt,
-    preview: tile && at ? { tile: newTile(tile, activePlayerState(state).color), at } : null,
+    preview: at && town ? { tile: newTile(tile.kind, tile.color, town), at } : null,
     emphasized: [],
   }
 }
@@ -147,7 +161,7 @@ function personMap(state: VotesState, person: PersonPicker): MapControls {
     return {
       ...IDLE_MAP,
       targets: distinct(person.moves.map(move => move.from)),
-      describeTarget: key => (isRelocation ? 'Take a person from here' : `House a person waiting at this Station in ${districtOf(key)}`),
+      describeTarget: key => (isRelocation ? 'Take a person from here' : `House a person waiting at town ${townOf(state, key)}’s Station`),
       onTarget: person.chooseFrom,
       // While the player looks for someone to move, show where they're owed.
       emphasized: isRelocation ? phase.residences : [],
@@ -156,7 +170,7 @@ function personMap(state: VotesState, person: PersonPicker): MapControls {
   return {
     ...IDLE_MAP,
     targets: person.destinations,
-    describeTarget: key => `Move the person into this Residence in ${districtOf(key)}`,
+    describeTarget: key => `Move the person into this Residence in town ${townOf(state, key)}`,
     onTarget: person.chooseDestination,
     emphasized: [person.from],
   }

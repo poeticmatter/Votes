@@ -40,7 +40,7 @@ export const NumberBadge = ({ center, number, isAllowed }: { center: Point; numb
 /** A tile someone is considering: see-through, so it reads as hypothetical. */
 export const GhostTile = ({ tile, center }: { tile: Tile; center: Point }) => (
   <g opacity={0.42}>
-    <TilePiece tile={tile} center={center} district={null} />
+    <TilePiece tile={tile} center={center} townLetter={null} />
   </g>
 )
 

@@ -8,10 +8,9 @@ import { hasAnyLegalPlacement, placeTile } from './placement'
 import { beginRelocation, isRelocationOver, relocate } from './relocation'
 import type { Phase, PlayerColor, VotesMove, VotesState } from './types'
 
-// A turn: place a tile, then its relocation (a School), its immigration (a Station or
-// Factory), housing, and a merger with its election if the tile joined cities. Each
-// move is one decision by the active player; everything that needs no decision runs
-// straight on.
+// A turn: place a tile, then its relocation (a School), its immigration (a Factory),
+// housing, and a merger with its election if the tile joined cities. Each move is one
+// decision by the active player; everything that needs no decision runs straight on.
 
 type GameOverReason = 'lastMerger' | 'nobodyCanBuild'
 
@@ -59,11 +58,12 @@ function endGame(state: VotesState, reason: GameOverReason): VotesState {
 
 function resolveMerger(state: VotesState): VotesState {
   const at = state.turn.placedAt
-  if (!at) return state
-  const joins = citiesJoinedBy(state, at)
+  const tile = at ? state.tiles[at] : undefined
+  if (!at || !tile) return state
+  const joins = citiesJoinedBy(state, tile.town, at)
   if (joins.length === 0) return state
 
-  const { state: merged, city } = mergeCities(state, at, joins)
+  const { state: merged, city } = mergeCities(state, tile.town, joins)
   const logged: VotesState = {
     ...merged,
     log: [...merged.log, { kind: 'merger', turn: state.turn.number, city, electionNumber: merged.elections.length + 1 }],
@@ -118,7 +118,7 @@ export function applyMove(state: VotesState, move: VotesMove): VotesState {
   switch (move.kind) {
     case 'place':
       requirePhase(state, 'placement')
-      return advance(beginRelocation(placeTile(state, move.tile, move.at)))
+      return advance(beginRelocation(placeTile(state, move.tile, move.color, move.at)))
     case 'pass':
       requirePhase(state, 'placement')
       return advance(beginRelocation(pass(state)))

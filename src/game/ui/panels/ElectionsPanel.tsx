@@ -1,23 +1,19 @@
-import { districtOf } from '../../map/board'
 import type { SeatReason, SeatResult, VotesState } from '../../rules/types'
-import { CubeChip, useColorNameOf, useOwnerOf } from '../names'
+import { CubeChip, useColorNameOf } from '../names'
 import { CityResult } from './CitiesPanel'
 import { Panel } from './Panel'
 
 const TIE_EXPLANATIONS: Record<SeatReason, string | null> = {
   mostPeople: null,
-  tieToOwner: 'tie, to its owner',
-  tieToGrey: 'tie on a printed Residence, to grey',
+  tieToGrey: 'tie, to grey',
 }
 
 function SeatLine({ seat }: { seat: SeatResult }) {
   const colorNameOf = useColorNameOf()
-  const ownerOf = useOwnerOf()
-  const residence = seat.owner ? `${ownerOf(seat.owner)} Residence` : 'Printed Residence'
-  const tie = TIE_EXPLANATIONS[seat.reason]
+  const tie = seat.people.length ? TIE_EXPLANATIONS[seat.reason] : 'empty, to grey'
   return (
     <li className="flex flex-wrap items-center gap-x-1.5">
-      <span className="text-ink-faint">{districtOf(seat.residence)}</span> {residence}: <CubeChip color={seat.winner} size={11} />{' '}
+      <span className="text-ink-faint">{seat.town}</span> Residence: <CubeChip color={seat.winner} size={11} />{' '}
       {colorNameOf(seat.winner)}
       {tie && <span className="italic">({tie})</span>}
     </li>

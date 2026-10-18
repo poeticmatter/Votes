@@ -15,7 +15,7 @@ export const TILE_RADIUS = HEX_RADIUS * TILE_STYLE.sizeRatio
 // Positions and sizes inside a tile, in px at map scale.
 export const TILE_LAYOUT = {
   houseSize: 0.46 * TILE_RADIUS,
-  printedHouseSize: 0.52 * TILE_RADIUS,
+  startingHouseSize: 0.52 * TILE_RADIUS,
   houseY: -0.36 * TILE_RADIUS,
   slotSize: 0.29 * TILE_RADIUS,
   slotPitch: 0.36 * TILE_RADIUS,

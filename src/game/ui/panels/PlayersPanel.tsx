@@ -42,7 +42,6 @@ export function PlayersPanel({ state, players }: { state: VotesState; players: P
                   {isOffline && <span className="ml-1 text-xs font-normal text-alert">offline</span>}
                 </span>
                 <span className="text-xs font-normal text-ink-soft">
-                  {countOf(player.residencesLeft, 'Residence')} · {countOf(player.stationsLeft, 'Station')} left ·{' '}
                   {countOf(people.filter(color => color === player.color).length, 'cube')} on the board
                 </span>
               </div>

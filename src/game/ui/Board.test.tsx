@@ -62,7 +62,7 @@ describe('board rendering', () => {
   })
 
   it('lists the Stations with people to house', () => {
-    expect(render(housing, { role: activeRole(housing) })).toContain('Station in')
+    expect(render(housing, { role: activeRole(housing) })).toContain('Station of town')
   })
 
   it('shows past elections', () => {

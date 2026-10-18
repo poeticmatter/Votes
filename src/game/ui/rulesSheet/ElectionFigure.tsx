@@ -1,4 +1,3 @@
-import { districtOf } from '../../map/board'
 import type { SeatReason, SeatResult } from '../../rules/types'
 import { HouseGlyph, PlaceGlyph } from '../map/glyphs'
 import { COLORS, FONT_FAMILY } from '../theme'
@@ -14,7 +13,7 @@ const HEADER_Y = 10
 const FIRST_ROW_Y = 36
 const ROW_HEIGHT = 32
 const CUBE = { size: 16, pitch: 19 }
-const COLUMNS = { district: 0, house: 28, cubes: 50, chip: 146, note: 226 }
+const COLUMNS = { town: 0, house: 28, cubes: 50, chip: 146, note: 226 }
 const CHIP = { width: 74, height: 24 }
 const HOUSE_SIZE = 24
 const SEAT_DISC = { firstX: 56, pitch: 22, radius: 9 }
@@ -24,7 +23,6 @@ const TEXT = { fontFamily: FONT_FAMILY, dominantBaseline: 'central' } as const
 
 const TIE_NOTES: Record<SeatReason, string | null> = {
   mostPeople: null,
-  tieToOwner: 'tie: owner',
   tieToGrey: 'tie: grey',
 }
 
@@ -40,18 +38,16 @@ function SeatChip({ x, y, seat }: { x: number; y: number; seat: SeatResult }) {
   )
 }
 
-/** A printed Residence's house is ink; a player's is in their colour. */
 function ResidenceRow({ seat, y }: { seat: SeatResult; y: number }) {
   const pieceColorOf = usePieceColorOf()
-  const houseColor = seat.owner ? pieceColorOf(seat.owner).fill : COLORS.ink
-  const note = seat.people.length ? TIE_NOTES[seat.reason] : `empty: ${seat.owner ? 'owner' : 'grey'}`
+  const note = seat.people.length ? TIE_NOTES[seat.reason] : 'empty: grey'
   return (
     <g>
-      <text {...TEXT} x={COLUMNS.district} y={y} fontSize={15} fontWeight={800} fill={COLORS.inkSoft}>
-        {districtOf(seat.residence)}
+      <text {...TEXT} x={COLUMNS.town} y={y} fontSize={15} fontWeight={800} fill={COLORS.inkSoft}>
+        {seat.town}
       </text>
       <PlaceGlyph center={{ x: COLUMNS.house, y }} size={HOUSE_SIZE}>
-        <HouseGlyph size={HOUSE_SIZE} color={houseColor} />
+        <HouseGlyph size={HOUSE_SIZE} color={COLORS.ink} />
       </PlaceGlyph>
       {seat.people.map((color, index) => (
         <rect
@@ -98,7 +94,7 @@ export function ElectionFigure() {
 
   return (
     <svg viewBox={`0 0 ${VIEW_WIDTH} ${viewHeight}`} className="block h-auto w-full" role="img" aria-label={`Election: ${payout}`}>
-      <ColumnHeader x={COLUMNS.district} label="SEAT" />
+      <ColumnHeader x={COLUMNS.town} label="SEAT" />
       <ColumnHeader x={COLUMNS.cubes} label="PEOPLE" />
       <ColumnHeader x={COLUMNS.chip} label="WON BY" />
       {result.seats.map((seat, index) => (

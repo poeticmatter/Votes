@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { nextIndex } from 'game-kit/turns'
-import { BOARD, isStationSiteInUse } from '../map/board'
-import { bagSize, peopleOnBoard, residences, tilesInBoardOrder } from './boardQueries'
+import { BOARD, hexAt } from '../map/board'
+import { peopleOnBoard, residences, tilesInBoardOrder } from './boardQueries'
 import { beginHousing, housingMoves } from './housing'
 import { citiesJoinedBy } from './mergers'
+import { townJoinedAt } from './placement'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
 import { legalMoves } from './testStates'
 import { applyMove } from './turnFlow'
@@ -11,7 +12,7 @@ import { RESIDENCE_CAPACITY, type VotesMove, type VotesState } from './types'
 
 // Whole games played by seeded random agents, checking the rules' invariants after
 // every move. A cautious agent avoids merging while it can, which drives games long
-// enough to empty stocks and fill the board.
+// enough to fill the board.
 
 type Agent = 'random' | 'cautious'
 
@@ -20,7 +21,11 @@ const MOVE_LIMIT = 5000
 function agentMoves(state: VotesState, agent: Agent): VotesMove[] {
   const moves = legalMoves(state)
   if (agent === 'random' || state.phase.kind !== 'placement') return moves
-  const quiet = moves.filter(move => move.kind === 'place' && citiesJoinedBy(state, move.at).length === 0)
+  const quiet = moves.filter(move => {
+    if (move.kind !== 'place') return false
+    const town = townJoinedAt(state, move.color, move.at)
+    return town !== null && citiesJoinedBy(state, town, move.at).length === 0
+  })
   return quiet.length ? quiet : moves
 }
 
@@ -33,18 +38,19 @@ function expectInvariants(state: VotesState, peopleBefore: number): void {
     if (tile.people.length > RESIDENCE_CAPACITY) expect(isNextToSchool(state, key)).toBe(true)
   }
   for (const { key, tile } of tilesInBoardOrder(state)) {
-    const hex = BOARD.hexByKey.get(key)
-    // A station site in use takes a Station and nothing else.
-    expect(tile.kind === 'station').toBe(hex !== undefined && isStationSiteInUse(hex, state.players.length))
+    // Stations stay where they're printed, and every tile wears its town's colour.
+    expect(tile.kind === 'station').toBe(hexAt(key).stationSite !== null)
+    expect(tile.color).toBe(state.townColors[tile.town])
+    // Two towns of one colour never touch.
+    for (const { key: neighborKey } of hexAt(key).neighbors) {
+      const neighbor = state.tiles[neighborKey]
+      if (neighbor?.color === tile.color) expect(neighbor.town).toBe(tile.town)
+    }
   }
   // Cubes never leave the board.
   expect(peopleOnBoard(state).length).toBeGreaterThanOrEqual(peopleBefore)
   expect(Object.values(state.bag).every(count => (count ?? 0) >= 0)).toBe(true)
   for (const key of Object.keys(state.tiles)) expect(BOARD.hexByKey.get(key)?.terrain).toBe('open')
-  for (const player of state.players) {
-    expect(player.residencesLeft).toBeGreaterThanOrEqual(0)
-    expect(player.stationsLeft).toBeGreaterThanOrEqual(0)
-  }
   // A new turn starts with everyone housed who could be, unless last turn's merger
   // (which comes after housing) gave them a bigger city to move into.
   const lastTurn = state.turn.number - 1
@@ -107,10 +113,5 @@ describe('determinism', () => {
       createInitialState({ settings: DEFAULT_SETTINGS, playerCount: 3, seed: 5 }),
     )
     expect(viaJson).toEqual(final)
-  })
-
-  it('never lets the bag run dry', () => {
-    const { final } = playOut(2, 3, 'cautious')
-    expect(bagSize(final)).toBeGreaterThan(0)
   })
 })

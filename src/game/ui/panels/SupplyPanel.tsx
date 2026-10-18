@@ -1,4 +1,4 @@
-import { DISTRICT_IDS } from '../../map/board'
+import { TOWN_IDS } from '../../map/board'
 import { bagSize } from '../../rules/boardQueries'
 import { INDEPENDENT, type CubeColor, type VotesState } from '../../rules/types'
 import { BagGlyph } from '../map/glyphs'
@@ -7,8 +7,8 @@ import { COLORS } from '../theme'
 import { useByLook } from '../viewer'
 import { Panel } from './Panel'
 
-/** Every merger joins at least two cities, so five districts make at most this many. */
-const MERGERS_IN_GAME = DISTRICT_IDS.length - 1
+/** Every merger joins at least two cities, so five towns make at most this many. */
+const MERGERS_IN_GAME = TOWN_IDS.length - 1
 
 function bagColors(state: VotesState): CubeColor[] {
   return [INDEPENDENT, ...state.players.map(player => player.color)]

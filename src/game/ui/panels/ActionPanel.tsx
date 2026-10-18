@@ -1,131 +1,130 @@
 import { Button } from 'game-kit/turns'
-import { districtOf } from '../../map/board'
 import type { HexKey } from '../../map/hexGrid'
-import { activePlayerState, factoryPoints, stations } from '../../rules/boardQueries'
+import type { TownId } from '../../map/mapData'
+import { activePlayerState, factoryPoints } from '../../rules/boardQueries'
 import { citiesJoinedBy } from '../../rules/mergers'
-import { legalPlacements, newTile, TILE_KINDS } from '../../rules/placement'
-import { residencesNextTo } from '../../rules/relocation'
-import { RESIDENCE_CAPACITY, type PlayerState, type TileKind, type VotesMove, type VotesState } from '../../rules/types'
-import { countOf, PlayerChip, TILE_NAMES, TileIcon } from '../names'
-import type { TurnControls } from '../useTurnControls'
+import { hasAnyLegalPlacement, legalPlacements, newTile, PLACEABLE_KINDS, townJoinedAt } from '../../rules/placement'
+import { residencesNextTo, schoolVotes } from '../../rules/relocation'
+import { RESIDENCE_CAPACITY, TOWN_COLORS, type VotesMove, type VotesState } from '../../rules/types'
+import { countOf, PlayerChip, TILE_NAMES, TileIcon, tileName } from '../names'
+import { TOWN_LOOKS } from '../townColors'
+import { isSameTile, type TileChoice, type TurnControls } from '../useTurnControls'
 import { Panel } from './Panel'
 import { PersonChoices } from './PersonChoices'
 
-const TILE_ICON_WIDTH = 34
+const TILE_ICON_WIDTH = 30
 
-function stockLabel(player: PlayerState, kind: TileKind): string {
-  if (kind === 'residence') return `${player.residencesLeft} left`
-  if (kind === 'station') return `${player.stationsLeft} left`
-  return 'Supply'
-}
-
+/** One row per town colour, one column per kind; a colour with nowhere to go is greyed out. */
 function TilePicker({ state, controls }: { state: VotesState; controls: TurnControls }) {
-  const player = activePlayerState(state)
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {TILE_KINDS.map(kind => {
-        const isPlaceable = legalPlacements(state, kind).length > 0
-        const isChosen = controls.placement.tile === kind
-        return (
-          <button
-            key={kind}
-            type="button"
-            disabled={!isPlaceable}
-            aria-pressed={isChosen}
-            onClick={() => controls.chooseTile(kind)}
-            className={`flex items-center gap-2 rounded-xl border p-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-              isChosen ? 'border-ink bg-slot' : 'border-rule bg-paper hover:bg-slot'
-            }`}
-          >
-            <TileIcon tile={newTile(kind, player.color)} width={TILE_ICON_WIDTH} />
-            <span className="flex flex-col leading-tight">
-              <span className="text-sm font-semibold">{TILE_NAMES[kind]}</span>
-              <span className="text-xs text-ink-soft">{stockLabel(player, kind)}</span>
-            </span>
-          </button>
-        )
+    <div className="grid grid-cols-[auto_repeat(3,minmax(0,1fr))] items-center gap-1.5">
+      {TOWN_COLORS.map(color => {
+        const isPlaceable = legalPlacements(state, color).length > 0
+        return [
+          <span key={`${color}-name`} className={`pr-1 text-xs font-semibold text-ink-soft ${isPlaceable ? '' : 'opacity-40'}`}>
+            {TOWN_LOOKS[color].name}
+          </span>,
+          ...PLACEABLE_KINDS.map(kind => {
+            const tile: TileChoice = { kind, color }
+            const isChosen = isSameTile(controls.placement.tile, tile)
+            return (
+              <button
+                key={`${color}-${kind}`}
+                type="button"
+                disabled={!isPlaceable}
+                aria-pressed={isChosen}
+                aria-label={tileName(kind, color)}
+                onClick={() => controls.chooseTile(tile)}
+                className={`flex items-center gap-1.5 rounded-xl border p-1.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                  isChosen ? 'border-ink bg-slot' : 'border-rule bg-paper hover:bg-slot'
+                }`}
+              >
+                {/* The icon only shows the look, so any town of the colour will do. */}
+                <TileIcon tile={newTile(kind, color, 'A')} width={TILE_ICON_WIDTH} />
+                <span className="truncate text-xs font-semibold">{TILE_NAMES[kind]}</span>
+              </button>
+            )
+          }),
+        ]
       })}
     </div>
   )
 }
 
-function immigrationEffect(state: VotesState, tile: TileKind, at: HexKey): string | null {
-  const district = districtOf(at)
-  if (tile === 'station') {
-    const count = state.arrivals.perStation
-    return `Immigration: draws ${countOf(count, 'person', 'people')} from the bag onto it, and you add ${countOf(count, 'cube')} to the bag.`
-  }
-  if (tile !== 'factory') return null
-  const stationCount = stations(state).filter(({ key }) => districtOf(key) === district).length
-  if (stationCount === 0) return `Immigration: no Station in district ${district} yet, so nobody arrives.`
-  return `Immigration: draws ${countOf(state.arrivals.perFactory, 'person', 'people')} onto each of the ${countOf(stationCount, 'Station')} in district ${district}; each owner adds a cube to the bag per person.`
+function schoolEffects(state: VotesState, at: HexKey): string[] {
+  const neighbors = residencesNextTo(state, at).length
+  if (neighbors === 0) return ['No Residence next to it, so nobody is relocated.']
+  const votes = schoolVotes(state, at)
+  return [
+    `Relocation: you move 1 person from anywhere into each of the ${countOf(neighbors, 'Residence')} next to it, even a full one, and add a cube to the bag for each.`,
+    votes
+      ? `Votes: ${countOf(votes, 'cube')} into the bag for the Residences next to it that touch no other School.`
+      : 'Every Residence next to it touches another School, so it earns no extra votes.',
+  ]
 }
 
 /** What placing the chosen tile here would do, so the player can confirm with eyes open. */
-function placementEffects(state: VotesState, tile: TileKind, at: HexKey): string[] {
-  const district = districtOf(at)
+function placementEffects(state: VotesState, { kind }: TileChoice, at: HexKey, town: TownId): string[] {
   const effects: string[] = []
-  if (tile === 'residence') effects.push(`A seat, with space for ${countOf(RESIDENCE_CAPACITY, 'person', 'people')}.`)
-  const immigration = immigrationEffect(state, tile, at)
-  if (immigration) effects.push(immigration)
-  if (tile === 'factory') {
+  if (kind === 'residence') effects.push(`A seat, with space for ${countOf(RESIDENCE_CAPACITY, 'person', 'people')}.`)
+  if (kind === 'factory') {
+    effects.push(`Immigration: draws ${countOf(state.factoryArrivals, 'person', 'people')} from the bag onto town ${town}’s Station.`)
     const points = factoryPoints(at)
     effects.push(`Worth ${countOf(points, 'point')} at elections${points > 1 ? ' (it borders a rail)' : ''}.`)
   }
-  if (tile === 'school') {
-    const neighbors = residencesNextTo(state, at).length
-    effects.push(
-      neighbors
-        ? `Relocation: you move 1 person from anywhere into each of the ${countOf(neighbors, 'Residence')} next to it, even a full one.`
-        : 'No Residence next to it, so nobody is relocated.',
-    )
-  }
-  const joins = citiesJoinedBy(state, at)
+  if (kind === 'school') effects.push(...schoolEffects(state, at))
+  const joins = citiesJoinedBy(state, town, at)
   if (joins.length) {
     const cities = joins.map(join => join.city.join('+')).join(' and ')
-    effects.push(`Merges district ${district}’s city with ${cities}. That city votes.`)
+    effects.push(`Merges town ${town}’s city with ${cities}. That city votes.`)
   }
   return effects
 }
 
+function ChosenPlacement({ state, controls }: { state: VotesState; controls: TurnControls }) {
+  const { tile, at } = controls.placement
+  const town = tile && at ? townJoinedAt(state, tile.color, at) : null
+  if (!tile || !at || !town) return null
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-slot p-3">
+      <p className="text-sm font-semibold">
+        {tileName(tile.kind, tile.color)} in town {town}
+      </p>
+      <ul className="flex list-disc flex-col gap-1 pl-4 text-sm">
+        {placementEffects(state, tile, at, town).map(effect => (
+          <li key={effect}>{effect}</li>
+        ))}
+      </ul>
+      <div className="flex gap-2">
+        <Button onClick={controls.confirmPlacement} className="flex-1">
+          Place it
+        </Button>
+        <Button tone="secondary" onClick={controls.cancelPlacement}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function PlacementChoices({ state, controls, onMove }: { state: VotesState; controls: TurnControls; onMove: (move: VotesMove) => void }) {
-  const canPlaceAnything = TILE_KINDS.some(kind => legalPlacements(state, kind).length > 0)
-  if (!canPlaceAnything) {
+  if (!hasAnyLegalPlacement(state)) {
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-sm">No tile you have fits anywhere, so you pass.</p>
+        <p className="text-sm">No tile fits anywhere, so you pass.</p>
         <Button onClick={() => onMove({ kind: 'pass' })}>Pass</Button>
       </div>
     )
   }
-
-  const { tile, at } = controls.placement
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-ink-soft">
-        {tile ? 'Choose a highlighted hex on the map.' : 'Choose a tile to place.'}
+        {controls.placement.tile
+          ? 'Choose a highlighted hex on the map.'
+          : 'Choose a tile to place. It goes next to a tile of its colour, and may not connect two towns of that colour.'}
       </p>
       <TilePicker state={state} controls={controls} />
-      {tile && at && (
-        <div className="flex flex-col gap-2 rounded-xl bg-slot p-3">
-          <p className="text-sm font-semibold">
-            {TILE_NAMES[tile]} in district {districtOf(at)}
-          </p>
-          <ul className="flex list-disc flex-col gap-1 pl-4 text-sm">
-            {placementEffects(state, tile, at).map(effect => (
-              <li key={effect}>{effect}</li>
-            ))}
-          </ul>
-          <div className="flex gap-2">
-            <Button onClick={controls.confirmPlacement} className="flex-1">
-              Place it
-            </Button>
-            <Button tone="secondary" onClick={controls.cancelPlacement}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
+      <ChosenPlacement state={state} controls={controls} />
     </div>
   )
 }
@@ -165,15 +164,8 @@ export function ActionPanel({
       </Panel>
     )
   }
-  if (state.phase.kind === 'relocation') {
-    return (
-      <Panel title="Relocation">
-        <PersonChoices state={state} picker={controls.person} />
-      </Panel>
-    )
-  }
   return (
-    <Panel title="Housing">
+    <Panel title={state.phase.kind === 'relocation' ? 'Relocation' : 'Housing'}>
       <PersonChoices state={state} picker={controls.person} />
     </Panel>
   )

@@ -1,7 +1,8 @@
 import { ColorSwatch } from 'game-kit/turns'
-import type { CubeColor, PlayerColor, Tile, TileKind } from '../rules/types'
+import type { CubeColor, PlayerColor, Tile, TileKind, TownColor } from '../rules/types'
 import { TILE_RADIUS } from './map/geometry'
 import { TilePiece } from './map/Pieces'
+import { TOWN_LOOKS } from './townColors'
 import { seatOfColor, usePieceColorOf, useViewer } from './viewer'
 
 // How the board names players and pieces in text, always by the colour the viewer sees.
@@ -11,6 +12,11 @@ export const TILE_NAMES: Record<TileKind, string> = {
   station: 'Station',
   factory: 'Factory',
   school: 'School',
+}
+
+/** "Sage Residence". */
+export function tileName(kind: TileKind, color: TownColor): string {
+  return `${TOWN_LOOKS[color].name} ${TILE_NAMES[kind]}`
 }
 
 /** "1 cube", "3 cubes"; "2 people" with an irregular `plural`. */
@@ -28,13 +34,6 @@ export function useNameOf(): (color: CubeColor) => string {
     if (seating === 'remote' && role === seat) return 'You'
     return players[seat]?.name ?? pieceColorOf(color).name
   }
-}
-
-/** "Your" for the viewer's own colour in an online game, otherwise "Ana’s". */
-export function useOwnerOf(): (color: PlayerColor) => string {
-  const nameOf = useNameOf()
-  const isViewer = useIsViewer()
-  return color => (isViewer(color) ? 'Your' : `${nameOf(color)}’s`)
 }
 
 export function useIsViewer(): (color: PlayerColor) => boolean {
@@ -78,7 +77,7 @@ export function TileIcon({ tile, width }: { tile: Tile; width: number }) {
       className="block shrink-0"
       aria-hidden
     >
-      <TilePiece tile={tile} center={{ x: 0, y: 0 }} district={null} />
+      <TilePiece tile={tile} center={{ x: 0, y: 0 }} townLetter={null} />
     </svg>
   )
 }

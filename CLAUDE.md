@@ -17,9 +17,9 @@ npm run deploy     # build and publish to GitHub Pages
 Votes: a 2–5 player, take-turns-in-order browser game with no backend of its own. It is part of the game lab (poeticmatter/game-lab). Its multiplayer platform (lobby, seats, async, live and hot-seat play) comes from **GameKit** (`game-kit/turns`), a package pinned in `package.json` to a release tag of poeticmatter/GameKit (local copy: `C:\Code\GameKit`).
 
 - `src/game/`: the game, and `index.ts` exporting `game: GameModule`.
-  - `map/`: map content (`mapData.ts`) and everything derived from it (`board.ts`: districts, rail borders, station sites, adjacency). Ported from the asset generator.
+  - `map/`: map content (`mapData.ts`: terrain, town sites, rails, river) and everything derived from it (`board.ts`: town sites, rail sides, adjacency).
   - `rules/`: pure rules. `turnFlow.ts` (`applyMove`) runs a turn through `placement.ts`, `relocation.ts` (Schools), `immigration.ts`, `housing.ts`, `mergers.ts` and `elections.ts`; `people.ts` moves one cube for relocation and housing. Tests sit beside them; `fullGame.test.ts` plays seeded games end to end and checks invariants.
-  - `ui/`: the board. `map/` draws the Metro map and pieces; `panels/` are the side panels; `rulesSheet/` is the full rules behind the Rules button; `useTurnControls.ts` turns the phase into clickable targets; `viewer.tsx` holds who is looking and the colour each player is drawn in.
+  - `ui/`: the board. `map/` draws the Metro map and pieces, each tile in its town colour (`townColors.ts`); `panels/` are the side panels; `rulesSheet/` is the full rules behind the Rules button; `useTurnControls.ts` turns the phase into clickable targets; `viewer.tsx` holds who is looking and the colour each player is drawn in.
 - `src/game.config.ts`: the game's `GameConfig` (id, title, tagline, Supabase settings from `.env.local`).
 - `src/App.tsx`: renders `<TurnBasedGameApp config={GAME_CONFIG} game={game} />`; GameKit routes on the URL (`?room=CODE[&mode=async]`).
 - `src/index.css`: imports GameKit's theme and sets the Barlow font. GameKit's default palette is the Metro look.
@@ -47,14 +47,18 @@ Votes: a 2–5 player, take-turns-in-order browser game with no backend of its o
 ## Votes
 
 - **Rules:** `C:\Code\assets\VotesAssets\Rules\Votes.md` is the current draft and the source of truth. Values in [brackets] are playtest dials and live in `VotesSettings` (the lobby's "Playtest dials").
-- **Board and visuals:** the asset generator at `C:\Code\assets\VotesAssets` (local only) is the reference. `src/game/map/` ports its map data and district derivation, `src/game/ui/theme.ts` its Metro theme, `src/game/ui/pieceColors.ts` its colour-blind-safe colours, and `src/game/rules/elections.ts` its seat allocation. Change the map in the asset generator first, then port it. The map draws only the station sites in use at the player count, since the rest are ordinary hexes.
-- **In-game rules:** `src/game/ui/rulesSheet/` ports the asset generator's rules sheet (`src/rules/`: `rulesContent.js`, `examples.js` and its figures) as real text and SVG, drawn with the game's own map and pieces, and with player colours by their in-game names (Cobalt, Saffron, Orchid, Jade). When the sheet there changes, bring this in line; `examples.test.ts` checks the examples against the game's rules.
+- **Board and visuals:** the asset generator at `C:\Code\assets\VotesAssets` (local only) is the reference for the look: `src/game/ui/theme.ts` ports its Metro theme, `src/game/ui/pieceColors.ts` its colour-blind-safe player colours, and `src/game/rules/elections.ts` its seat allocation. Since Draft 5.7 the map lives here first: `src/game/map/mapData.ts` has the town sites (each a starting Residence with its printed Station beside it, on the rail) and the rails, which no longer bound anything. The asset generator's map still shows Draft 5.4's districts and station sites.
+- **In-game rules:** `src/game/ui/rulesSheet/` is the rules sheet, first ported from the asset generator's (`src/rules/`) and since rewritten for Draft 5.7, as real text and SVG drawn with the game's own map and pieces, with player colours by their in-game names (Cobalt, Saffron, Orchid, Jade) and town colours by theirs (Sand, Sage, Slate). `examples.test.ts` checks the examples against the game's rules.
 - **Rule interpretations** the draft doesn't settle, chosen here (revisit with the designer):
-  - A School's relocation: the active player picks each person (any colour, from any Residence or Station, including another Residence next to the School) and which owed Residence they go to, in any order. A Residence across a district line counts as next to the School. A Residence goes without only if nobody is left elsewhere on the board.
-  - Immigration draws one person at a time, and the Station's owner pays their cube in before the next draw, so the bag never shrinks. A bag that starts empty (only possible at extreme dial settings) brings nobody.
+  - The town colours are Sand, Sage and Slate; the starting Residences are 2 Sand, 2 Sage and 1 Slate, shuffled onto the town sites. Each Station takes its town's colour and counts as a tile of that colour for placement.
+  - A tile joins the one town of its colour it touches. A tile touching two towns of its colour is illegal, even once those towns are in the same city.
+  - The river is scenery: it blocks nothing.
+  - Votes go into the bag the moment each person moves in. A School's own votes (Residences next to it touching no other School) are counted when it is placed, before its relocation.
+  - A School's relocation: the active player picks each person (any colour, from any Residence or Station, including another Residence next to the School) and which owed Residence they go to, in any order. A Residence goes without only if nobody is left elsewhere on the board.
+  - A Factory draws its people one at a time; if the bag runs out, the rest don't come.
   - Housing runs every turn, across the whole board: the active player picks each person (Station and colour) and their Residence, one at a time, until nobody waiting has space in their city. When only one move is possible it happens by itself. People who don't fit keep waiting for a later turn.
   - Housing comes before the merger, so people only move into the merged city's new space on the next turn's housing.
   - A tile touching several other cities merges them all in one election, with one merger marker per city joined. The game ends with the election that leaves one city.
   - Players tied with grey for a city's most seats still score; grey blocks only when it leads alone.
   - The tiebreak's "cubes on the board" counts people waiting at Stations too.
-  - Public tiles never run out. A player with no legal placement passes; a full round of passes ends the game.
+  - Tiles never run out. A player with no legal placement passes; a full round of passes ends the game.

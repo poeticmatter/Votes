@@ -2,11 +2,10 @@ import type { SettingsFormProps } from 'game-kit/turns'
 import { isPlayerCount, MIN_GREY_CUBES } from './rules/setup'
 import type { VotesSettings } from './rules/types'
 
-const RESIDENCE_RANGE = { min: 1, max: 30 }
-// Below this the 2-player setup can't seed the printed Residences.
+// Below this the 2-player setup can't seed the starting Residences.
 const GREY_CUBE_RANGE = { min: MIN_GREY_CUBES, max: 30 }
 const STARTING_CUBE_RANGE = { min: 0, max: 10 }
-const ARRIVALS_RANGE = { min: 1, max: 5 }
+const ARRIVALS_RANGE = { min: 1, max: 6 }
 
 function Stepper({
   label,
@@ -40,21 +39,12 @@ function Stepper({
 /** The [bracketed] numbers in the rules draft, adjustable for playtesting. */
 export function VotesSettingsForm({ settings, playerCount, onChange }: SettingsFormProps<VotesSettings>) {
   if (!isPlayerCount(playerCount)) throw new Error(`Unsupported player count ${playerCount}`)
-  const residences = settings.residencesByPlayerCount[playerCount]
 
   // Collapsed by default: most games use the rules' values.
   return (
     <details className="group">
       <summary className="cursor-pointer select-none text-sm font-semibold text-ink-soft hover:text-ink">Playtest dials</summary>
       <div className="flex flex-col gap-2 pt-3">
-        <Stepper
-          label={`Residences each (${playerCount} players)`}
-          value={residences}
-          range={RESIDENCE_RANGE}
-          onChange={value =>
-            onChange({ ...settings, residencesByPlayerCount: { ...settings.residencesByPlayerCount, [playerCount]: value } })
-          }
-        />
         <Stepper
           label="Grey cubes (seeded + bag)"
           value={settings.greyCubes}
@@ -68,16 +58,10 @@ export function VotesSettingsForm({ settings, playerCount, onChange }: SettingsF
           onChange={value => onChange({ ...settings, startingCubesPerPlayer: value })}
         />
         <Stepper
-          label="People a Station brings"
-          value={settings.arrivals.perStation}
+          label="People a Factory brings"
+          value={settings.factoryArrivals}
           range={ARRIVALS_RANGE}
-          onChange={value => onChange({ ...settings, arrivals: { ...settings.arrivals, perStation: value } })}
-        />
-        <Stepper
-          label="People a Factory brings to each Station"
-          value={settings.arrivals.perFactory}
-          range={ARRIVALS_RANGE}
-          onChange={value => onChange({ ...settings, arrivals: { ...settings.arrivals, perFactory: value } })}
+          onChange={value => onChange({ ...settings, factoryArrivals: value })}
         />
       </div>
     </details>

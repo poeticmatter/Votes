@@ -1,17 +1,16 @@
-import { districtOf } from '../../map/board'
+import { townOf } from '../../rules/boardQueries'
 import type { LogEntry, VotesState } from '../../rules/types'
-import { countOf, CubeChip, PlayerChip, TILE_NAMES, useOwnerOf } from '../names'
+import { countOf, CubeChip, PlayerChip, tileName } from '../names'
 import { Panel } from './Panel'
 
 const RECENT_ENTRY_COUNT = 15
 
-function EntryText({ entry }: { entry: LogEntry }) {
-  const ownerOf = useOwnerOf()
+function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
   switch (entry.kind) {
     case 'placed':
       return (
         <>
-          <PlayerChip color={entry.player} /> placed a {TILE_NAMES[entry.tile]} in {districtOf(entry.at)}.
+          <PlayerChip color={entry.player} /> placed a {tileName(entry.tile, entry.color)} in town {entry.town}.
         </>
       )
     case 'passed':
@@ -23,7 +22,14 @@ function EntryText({ entry }: { entry: LogEntry }) {
     case 'relocated':
       return (
         <>
-          <CubeChip color={entry.color} /> A person was relocated from {districtOf(entry.from)} to {districtOf(entry.to)}.
+          <CubeChip color={entry.color} /> A person was relocated from town {townOf(state, entry.from)} to town {townOf(state, entry.to)}.
+          Into the bag: <CubeChip color={entry.voter} />
+        </>
+      )
+    case 'schoolVotes':
+      return (
+        <>
+          School votes: {countOf(entry.count, 'cube')} <CubeChip color={entry.player} /> into the bag.
         </>
       )
     case 'arrived':
@@ -33,20 +39,14 @@ function EntryText({ entry }: { entry: LogEntry }) {
             // Two people of one colour can arrive together, so the colour alone isn't unique.
             <CubeChip key={`${color}-${position}`} color={color} />
           ))}{' '}
-          arrived at {ownerOf(entry.owner)} Station in {districtOf(entry.station)}. Into the bag:{' '}
-          {countOf(entry.people.length, 'cube')} <CubeChip color={entry.owner} />
+          arrived at town {entry.town}’s Station.
         </>
       )
     case 'housed':
       return (
         <>
-          <CubeChip color={entry.color} /> A person moved into a Residence in {districtOf(entry.to)}.
-          {entry.paid && (
-            <>
-              {' '}
-              Into the bag: <CubeChip color={entry.paid} />
-            </>
-          )}
+          <CubeChip color={entry.color} /> A person moved into a Residence in town {townOf(state, entry.to)}. Into the bag:{' '}
+          <CubeChip color={entry.voter} />
         </>
       )
     case 'merger':
@@ -75,7 +75,7 @@ export function LogPanel({ state }: { state: VotesState }) {
           <li key={state.log.length - index} className="flex gap-2">
             <span className="w-8 shrink-0 text-right text-xs tabular-nums text-ink-faint">T{entry.turn}</span>
             <span className="flex flex-wrap items-center gap-x-1">
-              <EntryText entry={entry} />
+              <EntryText entry={entry} state={state} />
             </span>
           </li>
         ))}

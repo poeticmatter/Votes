@@ -17,7 +17,7 @@ describe('the rules sheet', () => {
   const markup = renderSheet()
 
   it('has every section of the rules as text', () => {
-    for (const heading of ['Components', 'Setup', 'Your turn', 'Tiles', 'Election, after every merger', 'Game end']) {
+    for (const heading of ['Components', 'Setup', 'Towns and cities', 'Your turn', 'Tiles', 'Election, after every merger', 'Game end']) {
       expect(markup).toContain(heading)
     }
   })
@@ -26,8 +26,8 @@ describe('the rules sheet', () => {
     expect(markup.match(/Example: /g)).toHaveLength(6)
   })
 
-  it('labels station sites used only by bigger games, as the printed board does', () => {
-    expect(markup).toContain('4+')
+  it('names the town colours', () => {
+    expect(markup).toContain('Sand, Sage and Slate')
   })
 
   it('names the election’s winner in the figure', () => {
