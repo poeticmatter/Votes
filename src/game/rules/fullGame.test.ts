@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { nextIndex } from 'game-kit/turns'
 import { BOARD, hexAt } from '../map/board'
-import { peopleOnBoard, residences, tilesInBoardOrder } from './boardQueries'
+import { bagSize, citiesOf, peopleOnBoard, residences, tilesInBoardOrder } from './boardQueries'
 import { beginHousing, housingMoves } from './housing'
-import { citiesJoinedBy } from './mergers'
-import { townJoinedAt } from './placement'
+import { citiesTouchedBy } from './mergers'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
 import { legalMoves } from './testStates'
 import { applyMove } from './turnFlow'
@@ -12,7 +11,7 @@ import { RESIDENCE_CAPACITY, type VotesMove, type VotesState } from './types'
 
 // Whole games played by seeded random agents, checking the rules' invariants after
 // every move. A cautious agent avoids merging while it can, which drives games long
-// enough to fill the board.
+// enough to fill much of the board.
 
 type Agent = 'random' | 'cautious'
 
@@ -21,11 +20,7 @@ const MOVE_LIMIT = 5000
 function agentMoves(state: VotesState, agent: Agent): VotesMove[] {
   const moves = legalMoves(state)
   if (agent === 'random' || state.phase.kind !== 'placement') return moves
-  const quiet = moves.filter(move => {
-    if (move.kind !== 'place') return false
-    const town = townJoinedAt(state, move.color, move.at)
-    return town !== null && citiesJoinedBy(state, town, move.at).length === 0
-  })
+  const quiet = moves.filter(move => move.kind === 'place' && citiesTouchedBy(state, move.at).joins.length === 0)
   return quiet.length ? quiet : moves
 }
 
@@ -38,24 +33,16 @@ function expectInvariants(state: VotesState, peopleBefore: number): void {
     if (tile.people.length > RESIDENCE_CAPACITY) expect(isNextToSchool(state, key)).toBe(true)
   }
   for (const { key, tile } of tilesInBoardOrder(state)) {
-    // Stations stay where they're printed, and every tile wears its town's colour.
+    // Stations stay where they're printed, and nothing else goes there.
     expect(tile.kind === 'station').toBe(hexAt(key).stationSite !== null)
-    expect(tile.color).toBe(state.townColors[tile.town])
-    // Two towns of one colour never touch.
-    for (const { key: neighborKey } of hexAt(key).neighbors) {
-      const neighbor = state.tiles[neighborKey]
-      if (neighbor?.color === tile.color) expect(neighbor.town).toBe(tile.town)
-    }
   }
-  // Cubes never leave the board.
+  // Cubes never leave the board, and every tile belongs to a city.
   expect(peopleOnBoard(state).length).toBeGreaterThanOrEqual(peopleBefore)
+  expect(citiesOf(state).flat().sort()).toEqual(['A', 'B', 'C', 'D', 'E'])
   expect(Object.values(state.bag).every(count => (count ?? 0) >= 0)).toBe(true)
   for (const key of Object.keys(state.tiles)) expect(BOARD.hexByKey.get(key)?.terrain).toBe('open')
-  // A new turn starts with everyone housed who could be, unless last turn's merger
-  // (which comes after housing) gave them a bigger city to move into.
-  const lastTurn = state.turn.number - 1
-  const hadMerger = state.log.some(entry => entry.kind === 'merger' && entry.turn === lastTurn)
-  if (state.phase.kind === 'placement' && !hadMerger) expect(housingMoves(beginHousing(state))).toEqual([])
+  // A new turn starts with everyone housed who could be.
+  if (state.phase.kind === 'placement') expect(housingMoves(beginHousing(state))).toEqual([])
 }
 
 function playOut(playerCount: number, seed: number, agent: Agent): { final: VotesState; moves: VotesMove[] } {
@@ -78,7 +65,7 @@ describe.each([2, 3, 4, 5])('%i-player games', playerCount => {
   it.each([1, 2, 3, 4, 5])('random agents finish game %i', seed => {
     const { final } = playOut(playerCount, seed, 'random')
     expect(final.phase.kind).toBe('gameOver')
-    expect(final.cities).toHaveLength(1)
+    expect(citiesOf(final)).toHaveLength(1)
   })
 
   it.each([1, 2, 3])('cautious agents finish game %i', seed => {
@@ -97,6 +84,10 @@ describe('seeded games', () => {
   it('let the player choose where people are housed', () => {
     expect(movesPlayed.some(move => move.kind === 'house')).toBe(true)
   })
+
+  it('let the player choose a Station for a Factory’s people', () => {
+    expect(movesPlayed.some(move => move.kind === 'arrive')).toBe(true)
+  })
 })
 
 describe('determinism', () => {
@@ -104,6 +95,11 @@ describe('determinism', () => {
     const { final, moves } = playOut(4, 11, 'random')
     const replayed = moves.reduce(applyMove, createInitialState({ settings: DEFAULT_SETTINGS, playerCount: 4, seed: 11 }))
     expect(replayed).toEqual(final)
+  })
+
+  it('never overdraws the bag', () => {
+    const { final } = playOut(2, 3, 'cautious')
+    expect(bagSize(final)).toBeGreaterThanOrEqual(0)
   })
 
   it('survives a JSON round trip between moves', () => {

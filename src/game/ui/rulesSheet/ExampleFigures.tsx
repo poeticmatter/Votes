@@ -69,10 +69,9 @@ const residentCenter = (position: ExamplePosition, at: HexKey, home: number) =>
 const BADGE_OFFSET = { x: 54, y: -50 }
 
 export const PlacementFigure = () => (
-  <MapExcerpt position={PLACEMENT_EXAMPLE.position} label="Four hexes around town A's Station, numbered as in the text">
+  <MapExcerpt position={PLACEMENT_EXAMPLE.position} label="Four hexes around town C, numbered as in the text">
     {PLACEMENT_EXAMPLE.candidates.map(candidate => (
-      // A ghost only shows the tile's look, so any town will do for one that can't go there.
-      <GhostTile key={candidate.number} tile={newTile(candidate.kind, candidate.color, 'A')} center={centerOfHex(candidate.at)} />
+      <GhostTile key={candidate.number} tile={newTile(candidate.kind)} center={centerOfHex(candidate.at)} />
     ))}
     {PLACEMENT_EXAMPLE.candidates.map(candidate => (
       <NumberBadge
@@ -121,7 +120,7 @@ const Moves = ({ position, moves }: { position: ExamplePosition; moves: PersonAr
 )
 
 export const HousingFigure = () => (
-  <MapExcerpt position={HOUSING_EXAMPLE.position} label="Town E after housing, with arrows from its Station">
+  <MapExcerpt position={HOUSING_EXAMPLE.position} label="Towns E and C after housing, with arrows from their Stations">
     <Moves position={HOUSING_EXAMPLE.position} moves={HOUSING_EXAMPLE.moves} />
     <BagTags tags={HOUSING_EXAMPLE.bagTags} />
   </MapExcerpt>
@@ -136,15 +135,11 @@ export const SchoolFigure = () => (
 )
 
 export const MergerFigure = () => {
-  const { position, placed, housed, marker } = MERGER_EXAMPLE
+  const { position, placed, marker } = MERGER_EXAMPLE
   const [newTile, otherTile] = marker.between.map(centerOfHex)
   return (
-    <MapExcerpt position={position} label="A new Residence in C joining C and E, with merger marker 1">
+    <MapExcerpt position={position} label="A new Residence joining C and E, with merger marker 1">
       <JustPlacedOutline center={centerOfHex(placed)} />
-      <GutterArrow from={centerOfHex(housed.from)} to={centerOfHex(housed.to)} />
-      {housed.homes.map(home => (
-        <CubeRing key={home} center={residentCenter(position, housed.to, home)} />
-      ))}
       <MergerMarker center={midpoint(newTile, otherTile)} number={marker.number} />
     </MapExcerpt>
   )

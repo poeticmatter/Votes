@@ -3,14 +3,11 @@ import type { HexKey } from '../../map/hexGrid'
 import type { TownId } from '../../map/mapData'
 import { countVotes } from '../../rules/elections'
 import { createInitialState, DEFAULT_SETTINGS } from '../../rules/setup'
-import type { CubeColor, ElectionResult, PlaceableKind, PlayerColor, PlayerCount, Tile, TownColor, VotesState } from '../../rules/types'
+import type { CubeColor, ElectionResult, PlaceableKind, PlayerColor, PlayerCount, Tile, VotesState } from '../../rules/types'
 
 // Positions for the rules sheet's worked examples, on the real map. examples.test.ts
 // checks them against the game's rules, and the election example is counted by the
-// game itself. Every example deals the town colours the same way.
-
-/** A and D are Sand, B and E Sage, C Slate. */
-export const EXAMPLE_TOWN_COLORS: Record<TownId, TownColor> = { A: 'sand', B: 'sage', C: 'slate', D: 'sand', E: 'sage' }
+// game itself.
 
 export interface ExamplePosition {
   playerCount: PlayerCount
@@ -30,17 +27,15 @@ export interface BagTag {
   side: TagSide
 }
 
-/** A person moving between neighbouring tiles; `home` is their place in the destination's people. */
+/** A person moving from one tile to another; `home` is their place in the destination's people. */
 export interface PersonArrow {
   from: HexKey
   to: HexKey
   home: number
 }
 
-const colorOf = (town: TownId) => EXAMPLE_TOWN_COLORS[town]
-const residence = (town: TownId, people: CubeColor[] = []): Tile => ({ kind: 'residence', color: colorOf(town), town, people })
-const station = (town: TownId, people: CubeColor[] = []): Tile => ({ kind: 'station', color: colorOf(town), town, people })
-const building = (kind: 'factory' | 'school', town: TownId): Tile => ({ kind, color: colorOf(town), town })
+const residence = (people: CubeColor[] = []): Tile => ({ kind: 'residence', people })
+const building = (kind: 'factory' | 'school'): Tile => ({ kind })
 
 /** Every town's starting Residence and Station, with `startingPeople` on the Residences, under the example's own tiles. */
 function examplePosition(
@@ -49,179 +44,164 @@ function examplePosition(
   tiles: Record<HexKey, Tile>,
 ): ExamplePosition {
   const towns = TOWN_IDS.flatMap((town): [HexKey, Tile][] => [
-    [residenceSiteKey(town), residence(town, startingPeople[town] ?? [])],
-    [stationKeyOf(town), station(town)],
+    [residenceSiteKey(town), residence(startingPeople[town] ?? [])],
+    [stationKeyOf(town), { kind: 'station', people: [] }],
   ])
   return { ...frame, tiles: { ...Object.fromEntries(towns), ...tiles } }
 }
 
+const waitingAt = (people: CubeColor[]): Tile => ({ kind: 'station', people })
+
 /** A game state holding the example's position, for asking the rules about it. */
 export function stateOf(position: ExamplePosition): VotesState {
   const state = createInitialState({ settings: DEFAULT_SETTINGS, playerCount: position.playerCount, seed: 0 })
-  return { ...state, tiles: position.tiles, townColors: EXAMPLE_TOWN_COLORS }
+  return { ...state, tiles: position.tiles }
 }
 
 export interface PlacementCandidate {
   number: number
   at: HexKey
   kind: PlaceableKind
-  color: TownColor
   isAllowed: boolean
   reason: string
 }
 
 export const PLACEMENT_EXAMPLE = {
-  intro: 'Cobalt is choosing where to build, near town A’s Station. A and D are both Sand towns; B is Sage.',
-  position: examplePosition({ playerCount: 3, columns: [0, 3], rows: [3, 6] }, { A: ['yellow', 'grey'], D: ['grey', 'pink'] }, {
-    '1,4': residence('A', ['blue']),
-    '1,6': residence('D'),
-    // B's Sage tiles reach down to [3, 3] from its starting Residence.
-    '4,2': building('factory', 'B'),
-    '4,3': residence('B', ['pink']),
-    '3,3': residence('B'),
-  }),
+  intro: 'Cobalt is choosing where to build around town C, in the east.',
+  position: examplePosition({ playerCount: 3, columns: [7, 10], rows: [1, 4] }, { C: ['pink', 'blue'] }, {}),
   candidates: [
     {
       number: 1,
-      at: '0,5',
+      at: '10,2',
       kind: 'residence',
-      color: 'sand',
       isAllowed: true,
-      reason: 'It touches A’s Sand Residence, so it joins town A.',
+      reason: 'It touches C’s Residence.',
     },
     {
       number: 2,
-      at: '1,5',
+      at: '8,3',
       kind: 'factory',
-      color: 'sand',
-      isAllowed: false,
-      reason: 'It would connect towns A and D, which are both Sand.',
+      isAllowed: true,
+      reason: 'It touches C’s Residence and its Station. A Station counts as a tile.',
     },
     {
       number: 3,
-      at: '2,4',
+      at: '9,1',
       kind: 'school',
-      color: 'sage',
-      isAllowed: true,
-      reason: 'It touches B’s Sage Residence, so it joins town B. It also touches A’s tiles, so A and B merge.',
+      isAllowed: false,
+      reason: 'It touches C’s Residence, but mountains can’t be built on.',
     },
     {
       number: 4,
-      at: '0,4',
+      at: '7,3',
       kind: 'residence',
-      color: 'slate',
       isAllowed: false,
-      reason: 'No Slate tile is next to it.',
+      reason: 'It touches no tile or Station.',
     },
   ] satisfies PlacementCandidate[],
 }
 
 // Town E during Saffron's turn: after immigration, then after housing.
 const E_FRAME: Omit<ExamplePosition, 'tiles'> = { playerCount: 3, columns: [7, 10], rows: [5, 7] }
-const E_FACTORY = '9,6'
+const E_FACTORY = '8,6'
 const E_STATION = stationKeyOf('E')
 
 export const IMMIGRATION_EXAMPLE = {
   position: examplePosition(E_FRAME, { E: ['grey', 'pink'] }, {
-    [E_STATION]: station('E', ['yellow', 'grey', 'blue']),
-    '8,6': residence('E', ['blue', 'grey']),
-    [E_FACTORY]: building('factory', 'E'),
+    [E_STATION]: waitingAt(['yellow', 'blue', 'pink']),
+    [E_FACTORY]: building('factory'),
   }),
   placed: E_FACTORY,
   caption: [
-    'Saffron builds a Sage Factory in town E. It borders no rail, so it’s worth 1 point at elections.',
-    'Immigration: 3 people at E’s Station. Draw them from the bag and put them on it: a Saffron, a grey and a Cobalt.',
+    'Saffron builds a Factory touching E’s Station. It borders the rail, so it’s worth 2 points at elections.',
+    'Immigration: 3 people arrive at a Station in the Factory’s city. E has only one Station, so they go there. They are drawn from the bag: a Saffron, a Cobalt and an Orchid.',
+    'A city with several Stations lets Saffron choose which one gets them.',
   ],
 }
 
+const C_STATION = stationKeyOf('C')
+const E_NEW_RESIDENCE = '8,6'
+const E_RESIDENCE = residenceSiteKey('E')
+
+// After housing: C's Residence is full, so its Station's two people were waiting.
 export const HOUSING_EXAMPLE = {
-  position: examplePosition(E_FRAME, { E: ['grey', 'pink', 'grey'] }, {
-    [E_STATION]: station('E', ['blue']),
-    '8,6': residence('E', ['blue', 'grey', 'yellow']),
-    [E_FACTORY]: building('factory', 'E'),
+  position: examplePosition({ playerCount: 3, columns: [7, 10], rows: [2, 7] }, { C: ['blue', 'blue', 'pink'], E: ['grey', 'pink', 'yellow'] }, {
+    [E_NEW_RESIDENCE]: residence(['blue', 'pink', 'grey']),
   }),
   moves: [
-    { from: E_STATION, to: '8,6', home: 2 },
-    { from: E_STATION, to: residenceSiteKey('E'), home: 2 },
+    { from: E_STATION, to: E_RESIDENCE, home: 2 },
+    { from: C_STATION, to: E_NEW_RESIDENCE, home: 1 },
+    { from: C_STATION, to: E_NEW_RESIDENCE, home: 2 },
   ] satisfies PersonArrow[],
-  bagTags: [
-    { at: '8,6', color: 'yellow', amount: 1, side: 'above' },
-    { at: residenceSiteKey('E'), color: 'yellow', amount: 1, side: 'below' },
-  ] satisfies BagTag[],
+  bagTags: [{ at: E_NEW_RESIDENCE, color: 'yellow', amount: 2, side: 'above' }] satisfies BagTag[],
   caption: [
-    'Then housing. E has space for 2 of the 3 waiting people, so Saffron, the active player, picks who moves in: the Saffron person and the grey one. The Cobalt one keeps waiting.',
-    'Votes: Saffron adds 1 Saffron cube to the bag for each person housed, 2 in all.',
+    'Then housing. Saffron, the active player, picks who moves in. E’s Residences have room for 3. C’s Station is one stop along the rail from E’s, so its people can move into E too.',
+    'The Saffron person waiting at E’s Station moves into E’s Residence: Saffron adds 1 cube to the bag.',
+    'An Orchid and a grey person move from C’s Station into E. The first person from a Station in another city earns no cube, so that is 0 for the Orchid and 1 for the grey: Saffron adds 1 more.',
   ],
 }
 
-const B_SCHOOL = '4,1'
-const B_HOME = '4,0'
+const B_SCHOOL = '5,2'
+const B_STATION = stationKeyOf('B')
+/** Beside the existing School, so it can't be filled. */
+const B_BLOCKED = '4,2'
+const B_RIGHT = '6,2'
 
-// B's Residences were full, so two people were waiting at its Station.
+// Cobalt's person was waiting at B's Station until the School moved them.
 export const SCHOOL_EXAMPLE = {
-  position: examplePosition({ playerCount: 3, columns: [3, 6], rows: [0, 2] }, { B: ['grey', 'grey', 'yellow', 'blue'] }, {
-    [B_HOME]: residence('B', ['pink', 'yellow', 'grey', 'grey']),
-    '3,0': building('school', 'B'),
-    [B_SCHOOL]: building('school', 'B'),
+  position: examplePosition({ playerCount: 3, columns: [3, 6], rows: [0, 3] }, { B: ['grey', 'yellow'] }, {
+    [B_BLOCKED]: residence(['pink', 'yellow', 'grey']),
+    [B_RIGHT]: residence(['yellow', 'grey', 'grey', 'blue']),
+    '3,2': building('school'),
+    [B_SCHOOL]: building('school'),
   }),
   placed: B_SCHOOL,
-  moves: [
-    { from: stationKeyOf('B'), to: residenceSiteKey('B'), home: 3 },
-    { from: stationKeyOf('B'), to: B_HOME, home: 3 },
-  ] satisfies PersonArrow[],
-  bagTags: [
-    { at: residenceSiteKey('B'), color: 'blue', amount: 2, side: 'below' },
-    { at: B_HOME, color: 'blue', amount: 1, side: 'below' },
-  ] satisfies BagTag[],
+  blocked: B_BLOCKED,
+  moves: [{ from: B_STATION, to: B_RIGHT, home: 3 }] satisfies PersonArrow[],
+  bagTags: [{ at: B_RIGHT, color: 'blue', amount: 1, side: 'below' }] satisfies BagTag[],
   caption: [
-    'Cobalt builds a Sage School in town B. Relocation: each Residence next to it takes 1 person from anywhere, even though both are full. Cobalt takes the Cobalt and the grey person waiting at B’s Station.',
-    'Votes: 1 Cobalt cube per person moved in, plus 1 for B’s starting Residence, which touches no other School. The other Residence touches the old School, so it adds nothing more. Cobalt adds 3 cubes in all.',
+    'Cobalt builds a School in B. Three Residences touch it, but the one on the left also touches another School, so it can’t be filled.',
+    'Relocation: Cobalt moves 1 person from anywhere into one of the other two, even a full one. The Cobalt person waiting at B’s Station goes into the full Residence on the right.',
+    'Votes: Cobalt adds 1 Cobalt cube to the bag for the person moved in.',
   ],
 }
 
-const C_NEW_RESIDENCE = '9,4'
-/** The edge between the new Residence and E's Residence. */
-const MERGER_LINE: [HexKey, HexKey] = [C_NEW_RESIDENCE, '8,5']
+const MERGER_PLACED = '9,5'
+/** The edge between the new Residence and C's Factory. */
+const MERGER_LINE: [HexKey, HexKey] = [MERGER_PLACED, '9,4']
 
-// E's Sage tiles reach [8, 5] from its Station by way of [8, 6]. C's starting Residence
-// is just off the top of the figure.
+// C's tiles reach down to [9, 4] and E's up to [8, 6]; the new Residence at [9, 5] touches both.
 export const MERGER_EXAMPLE = {
   position: examplePosition(
-    { playerCount: 5, columns: [7, 10], rows: [3, 5] },
-    { C: ['pink', 'blue', 'blue'], E: ['blue', 'pink', 'pink'] },
+    { playerCount: 3, columns: [7, 10], rows: [2, 7] },
+    { C: ['pink', 'blue', 'blue'], E: ['blue', 'blue', 'pink'] },
     {
-      '10,4': building('factory', 'C'),
-      [C_NEW_RESIDENCE]: residence('C', ['pink', 'grey']),
-      '7,5': building('factory', 'E'),
-      '8,6': residence('E', ['yellow', 'yellow']),
-      '8,5': residence('E', ['blue', 'blue', 'pink']),
+      '9,4': building('factory'),
+      '7,5': building('factory'),
+      '8,6': residence(['yellow', 'yellow']),
+      [MERGER_PLACED]: residence(),
     },
   ),
-  placed: C_NEW_RESIDENCE,
-  housed: { from: stationKeyOf('C'), to: C_NEW_RESIDENCE, homes: [0, 1] },
+  placed: MERGER_PLACED,
   marker: { number: 1, between: MERGER_LINE },
   caption: [
-    'Saffron builds a Slate Residence in town C (5 players), next to C’s Station. It also touches E’s Sage Residence.',
-    'Housing comes first: the 2 people waiting at C’s Station move in, and Saffron adds 2 cubes to the bag.',
-    'Then C and E merge into one city. Merger marker 1 goes on that edge, and only the new city votes.',
+    'Saffron builds a Residence that touches both C’s Factory and E’s Residence.',
+    'A tile that touches two cities joins them: C and E are one city. Merger marker 1 goes on the edge between the new tile and C’s Factory, and only the new city votes.',
   ],
 }
 
 const MERGED_CITY: TownId[] = ['C', 'E']
 
-/** The election that merger triggers, counted by the game; seats listed town by town. */
+/** The election that merger triggers, counted by the game. */
 function mergerElection(): ElectionResult {
-  const result = countVotes(stateOf(MERGER_EXAMPLE.position), MERGED_CITY)
-  const townRank = (town: TownId) => MERGED_CITY.indexOf(town)
-  return { ...result, seats: [...result.seats].sort((a, b) => townRank(a.town) - townRank(b.town)) }
+  return countVotes(stateOf(MERGER_EXAMPLE.position), MERGED_CITY)
 }
 
 export const ELECTION_EXAMPLE = {
   result: mergerElection(),
   caption: [
-    'Each of the new city’s 5 Residences is a seat.',
-    'In C, Cobalt wins the starting Residence outright. Saffron’s new Residence holds an Orchid and a grey, tied, so grey takes it.',
-    'In E, Orchid wins the starting Residence, Saffron one of the new ones and Cobalt the other.',
+    'Each of the new city’s 4 Residences is a seat.',
+    'Cobalt wins the starting Residences of both E and C, and Saffron wins the one between them. The new Residence is empty, a 0–0 tie, so it counts for nobody.',
     'Cobalt has the most seats, 2, and scores the city’s Factories: both border the rail, so 4 points.',
   ],
 }

@@ -1,12 +1,11 @@
 import type { TownId } from '../map/mapData'
 import { distinctColors, factoriesInCity, factoryPoints, residencesInCity } from './boardQueries'
-import { INDEPENDENT, type CubeColor, type ElectionResult, type PlayerColor, type SeatReason, type VotesState } from './types'
+import { INDEPENDENT, type CubeColor, type ElectionResult, type PlayerColor, type SeatResult, type VotesState } from './types'
 
 // Elections, held after every merger by the newly merged city only. Every Residence is
-// a seat: the colour with the most people on it wins, and a tie goes to grey, so an
-// empty Residence (a 0–0 tie) is grey's. The player with the most seats scores the
-// city's Factories. Follows the asset generator's src/rules/elections.js, which refuses
-// a position where grey ties players for the most seats; here those players still score.
+// a seat: the colour with the most people on it wins, and a tie counts for nobody, so
+// an empty Residence (a 0–0 tie) is nobody's. The player with the most seats scores the
+// city's Factories. Players tied with grey for the most seats still score.
 
 export type ColorCounts = Partial<Record<CubeColor, number>>
 
@@ -14,11 +13,11 @@ export function countByColor(colors: readonly CubeColor[]): ColorCounts {
   return colors.reduce<ColorCounts>((counts, color) => ({ ...counts, [color]: (counts[color] ?? 0) + 1 }), {})
 }
 
-export function seatWinner(people: readonly CubeColor[]): { winner: CubeColor; reason: SeatReason } {
+export function seatWinner(people: readonly CubeColor[]): Pick<SeatResult, 'winner' | 'reason'> {
   const counts = countByColor(people)
   const top = Math.max(0, ...Object.values(counts).map(count => count ?? 0))
   const leaders = distinctColors(people).filter(color => counts[color] === top)
-  return leaders.length === 1 ? { winner: leaders[0], reason: 'mostPeople' } : { winner: INDEPENDENT, reason: 'tieToGrey' }
+  return leaders.length === 1 ? { winner: leaders[0], reason: 'mostPeople' } : { winner: null, reason: 'tie' }
 }
 
 /**
@@ -35,11 +34,10 @@ export function cityScorers(seats: ColorCounts, players: PlayerColor[]): PlayerC
 export function countVotes(state: VotesState, city: TownId[]): ElectionResult {
   const seats = residencesInCity(state, city).map(({ key, tile }) => ({
     residence: key,
-    town: tile.town,
     people: tile.people,
     ...seatWinner(tile.people),
   }))
-  const seatsByColor = countByColor(seats.map(seat => seat.winner))
+  const seatsByColor = countByColor(seats.flatMap(seat => (seat.winner ? [seat.winner] : [])))
   return {
     number: state.elections.length + 1,
     turn: state.turn.number,

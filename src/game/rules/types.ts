@@ -9,19 +9,11 @@ export const PLAYER_COLORS = ['pink', 'vermillion', 'blue', 'yellow', 'green'] a
 
 export type PlayerColor = (typeof PLAYER_COLORS)[number]
 
-/** Grey cubes are independents: people no player brought in. */
+/** Grey cubes are independents: people no player brought in. They only exist at setup. */
 export const INDEPENDENT = 'grey' as const
 
 /** A cube is a person. */
 export type CubeColor = PlayerColor | typeof INDEPENDENT
-
-/** Tiles come in three town colours and belong to nobody. */
-export const TOWN_COLORS = ['sand', 'sage', 'slate'] as const
-
-export type TownColor = (typeof TOWN_COLORS)[number]
-
-/** The starting Residences: two colours shared by two towns each, one with a single town. */
-export const STARTING_RESIDENCE_COLORS: readonly TownColor[] = ['sand', 'sand', 'sage', 'sage', 'slate']
 
 export type PlayerCount = 2 | 3 | 4 | 5
 
@@ -37,11 +29,9 @@ export const STARTING_PEOPLE_PER_PLAYER = 2
 
 /** The [bracketed] playtest dials from the rules. */
 export interface VotesSettings {
-  /** Grey cubes at setup: those seeded on the starting Residences, the rest in the bag. */
-  greyCubes: number
   /** Cubes of each player's colour in the bag at setup. */
   startingCubesPerPlayer: number
-  /** People a new Factory draws onto its town's Station. */
+  /** People a new Factory draws onto a Station in its city. */
   factoryArrivals: number
 }
 
@@ -50,28 +40,23 @@ export type TileKind = 'residence' | 'station' | 'factory' | 'school'
 /** Stations are printed on the map; players place the rest. */
 export type PlaceableKind = Exclude<TileKind, 'station'>
 
-/** Every tile has a town colour and belongs to the town it was built onto. */
-interface TownTile {
-  color: TownColor
-  town: TownId
-}
-
-export interface ResidenceTile extends TownTile {
+export interface ResidenceTile {
   kind: 'residence'
   /** People living here, in the order they moved in. */
   people: CubeColor[]
 }
 
-export interface StationTile extends TownTile {
+export interface StationTile {
   kind: 'station'
   /** People who arrived here and are waiting to be housed. */
   people: CubeColor[]
 }
 
-export interface BuildingTile extends TownTile {
+export interface BuildingTile {
   kind: 'factory' | 'school'
 }
 
+/** Tiles belong to nobody. */
 export type Tile = ResidenceTile | StationTile | BuildingTile
 
 export interface PlayerState {
@@ -81,9 +66,11 @@ export interface PlayerState {
 
 export type Phase =
   | { kind: 'placement' }
-  /** A new School's relocation: the Residences next to it still owed a person. */
+  /** A new School's relocation: the one move it owes, into one of these Residences. */
   | { kind: 'relocation'; residences: HexKey[] }
-  /** People waiting at Stations move into Residences with space in their city. */
+  /** A new Factory's people arrive at one of these Stations, the player's choice. */
+  | { kind: 'immigration'; stations: HexKey[] }
+  /** People waiting at Stations move into Residences with space. */
   | { kind: 'housing' }
   | { kind: 'gameOver'; winners: PlayerColor[] }
 
@@ -101,16 +88,16 @@ export interface MergerMarker {
   between: [HexKey, HexKey]
 }
 
-/** Why a Residence's seat went where it did. */
-export type SeatReason = 'mostPeople' | 'tieToGrey'
+/** Why a Residence's seat went where it did. A tie, empty or not, counts for nobody. */
+export type SeatReason = 'mostPeople' | 'tie'
 
 /** Every Residence is a seat. */
 export interface SeatResult {
   residence: HexKey
-  town: TownId
   /** Who lived there when the city voted. */
   people: CubeColor[]
-  winner: CubeColor
+  /** Null on a tie. */
+  winner: CubeColor | null
   reason: SeatReason
 }
 
@@ -118,6 +105,7 @@ export interface SeatResult {
 export interface ElectionResult {
   number: number
   turn: number
+  /** The towns that make up the city. */
   city: TownId[]
   seats: SeatResult[]
   seatsByColor: Partial<Record<CubeColor, number>>
@@ -127,26 +115,34 @@ export interface ElectionResult {
 }
 
 export type LogEntry =
-  | { kind: 'placed'; turn: number; player: PlayerColor; tile: PlaceableKind; color: TownColor; town: TownId; at: HexKey }
+  | { kind: 'placed'; turn: number; player: PlayerColor; tile: PlaceableKind; at: HexKey }
   | { kind: 'passed'; turn: number; player: PlayerColor }
   /** A School's relocation; the active player added a vote to the bag for it. */
   | { kind: 'relocated'; turn: number; color: CubeColor; from: HexKey; to: HexKey; voter: PlayerColor }
-  /** Votes a new School earned for the Residences next to it that touch no other School. */
-  | { kind: 'schoolVotes'; turn: number; player: PlayerColor; count: number }
-  /** People drawn from the bag onto a town's Station. */
-  | { kind: 'arrived'; turn: number; station: HexKey; town: TownId; people: CubeColor[] }
-  /** Housing; the active player added a vote to the bag for it. */
-  | { kind: 'housed'; turn: number; color: CubeColor; from: HexKey; to: HexKey; voter: PlayerColor }
+  /** People drawn from the bag onto a Station. */
+  | { kind: 'arrived'; turn: number; station: HexKey; people: CubeColor[] }
+  | {
+      kind: 'housed'
+      turn: number
+      color: CubeColor
+      from: HexKey
+      to: HexKey
+      voter: PlayerColor
+      /** The Station was in another city, one stop away along the rail. */
+      isRemote: boolean
+      /** Cubes the voter added to the bag: 1, or 0 for the first person from a remote Station. */
+      votes: number
+    }
   | { kind: 'merger'; turn: number; city: TownId[]; electionNumber: number }
   | { kind: 'gameOver'; turn: number; winners: PlayerColor[]; reason: 'lastMerger' | 'nobodyCanBuild' }
 
 /**
  * Bump this whenever the rules or the saved state's shape change, so a game saved by
  * another version (an async room, or a browser still running an older deploy) is
- * recognised instead of misread. 2 is Draft 5.4, 3 Draft 5.7, 4 Draft 5.7 on the
- * mountains-only map with one rail.
+ * recognised instead of misread. 2 is Draft 5.4, 3 Draft 5.7 with town colours, 4 the
+ * same on the mountains-only map, 5 Draft 5.8.
  */
-export const RULES_VERSION = 4
+export const RULES_VERSION = 5
 
 export interface VotesState {
   /** {@link RULES_VERSION} when the game was created; missing in games from before it existed. */
@@ -156,11 +152,8 @@ export interface VotesState {
   firstPlayerIndex: number
   turn: TurnState
   phase: Phase
+  /** Every tile on the map. Cities are never stored: they are the groups of connected tiles. */
   tiles: Record<HexKey, Tile>
-  /** Each town's colour, dealt at setup. */
-  townColors: Record<TownId, TownColor>
-  /** Each city is the sorted list of its towns. */
-  cities: TownId[][]
   mergers: MergerMarker[]
   bag: Partial<Record<CubeColor, number>>
   /** Seeded generator state, so every client draws the same cubes. */
@@ -180,10 +173,12 @@ export interface PersonMove {
 }
 
 export type VotesMove =
-  | { kind: 'place'; tile: PlaceableKind; color: TownColor; at: HexKey }
-  /** Only legal when the active player has no tile they can place anywhere. */
+  | { kind: 'place'; tile: PlaceableKind; at: HexKey }
+  /** Only legal when no tile can be placed anywhere. */
   | { kind: 'pass' }
-  /** A School's relocation: `to` is one of the Residences next to it. */
+  /** A School's relocation: `to` is one of the Residences it may fill. */
   | ({ kind: 'relocate' } & PersonMove)
+  /** A Factory's people arrive at this Station of its city. */
+  | { kind: 'arrive'; station: HexKey }
   /** Houses a person waiting at Station `from` in Residence `to`. */
   | ({ kind: 'house' } & PersonMove)

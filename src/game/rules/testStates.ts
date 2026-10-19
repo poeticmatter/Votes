@@ -1,38 +1,31 @@
-import { residenceSiteKey, stationKeyOf, TOWN_IDS } from '../map/board'
+import { BOARD } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
-import type { TownId } from '../map/mapData'
 import { housingMoves } from './housing'
+import { arrivalStations } from './immigration'
 import { legalPlacements, PLACEABLE_KINDS } from './placement'
 import { relocationMoves } from './relocation'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
-import { TOWN_COLORS, type CubeColor, type Tile, type TownColor, type VotesMove, type VotesState } from './types'
+import type { CubeColor, Tile, VotesMove, VotesState } from './types'
 
 // Builders for rules tests. Positions are set directly, so a test can start from any
 // board without replaying the turns that would lead there.
+//
+// The map's towns, for reading the tests: A has its Residence at [1, 2] and Station at
+// [1, 3]; B [5, 1] and [5, 0]; C [9, 2] and [9, 3]; D [1, 7] and [2, 7]; E [8, 7] and
+// [7, 6]. The rail passes the Stations in the order E, C, B, A, D.
 
-/** Fixed town colours, so tests don't depend on the deal: A and D are both sand. */
-export const TEST_TOWN_COLORS: Record<TownId, TownColor> = { A: 'sand', B: 'sage', C: 'slate', D: 'sand', E: 'sage' }
+export const residence = (people: CubeColor[] = []): Tile => ({ kind: 'residence', people })
+export const station = (people: CubeColor[] = []): Tile => ({ kind: 'station', people })
+export const factory = (): Tile => ({ kind: 'factory' })
+export const school = (): Tile => ({ kind: 'school' })
 
-export const residence = (town: TownId, people: CubeColor[] = []): Tile => ({
-  kind: 'residence',
-  color: TEST_TOWN_COLORS[town],
-  town,
-  people,
-})
-export const station = (town: TownId, people: CubeColor[] = []): Tile => ({ kind: 'station', color: TEST_TOWN_COLORS[town], town, people })
-export const factory = (town: TownId): Tile => ({ kind: 'factory', color: TEST_TOWN_COLORS[town], town })
-export const school = (town: TownId): Tile => ({ kind: 'school', color: TEST_TOWN_COLORS[town], town })
-
-/** A new game with {@link TEST_TOWN_COLORS} and nobody on the board, so tests place every person. */
+/** A new game with every starting Residence and Station empty, so tests place every person. */
 export function newGame(playerCount = 2, seed = 7): VotesState {
   const state = createInitialState({ settings: DEFAULT_SETTINGS, playerCount, seed })
-  const emptyTowns = Object.fromEntries(
-    TOWN_IDS.flatMap(town => [
-      [residenceSiteKey(town), residence(town)],
-      [stationKeyOf(town), station(town)],
-    ]),
+  const emptied = Object.fromEntries(
+    Object.entries(state.tiles).map(([key, tile]) => [key, tile.kind === 'station' ? station() : residence()]),
   )
-  return { ...state, tiles: emptyTowns, townColors: TEST_TOWN_COLORS, firstPlayerIndex: 0, turn: { ...state.turn, playerIndex: 0 } }
+  return { ...state, tiles: emptied, firstPlayerIndex: 0, turn: { ...state.turn, playerIndex: 0 } }
 }
 
 export function withTiles(state: VotesState, tiles: Record<HexKey, Tile>): VotesState {
@@ -43,14 +36,32 @@ export function withBag(state: VotesState, bag: Partial<Record<CubeColor, number
   return { ...state, bag }
 }
 
+/** Fills the open hexes of `columns` with Factories, around whatever is already there. */
+export function filledColumns(state: VotesState, columns: (col: number) => boolean): VotesState {
+  const factories = Object.fromEntries(
+    BOARD.hexes.filter(hex => hex.terrain === 'open' && columns(hex.col) && !state.tiles[hex.key]).map(hex => [hex.key, factory()]),
+  )
+  return withTiles(state, factories)
+}
+
+/** The hex that joins the two cities of {@link twoCities}. */
+export const JOINING_HEX = '3,3'
+
+/**
+ * A board full of Factories except column 3: A and D are one city on the left, B, C and
+ * E another on the right, and a tile on {@link JOINING_HEX} joins them into one.
+ */
+export function twoCities(state: VotesState): VotesState {
+  return filledColumns(state, col => col !== 3)
+}
+
 /** Every move the active player could make now; a pass only when nothing can be placed. */
 export function legalMoves(state: VotesState): VotesMove[] {
   const { phase } = state
   if (phase.kind === 'relocation') return relocationMoves(state).map(move => ({ kind: 'relocate', ...move }))
+  if (phase.kind === 'immigration') return arrivalStations(state).map(station => ({ kind: 'arrive', station }))
   if (phase.kind === 'housing') return housingMoves(state).map(move => ({ kind: 'house', ...move }))
   if (phase.kind === 'gameOver') return []
-  const placements = TOWN_COLORS.flatMap(color =>
-    legalPlacements(state, color).flatMap(at => PLACEABLE_KINDS.map(tile => ({ kind: 'place' as const, tile, color, at }))),
-  )
+  const placements = legalPlacements(state).flatMap(at => PLACEABLE_KINDS.map(tile => ({ kind: 'place' as const, tile, at })))
   return placements.length ? placements : [{ kind: 'pass' }]
 }

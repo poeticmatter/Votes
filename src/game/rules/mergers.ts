@@ -1,49 +1,45 @@
 import { hexAt } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import type { TownId } from '../map/mapData'
-import { cityOf } from './boardQueries'
+import { citiesWithout } from './cities'
 import type { VotesState } from './types'
 
-// Cities are disjoint, sorted lists of towns, so a city's first town names it.
-const isSameCity = (a: TownId[], b: TownId[]) => a[0] === b[0]
+// A tile that touches two or more cities connects them into one. The tile is part of
+// the merged city from the moment it is placed, so its turn's housing and immigration
+// already use it; the merger step then marks the join and holds the election.
 
 export interface CityJoin {
-  /** The other city the tile touches. */
+  /** A city the tile connects to the one it touches first. */
   city: TownId[]
   /** The edge where its merger marker goes. */
   between: [HexKey, HexKey]
 }
 
-/**
- * Cities other than its own that a tile of `town` at `at` touches. A tile never touches
- * another town of its own colour, so everything it touches in another city is of a
- * different colour. The tile needn't be on the board yet, so this also previews a
- * placement.
- */
-export function citiesJoinedBy(state: VotesState, town: TownId, at: HexKey): CityJoin[] {
-  const ownCity = cityOf(state, town)
-  const joins: CityJoin[] = []
-  for (const { key } of hexAt(at).neighbors) {
-    const neighbor = state.tiles[key]
-    if (!neighbor || ownCity.includes(neighbor.town)) continue
-    const city = cityOf(state, neighbor.town)
-    if (!joins.some(join => isSameCity(join.city, city))) joins.push({ city, between: [at, key] })
-  }
-  return joins
+export interface TouchedCities {
+  /** The first city the tile touches, in side order. */
+  own: TownId[]
+  /** The others, each once. They merge into `own`. */
+  joins: CityJoin[]
 }
 
-/** Joins the cities, puts out one merger marker per city joined, and returns the new city. */
-export function mergeCities(state: VotesState, town: TownId, joins: CityJoin[]): { state: VotesState; city: TownId[] } {
-  const absorbed = [cityOf(state, town), ...joins.map(join => join.city)]
-  const city = absorbed.flat().sort()
-  const untouched = state.cities.filter(existing => !absorbed.some(gone => isSameCity(gone, existing)))
-  const markers = joins.map((join, index) => ({ number: state.mergers.length + index + 1, between: join.between }))
-  return {
-    state: {
-      ...state,
-      cities: [...untouched, city].sort((a, b) => a[0].localeCompare(b[0])),
-      mergers: [...state.mergers, ...markers],
-    },
-    city,
+/**
+ * The cities a tile at `at` touches, as the board stood before it. The tile needn't be
+ * on the board yet, so this also previews a placement.
+ */
+export function citiesTouchedBy(state: VotesState, at: HexKey): TouchedCities {
+  const before = citiesWithout(state.tiles, at).byHex
+  const touched: { city: TownId[]; between: [HexKey, HexKey] }[] = []
+  for (const { key } of hexAt(at).neighbors) {
+    const city = before.get(key)
+    if (city && !touched.some(entry => entry.city[0] === city[0])) touched.push({ city, between: [at, key] })
   }
+  if (touched.length === 0) throw new Error(`A tile at ${at} touches no city`)
+  const [first, ...others] = touched
+  return { own: first.city, joins: others.map(({ city, between }) => ({ city, between })) }
+}
+
+/** Puts out one merger marker per city joined. */
+export function addMergerMarkers(state: VotesState, joins: CityJoin[]): VotesState {
+  const markers = joins.map((join, index) => ({ number: state.mergers.length + index + 1, between: join.between }))
+  return { ...state, mergers: [...state.mergers, ...markers] }
 }

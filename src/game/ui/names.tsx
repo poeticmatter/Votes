@@ -1,8 +1,11 @@
 import { ColorSwatch } from 'game-kit/turns'
-import type { CubeColor, PlayerColor, Tile, TileKind, TownColor } from '../rules/types'
+import { hexAt } from '../map/board'
+import type { HexKey } from '../map/hexGrid'
+import { cityAt } from '../rules/boardQueries'
+import type { TownId } from '../map/mapData'
+import type { CubeColor, PlayerColor, Tile, TileKind, VotesState } from '../rules/types'
 import { TILE_RADIUS } from './map/geometry'
 import { TilePiece } from './map/Pieces'
-import { TOWN_LOOKS } from './townColors'
 import { seatOfColor, usePieceColorOf, useViewer } from './viewer'
 
 // How the board names players and pieces in text, always by the colour the viewer sees.
@@ -14,9 +17,18 @@ export const TILE_NAMES: Record<TileKind, string> = {
   school: 'School',
 }
 
-/** "Sage Residence". */
-export function tileName(kind: TileKind, color: TownColor): string {
-  return `${TOWN_LOOKS[color].name} ${TILE_NAMES[kind]}`
+/** "A", or "B + C" for a city of two towns. */
+export function cityLabel(city: TownId[]): string {
+  return city.join(' + ')
+}
+
+/** "Station of town B", "Starting Residence A", "Residence in city B + C", "School in city A". */
+export function describeHex(state: VotesState, key: HexKey): string {
+  const tile = state.tiles[key]
+  const { stationSite, residenceSite } = hexAt(key)
+  if (tile?.kind === 'station') return `Station of town ${stationSite}`
+  if (tile?.kind === 'residence' && residenceSite) return `Starting Residence ${residenceSite}`
+  return `${tile ? TILE_NAMES[tile.kind] : 'Hex'} in city ${cityLabel(cityAt(state, key))}`
 }
 
 /** "1 cube", "3 cubes"; "2 people" with an irregular `plural`. */

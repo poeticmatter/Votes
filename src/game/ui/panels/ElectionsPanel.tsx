@@ -1,21 +1,20 @@
-import type { SeatReason, SeatResult, VotesState } from '../../rules/types'
-import { CubeChip, useColorNameOf } from '../names'
+import type { SeatResult, VotesState } from '../../rules/types'
+import { CubeChip, describeHex, useColorNameOf } from '../names'
 import { CityResult } from './CitiesPanel'
 import { Panel } from './Panel'
 
-const TIE_EXPLANATIONS: Record<SeatReason, string | null> = {
-  mostPeople: null,
-  tieToGrey: 'tie, to grey',
-}
-
-function SeatLine({ seat }: { seat: SeatResult }) {
+function SeatLine({ seat, state }: { seat: SeatResult; state: VotesState }) {
   const colorNameOf = useColorNameOf()
-  const tie = seat.people.length ? TIE_EXPLANATIONS[seat.reason] : 'empty, to grey'
   return (
     <li className="flex flex-wrap items-center gap-x-1.5">
-      <span className="text-ink-faint">{seat.town}</span> Residence: <CubeChip color={seat.winner} size={11} />{' '}
-      {colorNameOf(seat.winner)}
-      {tie && <span className="italic">({tie})</span>}
+      <span className="text-ink-faint">{describeHex(state, seat.residence)}:</span>
+      {seat.winner ? (
+        <>
+          <CubeChip color={seat.winner} size={11} /> {colorNameOf(seat.winner)}
+        </>
+      ) : (
+        <span className="italic">{seat.people.length ? 'tie, counts for nobody' : 'empty, counts for nobody'}</span>
+      )}
     </li>
   )
 }
@@ -36,7 +35,7 @@ export function ElectionsPanel({ state }: { state: VotesState }) {
               <summary className="cursor-pointer text-xs font-semibold text-ink-soft select-none">Seats</summary>
               <ul className="flex flex-col gap-0.5 pt-1 text-xs text-ink-soft">
                 {result.seats.map(seat => (
-                  <SeatLine key={seat.residence} seat={seat} />
+                  <SeatLine key={seat.residence} seat={seat} state={state} />
                 ))}
               </ul>
             </details>

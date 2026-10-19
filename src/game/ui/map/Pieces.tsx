@@ -2,7 +2,6 @@ import { hexCorners, roundedPolygonPath, type Point } from '../../map/hexGrid'
 import type { TownId } from '../../map/mapData'
 import type { CubeColor, Tile } from '../../rules/types'
 import { COLORS, FONT_FAMILY, TILE_STYLE } from '../theme'
-import { TOWN_LOOKS } from '../townColors'
 import { usePieceColorOf } from '../viewer'
 import { homeCenters, residentCenters, TILE_LAYOUT, TILE_RADIUS, waitingCenters } from './geometry'
 import { FactoryGlyph, HouseGlyph, LetteredHouseGlyph, PlaceGlyph, SchoolGlyph, StationGlyph } from './glyphs'
@@ -120,7 +119,7 @@ const BuildingTile = ({ center, fill, kind }: { center: Point; fill: string; kin
 
 /** `townLetter` names a town's starting Residence; other tiles ignore it. */
 export function TilePiece({ tile, center, townLetter }: { tile: Tile; center: Point; townLetter: TownId | null }) {
-  const { fill } = TOWN_LOOKS[tile.color]
+  const { fill } = TILE_STYLE
   switch (tile.kind) {
     case 'residence':
       return <ResidenceTile center={center} fill={fill} people={tile.people} townLetter={townLetter} />

@@ -1,51 +1,54 @@
 import { describe, expect, it } from 'vitest'
 import { IllegalMoveError } from 'game-kit/turns'
-import { legalPlacements, placeTile } from './placement'
-import { factory, newGame, residence, withTiles } from './testStates'
-
-// In newGame, A and D are sand, B and E sage, C slate. A's Station is at [1, 3] and D's
-// Residence at [1, 7], with the lakeshore hexes [1, 4] to [1, 6] between them.
+import { hasAnyLegalPlacement, legalPlacements, placeTile } from './placement'
+import { filledColumns, newGame, residence } from './testStates'
 
 describe('legal placements', () => {
-  it('allows a tile next to a tile of its colour', () => {
-    // [4, 1] touches B's Residence.
-    expect(legalPlacements(newGame(), 'sage')).toContain('4,1')
+  it('allows a hex touching a Residence', () => {
+    // [4, 1] touches B's Residence at [5, 1].
+    expect(legalPlacements(newGame())).toContain('4,1')
   })
 
-  it('counts a town’s Station as a tile of its colour', () => {
-    // [5, 0] is B's Station; [4, 0] touches only it.
-    expect(legalPlacements(newGame(), 'sage')).toContain('4,0')
+  it('allows a hex touching only a Station', () => {
+    // [6, 0] touches B's Station at [5, 0] and nothing else.
+    expect(legalPlacements(newGame())).toContain('6,0')
   })
 
-  it('refuses a hex with no tile of that colour next to it', () => {
-    expect(legalPlacements(newGame(), 'slate')).not.toContain('4,1')
+  it('allows a hex touching a tile that was placed', () => {
+    const state = placeTile(newGame(), 'factory', '4,1')
+    expect(legalPlacements({ ...state, phase: { kind: 'placement' } })).toContain('3,1')
   })
 
-  it('allows a tile next to tiles of other colours too', () => {
-    // [6, 1] touches B's sage Residence across the rail and C's slate tile at [7, 1].
-    expect(legalPlacements(withTiles(newGame(), { '7,1': residence('C') }), 'slate')).toContain('6,1')
+  it('refuses a hex touching no tile', () => {
+    expect(legalPlacements(newGame())).not.toContain('3,3')
   })
 
-  it('refuses a tile that would connect two towns of its colour', () => {
-    const state = withTiles(newGame(), { '1,4': residence('A'), '1,6': residence('D') })
-    expect(legalPlacements(state, 'sand')).not.toContain('1,5')
+  it('refuses a mountain', () => {
+    // [9, 1] touches C's Residence, but it is a mountain.
+    expect(legalPlacements(newGame())).not.toContain('9,1')
   })
 
   it('refuses a hex that is taken', () => {
-    expect(legalPlacements(newGame(), 'sage')).not.toContain('5,1')
+    expect(legalPlacements(newGame())).not.toContain('5,1')
+    expect(legalPlacements(newGame())).not.toContain('5,0')
+  })
+
+  it('has no placement once the board is full', () => {
+    const full = filledColumns(newGame(), () => true)
+    expect(hasAnyLegalPlacement(full)).toBe(false)
   })
 
   it('rejects an illegal hex', () => {
-    expect(() => placeTile(newGame(), 'residence', 'slate', '4,1')).toThrow(IllegalMoveError)
+    expect(() => placeTile(newGame(), 'residence', '3,3')).toThrow(IllegalMoveError)
   })
 })
 
 describe('placing a tile', () => {
-  it('builds it onto the town it touches', () => {
-    expect(placeTile(newGame(), 'factory', 'sage', '4,1').tiles['4,1']).toEqual(factory('B'))
+  it('puts down an empty Residence', () => {
+    expect(placeTile(newGame(), 'residence', '4,1').tiles['4,1']).toEqual(residence())
   })
 
-  it('puts down an empty Residence', () => {
-    expect(placeTile(newGame(), 'residence', 'sand', '1,4').tiles['1,4']).toEqual(residence('A'))
+  it('remembers where it went', () => {
+    expect(placeTile(newGame(), 'school', '4,1').turn.placedAt).toBe('4,1')
   })
 })

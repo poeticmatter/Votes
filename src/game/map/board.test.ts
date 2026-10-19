@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BOARD, hexAt, residenceSiteKey, stationKeyOf, TOWN_IDS } from './board'
+import { BOARD, hexAt, RAIL_ORDER, residenceSiteKey, stationKeyOf, TOWN_IDS, townsOneStopAway } from './board'
 
 describe('derived board', () => {
   it('has only open hexes and mountains', () => {
@@ -40,5 +40,15 @@ describe('town sites', () => {
   it('marks each site with its town', () => {
     expect(BOARD.hexes.filter(hex => hex.residenceSite).map(hex => hex.residenceSite).sort()).toEqual(TOWN_IDS)
     expect(BOARD.hexes.filter(hex => hex.stationSite).map(hex => hex.stationSite).sort()).toEqual(TOWN_IDS)
+  })
+})
+
+describe('the rail’s stops', () => {
+  it('passes the Stations in the order E, C, B, A, D', () => {
+    expect(RAIL_ORDER).toEqual(['E', 'C', 'B', 'A', 'D'])
+  })
+
+  it('gives the middle towns two stops and each end of the rail one', () => {
+    expect(TOWN_IDS.map(townsOneStopAway)).toEqual([['B', 'D'], ['C', 'A'], ['E', 'B'], ['A'], ['C']])
   })
 })

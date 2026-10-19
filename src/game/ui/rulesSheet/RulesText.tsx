@@ -3,6 +3,7 @@ import { TileIcon } from '../names'
 import { MetroSteps, SectionHeading, type MetroStep } from './MetroSteps'
 import {
   BUILDINGS,
+  CITIES,
   COMPONENTS,
   CORE_CONCEPTS,
   ELECTIONS,
@@ -10,7 +11,6 @@ import {
   GAME_END,
   MERGER_STEP_TITLE,
   SETUP,
-  TOWNS_AND_CITIES,
   TURN,
 } from './rulesContent'
 
@@ -79,8 +79,8 @@ export function RulesText() {
           ))}
         </ol>
       </Section>
-      <Section title="Towns and cities">
-        <p>{TOWNS_AND_CITIES}</p>
+      <Section title="Cities">
+        <p>{CITIES}</p>
       </Section>
       <Section title="Core concepts">
         <p>{CORE_CONCEPTS.intro}</p>

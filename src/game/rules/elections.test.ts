@@ -8,32 +8,42 @@ describe('a Residence’s seat', () => {
     expect(seatWinner(['vermillion', 'vermillion', 'pink'])).toEqual({ winner: 'vermillion', reason: 'mostPeople' })
   })
 
-  it('goes to grey on a tie', () => {
-    expect(seatWinner(['vermillion', 'pink'])).toEqual({ winner: 'grey', reason: 'tieToGrey' })
+  it('goes to grey when grey has the most', () => {
+    expect(seatWinner(['grey', 'grey', 'pink'])).toEqual({ winner: 'grey', reason: 'mostPeople' })
   })
 
-  it('goes to grey when empty, a 0–0 tie', () => {
-    expect(seatWinner([])).toEqual({ winner: 'grey', reason: 'tieToGrey' })
+  it('counts for nobody on a tie', () => {
+    expect(seatWinner(['vermillion', 'pink'])).toEqual({ winner: null, reason: 'tie' })
+  })
+
+  it('counts for nobody when empty, a 0–0 tie', () => {
+    expect(seatWinner([])).toEqual({ winner: null, reason: 'tie' })
   })
 })
 
 describe('a city’s vote', () => {
-  // Town C: its starting Residence at [9, 2], another at [10, 2] and Factories at
-  // [10, 3] and [8, 3], which borders the rail. B's Residence is in another city.
+  // City C: its starting Residence at [9, 2], another at [10, 2] and Factories at
+  // [10, 3], which borders the rail, and [8, 3], which doesn't. B's Residence is in
+  // another city.
   const board = withTiles(newGame(), {
-    '9,2': residence('C', ['pink', 'pink']),
-    '10,2': residence('C', ['vermillion']),
-    '10,3': factory('C'),
-    '8,3': factory('C'),
-    '5,1': residence('B', ['vermillion', 'vermillion']),
+    '9,2': residence(['pink', 'pink']),
+    '10,2': residence(['vermillion', 'pink']),
+    '10,3': factory(),
+    '8,3': factory(),
+    '5,1': residence(['vermillion', 'vermillion']),
   })
   const result = countVotes(board, ['C'])
 
-  it('makes every Residence in the city a seat', () => {
-    expect(result.seatsByColor).toEqual({ pink: 1, vermillion: 1 })
+  it('makes every Residence in the city a seat, and counts only the winners', () => {
+    expect(result.seats).toHaveLength(2)
+    expect(result.seatsByColor).toEqual({ pink: 1 })
   })
 
-  it('scores the city’s Factories, 2 for one beside a rail', () => {
+  it('records a tied seat as nobody’s', () => {
+    expect(result.seats.map(seat => seat.winner)).toEqual(['pink', null])
+  })
+
+  it('scores the city’s Factories, 2 for one beside the rail', () => {
     expect(result.factoryPoints).toBe(3)
   })
 })

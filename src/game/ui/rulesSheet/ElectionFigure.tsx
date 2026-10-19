@@ -1,4 +1,4 @@
-import type { SeatReason, SeatResult } from '../../rules/types'
+import type { SeatResult } from '../../rules/types'
 import { HouseGlyph, PlaceGlyph } from '../map/glyphs'
 import { COLORS, FONT_FAMILY } from '../theme'
 import { usePieceColorOf } from '../viewer'
@@ -21,30 +21,35 @@ const CUBE_OUTLINE = 'rgba(0, 0, 0, 0.45)'
 
 const TEXT = { fontFamily: FONT_FAMILY, dominantBaseline: 'central' } as const
 
-const TIE_NOTES: Record<SeatReason, string | null> = {
-  mostPeople: null,
-  tieToGrey: 'tie: grey',
-}
-
 function SeatChip({ x, y, seat }: { x: number; y: number; seat: SeatResult }) {
-  const color = usePieceColorOf()(seat.winner)
+  const pieceColorOf = usePieceColorOf()
+  const winner = seat.winner ? pieceColorOf(seat.winner) : null
   return (
     <g>
-      <rect x={x} y={y - CHIP.height / 2} width={CHIP.width} height={CHIP.height} rx={CHIP.height / 2} fill={color.fill} />
-      <text {...TEXT} x={x + CHIP.width / 2} y={y} textAnchor="middle" fontSize={13} fontWeight={700} fill={color.ink}>
-        {color.name}
+      <rect
+        x={x}
+        y={y - CHIP.height / 2}
+        width={CHIP.width}
+        height={CHIP.height}
+        rx={CHIP.height / 2}
+        fill={winner?.fill ?? COLORS.paper}
+        stroke={winner ? 'none' : COLORS.rule}
+        strokeWidth={2}
+      />
+      <text {...TEXT} x={x + CHIP.width / 2} y={y} textAnchor="middle" fontSize={13} fontWeight={700} fill={winner?.ink ?? COLORS.inkSoft}>
+        {winner?.name ?? 'Nobody'}
       </text>
     </g>
   )
 }
 
-function ResidenceRow({ seat, y }: { seat: SeatResult; y: number }) {
+function ResidenceRow({ seat, seatNumber, y }: { seat: SeatResult; seatNumber: number; y: number }) {
   const pieceColorOf = usePieceColorOf()
-  const note = seat.people.length ? TIE_NOTES[seat.reason] : 'empty: grey'
+  const note = seat.winner ? null : seat.people.length ? 'tie' : 'empty'
   return (
     <g>
       <text {...TEXT} x={COLUMNS.town} y={y} fontSize={15} fontWeight={800} fill={COLORS.inkSoft}>
-        {seat.town}
+        {seatNumber}
       </text>
       <PlaceGlyph center={{ x: COLUMNS.house, y }} size={HOUSE_SIZE}>
         <HouseGlyph size={HOUSE_SIZE} color={COLORS.ink} />
@@ -85,7 +90,7 @@ export function ElectionFigure() {
   const viewHeight = cityY + 20
   const ranked = Object.entries(result.seatsByColor).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
   const seatDiscs = result.seats
-    .map(seat => seat.winner)
+    .flatMap(seat => (seat.winner ? [seat.winner] : []))
     .sort((a, b) => ranked.findIndex(([color]) => color === a) - ranked.findIndex(([color]) => color === b))
   const scorerNames = result.scorers.map(color => pieceColorOf(color).name).join(', ')
   const payout = result.scorers.length
@@ -98,7 +103,7 @@ export function ElectionFigure() {
       <ColumnHeader x={COLUMNS.cubes} label="PEOPLE" />
       <ColumnHeader x={COLUMNS.chip} label="WON BY" />
       {result.seats.map((seat, index) => (
-        <ResidenceRow key={seat.residence} seat={seat} y={FIRST_ROW_Y + index * ROW_HEIGHT} />
+        <ResidenceRow key={seat.residence} seat={seat} seatNumber={index + 1} y={FIRST_ROW_Y + index * ROW_HEIGHT} />
       ))}
       <line x1={0} x2={VIEW_WIDTH} y1={cityY - 22} y2={cityY - 22} stroke={COLORS.rule} strokeWidth={2} />
       <text {...TEXT} x={0} y={cityY} fontSize={13} fontWeight={700} fill={COLORS.inkFaint}>

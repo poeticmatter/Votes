@@ -1,16 +1,37 @@
-import { townOf } from '../../rules/boardQueries'
-import type { LogEntry, VotesState } from '../../rules/types'
-import { countOf, CubeChip, PlayerChip, tileName } from '../names'
+import type { ReactNode } from 'react'
+import { cityAt } from '../../rules/boardQueries'
+import type { LogEntry, PlayerColor, VotesState } from '../../rules/types'
+import { cityLabel, countOf, CubeChip, describeHex, PlayerChip, TILE_NAMES } from '../names'
 import { Panel } from './Panel'
 
-const RECENT_ENTRY_COUNT = 15
+const RECENT_ENTRY_COUNT = 25
+
+/** "+2 cubes" with the cubes themselves, or "no cube". */
+function BagCubes({ votes, color }: { votes: number; color: PlayerColor }) {
+  if (votes === 0) return <strong>no cube</strong>
+  return (
+    <strong className="inline-flex items-center gap-1">
+      +{countOf(votes, 'cube')} <CubeChip color={color} />
+    </strong>
+  )
+}
+
+function Reason({ children }: { children: ReactNode }) {
+  return <span className="text-ink-soft"> {children}</span>
+}
+
+function housedReason(entry: Extract<LogEntry, { kind: 'housed' }>): string {
+  if (!entry.isRemote) return '1 for each person housed.'
+  if (entry.votes === 0) return 'The first person from a Station one stop away costs the cube they would have earned.'
+  return 'Another person from that Station: it was already charged this turn.'
+}
 
 function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
   switch (entry.kind) {
     case 'placed':
       return (
         <>
-          <PlayerChip color={entry.player} /> placed a {tileName(entry.tile, entry.color)} in town {entry.town}.
+          <PlayerChip color={entry.player} /> placed a {TILE_NAMES[entry.tile]} in city {cityLabel(cityAt(state, entry.at))}.
         </>
       )
     case 'passed':
@@ -22,14 +43,9 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
     case 'relocated':
       return (
         <>
-          <CubeChip color={entry.color} /> A person was relocated from town {townOf(state, entry.from)} to town {townOf(state, entry.to)}.
-          Into the bag: <CubeChip color={entry.voter} />
-        </>
-      )
-    case 'schoolVotes':
-      return (
-        <>
-          School votes: {countOf(entry.count, 'cube')} <CubeChip color={entry.player} /> into the bag.
+          <CubeChip color={entry.color} /> A person moved from the {describeHex(state, entry.from)} into the {describeHex(state, entry.to)}.
+          Bag: <BagCubes votes={1} color={entry.voter} />
+          <Reason>1 for each person a School relocates.</Reason>
         </>
       )
     case 'arrived':
@@ -39,20 +55,22 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
             // Two people of one colour can arrive together, so the colour alone isn't unique.
             <CubeChip key={`${color}-${position}`} color={color} />
           ))}{' '}
-          arrived at town {entry.town}’s Station.
+          {countOf(entry.people.length, 'person', 'people')} drawn from the bag arrived at the {describeHex(state, entry.station)}.
         </>
       )
     case 'housed':
       return (
         <>
-          <CubeChip color={entry.color} /> A person moved into a Residence in town {townOf(state, entry.to)}. Into the bag:{' '}
-          <CubeChip color={entry.voter} />
+          <CubeChip color={entry.color} /> A person moved from the {describeHex(state, entry.from)}
+          {entry.isRemote && ' (one stop away)'} into the {describeHex(state, entry.to)}. Bag:{' '}
+          <BagCubes votes={entry.votes} color={entry.voter} />
+          <Reason>{housedReason(entry)}</Reason>
         </>
       )
     case 'merger':
       return (
         <>
-          <strong>Merger:</strong> {entry.city.join(' + ')} became one city. Election {entry.electionNumber} held.
+          <strong>Merger:</strong> {cityLabel(entry.city)} became one city. Election {entry.electionNumber} held.
         </>
       )
     case 'gameOver':

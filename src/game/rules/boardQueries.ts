@@ -1,9 +1,9 @@
-import { BOARD, hexAt, stationKeyOf } from '../map/board'
+import { BOARD, hexAt } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import type { TownId } from '../map/mapData'
+import { citiesOnBoard } from './cities'
 import {
   RESIDENCE_CAPACITY,
-  type BuildingTile,
   type CubeColor,
   type PlayerState,
   type ResidenceTile,
@@ -27,15 +27,21 @@ export function tilesInBoardOrder(state: VotesState): Located<Tile>[] {
   })
 }
 
-export function tilesInCity(state: VotesState, city: TownId[]): Located<Tile>[] {
-  return tilesInBoardOrder(state).filter(({ tile }) => city.includes(tile.town))
+/** Every city, as the towns it holds. */
+export function citiesOf(state: VotesState): TownId[][] {
+  return citiesOnBoard(state.tiles).list
 }
 
-/** The town of the tile at `key`, which must hold one. */
-export function townOf(state: VotesState, key: HexKey): TownId {
-  const tile = state.tiles[key]
-  if (!tile) throw new Error(`No tile at ${key}`)
-  return tile.town
+/** The city holding the tile at `key`. */
+export function cityAt(state: VotesState, key: HexKey): TownId[] {
+  const city = citiesOnBoard(state.tiles).byHex.get(key)
+  if (!city) throw new Error(`No tile at ${key}`)
+  return city
+}
+
+function tilesInCity(state: VotesState, city: TownId[]): Located<Tile>[] {
+  const byHex = citiesOnBoard(state.tiles).byHex
+  return tilesInBoardOrder(state).filter(({ key }) => byHex.get(key)?.[0] === city[0])
 }
 
 export function residences(state: VotesState): Located<ResidenceTile>[] {
@@ -43,25 +49,22 @@ export function residences(state: VotesState): Located<ResidenceTile>[] {
 }
 
 export function residencesInCity(state: VotesState, city: TownId[]): Located<ResidenceTile>[] {
-  return residences(state).filter(({ tile }) => city.includes(tile.town))
+  return tilesInCity(state, city).filter((entry): entry is Located<ResidenceTile> => entry.tile.kind === 'residence')
 }
 
 export function stations(state: VotesState): Located<StationTile>[] {
   return tilesInBoardOrder(state).filter((entry): entry is Located<StationTile> => entry.tile.kind === 'station')
 }
 
-export function stationOf(state: VotesState, town: TownId): Located<StationTile> {
-  const key = stationKeyOf(town)
-  const tile = state.tiles[key]
-  if (tile?.kind !== 'station') throw new Error(`Town ${town} has no Station at ${key}`)
-  return { key, tile }
+export function stationsInCity(state: VotesState, city: TownId[]): Located<StationTile>[] {
+  return tilesInCity(state, city).filter((entry): entry is Located<StationTile> => entry.tile.kind === 'station')
 }
 
 export function factoriesInCity(state: VotesState, city: TownId[]): Located<Tile>[] {
   return tilesInCity(state, city).filter(({ tile }) => tile.kind === 'factory')
 }
 
-/** A Factory scores 2 at elections when it borders a rail, otherwise 1. */
+/** A Factory scores 2 at elections when it borders the rail, otherwise 1. */
 export function factoryPoints(key: HexKey): number {
   return hexAt(key).bordersRail ? 2 : 1
 }
@@ -92,10 +95,4 @@ export function bagSize(state: VotesState): number {
 
 export function activePlayerState(state: VotesState): PlayerState {
   return state.players[state.turn.playerIndex]
-}
-
-export function cityOf(state: VotesState, town: TownId): TownId[] {
-  const city = state.cities.find(candidate => candidate.includes(town))
-  if (!city) throw new Error(`Town ${town} belongs to no city`)
-  return city
 }

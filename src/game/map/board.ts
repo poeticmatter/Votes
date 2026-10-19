@@ -38,6 +38,24 @@ export function stationKeyOf(town: TownId): HexKey {
   return coordKey(TOWN_SITES[town].station)
 }
 
+/** Where along the rail each town's Station is: the first track edge on one of its sides. */
+function railPositionOf(town: TownId): number {
+  const [col, row] = TOWN_SITES[town].station
+  const sideKeys = new Set(SIDES.map(side => edgeKey(col, row, side)))
+  const position = RAIL.findIndex(([railCol, railRow, side]) => sideKeys.has(edgeKey(railCol, railRow, side)))
+  if (position < 0) throw new Error(`Town ${town}'s Station isn't on the rail.`)
+  return position
+}
+
+/** The towns in the order the rail passes their Stations. */
+export const RAIL_ORDER: readonly TownId[] = [...TOWN_IDS].sort((a, b) => railPositionOf(a) - railPositionOf(b))
+
+/** Towns whose Station the rail reaches directly from `town`'s: its neighbours in {@link RAIL_ORDER}. */
+export function townsOneStopAway(town: TownId): TownId[] {
+  const position = RAIL_ORDER.indexOf(town)
+  return RAIL_ORDER.filter((_, index) => Math.abs(index - position) === 1)
+}
+
 function edgeKeysOf(edges: readonly EdgeRef[]): Set<string> {
   return new Set(edges.map(([col, row, side]) => edgeKey(col, row, side)))
 }

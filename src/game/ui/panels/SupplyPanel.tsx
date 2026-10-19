@@ -1,6 +1,6 @@
 import { TOWN_IDS } from '../../map/board'
 import { bagSize } from '../../rules/boardQueries'
-import { INDEPENDENT, type CubeColor, type VotesState } from '../../rules/types'
+import type { CubeColor, VotesState } from '../../rules/types'
 import { BagGlyph } from '../map/glyphs'
 import { CubeChip, useColorNameOf } from '../names'
 import { COLORS } from '../theme'
@@ -10,8 +10,9 @@ import { Panel } from './Panel'
 /** Every merger joins at least two cities, so five towns make at most this many. */
 const MERGERS_IN_GAME = TOWN_IDS.length - 1
 
+/** Grey never enters the bag. */
 function bagColors(state: VotesState): CubeColor[] {
-  return [INDEPENDENT, ...state.players.map(player => player.color)]
+  return state.players.map(player => player.color)
 }
 
 export function SupplyPanel({ state }: { state: VotesState }) {

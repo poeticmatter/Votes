@@ -1,6 +1,7 @@
+import { citiesOf } from '../../rules/boardQueries'
 import { countVotes, type ColorCounts } from '../../rules/elections'
 import { INDEPENDENT, PLAYER_COLORS, type CubeColor, type ElectionResult, type VotesState } from '../../rules/types'
-import { countOf, CubeChip, PlayerChip } from '../names'
+import { cityLabel, countOf, CubeChip, PlayerChip } from '../names'
 import { useByLook } from '../viewer'
 import { Panel } from './Panel'
 
@@ -50,7 +51,7 @@ export function CityResult({ result }: { result: ElectionResult }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="font-bold">{result.city.join(' + ')}</span>
+        <span className="font-bold">{cityLabel(result.city)}</span>
         <ColorTally counts={result.seatsByColor} emptyText="no seats" />
       </div>
       <Scorers result={result} />
@@ -63,7 +64,7 @@ export function CitiesPanel({ state }: { state: VotesState }) {
   return (
     <Panel title="Cities: if they voted now">
       <ul className="flex flex-col divide-y divide-slot text-sm">
-        {state.cities.map(city => (
+        {citiesOf(state).map(city => (
           <li key={city.join('')} className="py-2">
             <CityResult result={countVotes(state, city)} />
           </li>
