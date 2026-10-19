@@ -26,8 +26,8 @@ describe('the rules sheet', () => {
     expect(markup.match(/Example: /g)).toHaveLength(6)
   })
 
-  it('explains stops along the rail', () => {
-    expect(markup).toContain('one stop away')
+  it('explains neighboring cities', () => {
+    expect(markup).toContain('neighbors')
   })
 
   it('names the election’s winner in the figure', () => {

@@ -1,7 +1,7 @@
 import { DEFAULT_SETTINGS } from '../../rules/setup'
 import type { Tile } from '../../rules/types'
 
-// The one-page rules: Rules/Votes.md (Draft 5.8) in the asset generator, condensed.
+// The one-page rules: Rules/Votes.md (Draft 5.8, with neighbors and ties going left) in the asset generator, condensed.
 // Player colours go by the names the game shows: Cobalt, Saffron, Orchid, Jade.
 
 export interface LeadText {
@@ -40,10 +40,10 @@ export const SETUP = [
 ]
 
 export const CITIES =
-  'A city is a group of connected tiles and Stations. Each city starts as a single town: a starting Residence and its Station. Two Stations are one stop away if the rail runs directly between them.'
+  'A city is a group of connected tiles and Stations. Each city starts as a single town: a starting Residence and its Station. Two cities are neighbors if any of their Stations are one stop apart by rail.'
 
 export const CORE_CONCEPTS: { intro: string; items: LeadText[] } = {
-  intro: 'Cubes are people. Every tile you place brings people in or moves them around, in one of three ways:',
+  intro: 'Cubes are people. People may move within their city, or from a neighboring city. Every tile you place brings people in or moves them around, in one of three ways:',
   items: [
     { lead: 'Relocation', text: 'Move people already on the board, as the tile says.' },
     {
@@ -52,11 +52,11 @@ export const CORE_CONCEPTS: { intro: string; items: LeadText[] } = {
     },
     {
       lead: 'Housing',
-      text: 'Move people waiting at Stations into Residences with space, as many as fit. You choose who. People may come from any Station in the same city, or from a Station one stop away. A Residence with 3 people is full.',
+      text: 'Move people waiting at Stations into Residences with space, as many as fit. You choose who. A Residence with 3 people is full.',
     },
     {
       lead: 'Votes',
-      text: 'For each person who moves into a Residence on your turn, add 1 of your cubes to the bag. For each Station one stop away that you housed people from, add 1 fewer.',
+      text: 'Each person who moves into a Residence from within the same city on your turn adds 1 of your cubes to the bag. People from a neighboring city add none.',
     },
   ],
 }
@@ -85,7 +85,7 @@ export const BUILDINGS: BuildingEntry[] = [
   {
     tile: { kind: 'residence', people: [] },
     name: 'Residence',
-    text: 'Holds 3 people and is 1 seat.',
+    text: 'Holds 3 people and is 1 seat. People sit in a row: newcomers join on the right, and when someone leaves, the rest slide left.',
   },
   {
     tile: { kind: 'factory' },
@@ -95,7 +95,7 @@ export const BUILDINGS: BuildingEntry[] = [
   {
     tile: { kind: 'school' },
     name: 'School',
-    text: 'Relocation: move 1 person from anywhere on the board into an adjacent Residence that touches no other School, even a full one.',
+    text: 'Relocation: move 1 person into an adjacent Residence that touches no other School, even a full one.',
   },
   {
     tile: { kind: 'station', people: [] },
@@ -110,7 +110,7 @@ export const ELECTIONS: TitledText[] = [
   {
     title: 'Seats',
     text: 'Each Residence is a seat. The colour with the most cubes on it wins the seat.',
-    note: 'A tied seat counts for nobody, so an empty Residence counts for nobody.',
+    note: 'Ties go to the tied colour furthest left. An empty Residence counts for nobody.',
   },
   {
     title: 'Payout',

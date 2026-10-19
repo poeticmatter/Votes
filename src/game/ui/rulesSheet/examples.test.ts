@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hexAt, townsOneStopAway } from '../../map/board'
+import { hexAt, stationKeyOf, townsOneStopAway } from '../../map/board'
 import { citiesOf, cityAt, factoryPoints, peopleAt, stationsInCity } from '../../rules/boardQueries'
 import { beginHousing, housingMoves } from '../../rules/housing'
 import { citiesTouchedBy } from '../../rules/mergers'
@@ -19,6 +19,9 @@ import {
 } from './examples'
 
 // The rules sheet's examples must show what the game's rules actually do.
+
+const C_STATION = stationKeyOf('C')
+const E_NEW_RESIDENCE = HOUSING_EXAMPLE.moves[0].to
 
 const POSITIONS: [string, ExamplePosition][] = [
   ['placement', PLACEMENT_EXAMPLE.position],
@@ -81,13 +84,15 @@ describe('the housing example', () => {
     expect(housingMoves(beginHousing(state))).toEqual([])
   })
 
-  it('moves people in from a Station one stop away, as its caption says', () => {
+  it('moves people in from a neighboring city, as its caption says', () => {
     expect(townsOneStopAway('C')).toContain('E')
+    expect(cityAt(state, C_STATION)).not.toEqual(cityAt(state, E_NEW_RESIDENCE))
   })
 
-  it('tags one cube per person housed, less one for the Station in another city', () => {
-    const tagged = HOUSING_EXAMPLE.bagTags.reduce((sum, tag) => sum + tag.amount, 0)
-    expect(tagged).toBe(HOUSING_EXAMPLE.moves.length - 1)
+  it('tags one cube for each person who moved in from within the city, and none for a neighboring city', () => {
+    const local = HOUSING_EXAMPLE.moves.filter(move => cityAt(state, move.from)[0] === cityAt(state, move.to)[0])
+    expect(HOUSING_EXAMPLE.bagTags.reduce((sum, tag) => sum + tag.amount, 0)).toBe(local.length)
+    expect(local).toHaveLength(1)
   })
 
   it('fills the Residences the arrows point to', () => {
@@ -130,5 +135,9 @@ describe('the election example', () => {
   it('has 4 seats, the empty Residence counting for nobody', () => {
     expect(ELECTION_EXAMPLE.result.seats).toHaveLength(4)
     expect(ELECTION_EXAMPLE.result.seats.filter(seat => seat.winner === null)).toHaveLength(1)
+  })
+
+  it('gives the tied Residence to Saffron, the colour furthest left', () => {
+    expect(ELECTION_EXAMPLE.result.seats.filter(seat => seat.reason === 'leftmostOfTie').map(seat => seat.winner)).toEqual(['yellow'])
   })
 })

@@ -53,14 +53,27 @@ describe('a School’s relocation', () => {
     expect(relocate(relocating, START_A, 'pink', START_B).turn.playerIndex).toBe(1)
   })
 
-  it('adds a vote for the person moved in', () => {
-    const state = relocate(relocating, START_A, 'pink', START_B)
+  it('adds a cube to the bag for a person from within the city', () => {
+    // [4, 2] and [5, 1] are both in B.
+    const state = relocate(relocating, NEW_B, 'vermillion', START_B)
     expect(state.bag.pink).toBe((board.bag.pink ?? 0) + 1)
   })
 
-  it('records the move as a relocated entry', () => {
+  it('adds none for a person from a neighboring city', () => {
+    // A is next to B along the rail.
+    const state = relocate(relocating, START_A, 'pink', START_B)
+    expect(state.bag.pink).toBe(board.bag.pink)
+  })
+
+  it('records the move and its cubes as a relocated entry', () => {
     const entry = relocate(relocating, START_A, 'pink', START_B).log.at(-1)
-    expect(entry).toMatchObject({ kind: 'relocated', from: START_A, to: START_B, color: 'pink', voter: 'pink' })
+    expect(entry).toMatchObject({ kind: 'relocated', from: START_A, to: START_B, color: 'pink', voter: 'pink', votes: 0 })
+  })
+
+  it('refuses a person from a city that is no neighbor', () => {
+    // E is two stops from B.
+    const far = placeSchool(withTiles(board, { '8,7': residence(['grey']) }))
+    expect(() => relocate(far, '8,7', 'grey', START_B)).toThrow(IllegalMoveError)
   })
 
   it('refuses a Residence the School doesn’t touch', () => {

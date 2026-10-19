@@ -74,12 +74,14 @@ describe('mergers', () => {
   })
 
   it('houses people in the merged city the same turn', () => {
-    // Someone waits at C's Station, and the only room is the new Residence, which is in the merged city.
+    // Someone waits at C's Station, and the only room is the new Residence, which is in the
+    // merged city. The neighboring cities, A and E, are full.
     const waiting = withTiles(beforeMerger, {
       '9,3': station(['pink']),
       '9,2': residence(['vermillion', 'vermillion', 'vermillion']),
       '5,1': residence(['pink', 'pink', 'pink']),
       '8,7': residence(['pink', 'pink', 'pink']),
+      '1,2': residence(['pink', 'pink', 'pink']),
     })
     const state = applyMove(waiting, { kind: 'place', tile: 'residence', at: '8,3' })
     expect(state.tiles['8,3']).toEqual(residence(['pink']))

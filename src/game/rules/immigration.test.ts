@@ -49,12 +49,14 @@ describe('other tiles', () => {
 })
 
 describe('a Factory in a city with two Stations', () => {
-  // A and D join when a Factory at [1, 5] connects the arms at [1, 4] and [1, 6]. The
-  // starting Residences are full, so nobody can be housed and the arrival stays visible.
+  // A and D join when a Factory at [1, 5] connects the arms at [1, 4] and [1, 6]. Their
+  // Residences and B's, the neighboring city, are full, so nobody can be housed and the
+  // arrival stays visible.
   const joined = withBag(
     withTiles(newGame(), {
       '1,2': fullResidence,
       '1,7': fullResidence,
+      '5,1': fullResidence,
       '1,4': school(),
       '1,6': school(),
     }),

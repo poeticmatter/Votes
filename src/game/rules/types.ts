@@ -88,15 +88,15 @@ export interface MergerMarker {
   between: [HexKey, HexKey]
 }
 
-/** Why a Residence's seat went where it did. A tie, empty or not, counts for nobody. */
-export type SeatReason = 'mostPeople' | 'tie'
+/** Why a Residence's seat went where it did: the most people, the leftmost of a tie, or nobody's when empty. */
+export type SeatReason = 'mostPeople' | 'leftmostOfTie' | 'empty'
 
 /** Every Residence is a seat. */
 export interface SeatResult {
   residence: HexKey
   /** Who lived there when the city voted. */
   people: CubeColor[]
-  /** Null on a tie. */
+  /** Null only for an empty Residence. */
   winner: CubeColor | null
   reason: SeatReason
 }
@@ -117,8 +117,8 @@ export interface ElectionResult {
 export type LogEntry =
   | { kind: 'placed'; turn: number; player: PlayerColor; tile: PlaceableKind; at: HexKey }
   | { kind: 'passed'; turn: number; player: PlayerColor }
-  /** A School's relocation; the active player added a vote to the bag for it. */
-  | { kind: 'relocated'; turn: number; color: CubeColor; from: HexKey; to: HexKey; voter: PlayerColor }
+  /** A School's relocation; `votes` cubes of the voter's went into the bag, none for a person from a neighboring city. */
+  | { kind: 'relocated'; turn: number; color: CubeColor; from: HexKey; to: HexKey; voter: PlayerColor; votes: number }
   /** People drawn from the bag onto a Station. */
   | { kind: 'arrived'; turn: number; station: HexKey; people: CubeColor[] }
   | {
@@ -128,9 +128,9 @@ export type LogEntry =
       from: HexKey
       to: HexKey
       voter: PlayerColor
-      /** The Station was in another city, one stop away along the rail. */
-      isRemote: boolean
-      /** Cubes the voter added to the bag: 1, or 0 for the first person from a remote Station. */
+      /** The Station was in a neighboring city. */
+      isFromNeighbor: boolean
+      /** Cubes the voter added to the bag: 1, or 0 for a person from a neighboring city. */
       votes: number
     }
   | { kind: 'merger'; turn: number; city: TownId[]; electionNumber: number }
@@ -140,9 +140,10 @@ export type LogEntry =
  * Bump this whenever the rules or the saved state's shape change, so a game saved by
  * another version (an async room, or a browser still running an older deploy) is
  * recognised instead of misread. 2 is Draft 5.4, 3 Draft 5.7 with town colours, 4 the
- * same on the mountains-only map, 5 Draft 5.8.
+ * same on the mountains-only map, 5 the first Draft 5.8, 6 Draft 5.8 with neighboring
+ * cities and ties going left.
  */
-export const RULES_VERSION = 5
+export const RULES_VERSION = 6
 
 export interface VotesState {
   /** {@link RULES_VERSION} when the game was created; missing in games from before it existed. */

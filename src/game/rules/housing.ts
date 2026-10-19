@@ -1,48 +1,30 @@
 import { IllegalMoveError } from 'game-kit/turns'
-import { hexAt, townsOneStopAway } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
-import type { TownId } from '../map/mapData'
 import { addVotes } from './bag'
-import { activePlayerState, cityAt, hasRoom, residences, stations } from './boardQueries'
-import { isSameMove, movePerson, movesFrom } from './people'
+import { activePlayerState, hasRoom, residences, stations } from './boardQueries'
+import { isSameMove, isWithinCity, movePerson, movesFrom, votesForMove } from './people'
 import type { PersonMove, VotesState } from './types'
 
 // Housing, every turn: people waiting at Stations move into Residences with space, as
-// many as fit. A Residence takes people from any Station in its city, or from a Station
-// one stop away along the rail. The active player picks who moves where, one person at a
-// time; a move that is the only one possible happens by itself. People who don't fit
-// keep waiting, and move in on a later turn once there's space.
+// many as fit, within their city or from a neighboring city. The active player picks who
+// moves where, one person at a time; a move that is the only one possible happens by
+// itself. People who don't fit keep waiting, and move in on a later turn once there's
+// space.
 //
-// Votes: the active player adds 1 of their cubes to the bag for each person housed,
-// 1 fewer for each Station in another city that they housed people from this turn.
+// Votes: the active player adds 1 of their cubes to the bag for each person who moves
+// in from within the same city, and none for a person from a neighboring city.
 
-function townOfStation(station: HexKey): TownId {
-  const { stationSite } = hexAt(station)
-  if (!stationSite) throw new Error(`${station} isn't a Station site`)
-  return stationSite
-}
-
-/** Whether `station` sits in a city other than `city`, reaching it by one stop along the rail. */
-function isOneStopAway(station: HexKey, city: TownId[]): boolean {
-  const town = townOfStation(station)
-  return !city.includes(town) && townsOneStopAway(town).some(neighbor => city.includes(neighbor))
-}
-
-/** Residences with space for one more that people waiting at `station` may move into. */
-export function homesWithRoomFor(state: VotesState, station: HexKey): HexKey[] {
-  const town = townOfStation(station)
+/** Residences with space for one more. Who may move into each is up to {@link movesFrom}. */
+function residencesWithRoom(state: VotesState): HexKey[] {
   return residences(state)
-    .filter(({ key, tile }) => {
-      if (!hasRoom(tile)) return false
-      const city = cityAt(state, key)
-      return city.includes(town) || isOneStopAway(station, city)
-    })
+    .filter(({ tile }) => hasRoom(tile))
     .map(({ key }) => key)
 }
 
 export function housingMoves(state: VotesState): PersonMove[] {
   if (state.phase.kind !== 'housing') return []
-  return stations(state).flatMap(({ key }) => movesFrom(state, key, homesWithRoomFor(state, key)))
+  const homes = residencesWithRoom(state)
+  return stations(state).flatMap(({ key }) => movesFrom(state, key, homes))
 }
 
 export function isHousingOver(state: VotesState): boolean {
@@ -53,18 +35,14 @@ export function beginHousing(state: VotesState): VotesState {
   return { ...state, phase: { kind: 'housing' } }
 }
 
-/** Whether the move brings a person from a Station in another city, one stop away. */
-export function isRemoteMove(state: VotesState, { from, to }: PersonMove): boolean {
-  return isOneStopAway(from, cityAt(state, to))
+/** Whether the move brings a person from a neighboring city. */
+export function isFromNeighbor(state: VotesState, { from, to }: PersonMove): boolean {
+  return !isWithinCity(state, from, to)
 }
 
-/** Cubes the move earns the active player: 1, but none for the first person from a remote Station this turn. */
-export function housingVotes(state: VotesState, move: PersonMove): number {
-  if (!isRemoteMove(state, move)) return 1
-  const hasHousedFromBefore = state.log.some(
-    entry => entry.kind === 'housed' && entry.turn === state.turn.number && entry.from === move.from && entry.isRemote,
-  )
-  return hasHousedFromBefore ? 1 : 0
+/** Cubes the move earns the active player. */
+export function housingVotes(state: VotesState, { from, to }: PersonMove): number {
+  return votesForMove(state, from, to)
 }
 
 export function house(state: VotesState, move: PersonMove): VotesState {
@@ -80,7 +58,7 @@ export function house(state: VotesState, move: PersonMove): VotesState {
     from: move.from,
     to: move.to,
     voter: activePlayerState(state).color,
-    isRemote: isRemoteMove(state, move),
+    isFromNeighbor: isFromNeighbor(state, move),
     votes,
   }
   return addVotes({ ...moved, log: [...moved.log, entry] }, votes)

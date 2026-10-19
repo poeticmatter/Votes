@@ -12,12 +12,17 @@ describe('a Residence’s seat', () => {
     expect(seatWinner(['grey', 'grey', 'pink'])).toEqual({ winner: 'grey', reason: 'mostPeople' })
   })
 
-  it('counts for nobody on a tie', () => {
-    expect(seatWinner(['vermillion', 'pink'])).toEqual({ winner: null, reason: 'tie' })
+  it('goes to the tied colour furthest left', () => {
+    expect(seatWinner(['vermillion', 'pink'])).toEqual({ winner: 'vermillion', reason: 'leftmostOfTie' })
+    expect(seatWinner(['pink', 'vermillion', 'vermillion', 'pink'])).toEqual({ winner: 'pink', reason: 'leftmostOfTie' })
   })
 
-  it('counts for nobody when empty, a 0–0 tie', () => {
-    expect(seatWinner([])).toEqual({ winner: null, reason: 'tie' })
+  it('can go to grey on a tie', () => {
+    expect(seatWinner(['grey', 'pink'])).toEqual({ winner: 'grey', reason: 'leftmostOfTie' })
+  })
+
+  it('counts for nobody when empty', () => {
+    expect(seatWinner([])).toEqual({ winner: null, reason: 'empty' })
   })
 })
 
@@ -34,13 +39,13 @@ describe('a city’s vote', () => {
   })
   const result = countVotes(board, ['C'])
 
-  it('makes every Residence in the city a seat, and counts only the winners', () => {
+  it('makes every Residence in the city a seat', () => {
     expect(result.seats).toHaveLength(2)
-    expect(result.seatsByColor).toEqual({ pink: 1 })
   })
 
-  it('records a tied seat as nobody’s', () => {
-    expect(result.seats.map(seat => seat.winner)).toEqual(['pink', null])
+  it('gives a tied seat to the colour furthest left', () => {
+    expect(result.seats.map(seat => seat.winner)).toEqual(['pink', 'vermillion'])
+    expect(result.seatsByColor).toEqual({ pink: 1, vermillion: 1 })
   })
 
   it('scores the city’s Factories, 2 for one beside the rail', () => {

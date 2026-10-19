@@ -11,9 +11,10 @@ function SeatLine({ seat, state }: { seat: SeatResult; state: VotesState }) {
       {seat.winner ? (
         <>
           <CubeChip color={seat.winner} size={11} /> {colorNameOf(seat.winner)}
+          {seat.reason === 'leftmostOfTie' && <span className="italic">(tie, the leftmost wins)</span>}
         </>
       ) : (
-        <span className="italic">{seat.people.length ? 'tie, counts for nobody' : 'empty, counts for nobody'}</span>
+        <span className="italic">empty, counts for nobody</span>
       )}
     </li>
   )

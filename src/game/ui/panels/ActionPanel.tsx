@@ -40,7 +40,7 @@ function schoolEffects(state: VotesState, at: HexKey): string[] {
   const eligible = eligibleResidences(state, at).length
   if (eligible === 0) return ['No Residence next to it is free of another School, so nobody is relocated.']
   return [
-    `Relocation: you move 1 person from anywhere into one of the ${countOf(eligible, 'Residence')} next to it that touch no other School, even a full one, and add a cube to the bag for them.`,
+    `Relocation: you move 1 person, from that Residence’s city or a neighboring one, into one of the ${countOf(eligible, 'Residence')} next to it that touch no other School, even a full one.`,
   ]
 }
 

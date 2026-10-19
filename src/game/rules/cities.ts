@@ -1,4 +1,4 @@
-import { hexAt, residenceSiteKey, TOWN_IDS } from '../map/board'
+import { hexAt, residenceSiteKey, TOWN_IDS, townsOneStopAway } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import type { TownId } from '../map/mapData'
 import type { Tile } from './types'
@@ -7,7 +7,8 @@ import type { Tile } from './types'
 // starting Residence and its Station, and grows by tiles placed next to it. Two cities
 // are one the moment a tile connects them, so cities are never stored: they are read
 // off the tiles. A city is named by its towns, the ones whose starting Residence it
-// holds, in alphabetical order.
+// holds, in alphabetical order. Two cities are neighbors if any of their Stations are
+// one stop apart by rail.
 
 export interface Cities {
   /** Every city, ordered by its first town. */
@@ -63,4 +64,9 @@ export function citiesOnBoard(tiles: Record<HexKey, Tile>): Cities {
 /** The cities as they were before a tile was placed at `placedAt`, which may not be on the board yet. */
 export function citiesWithout(tiles: Record<HexKey, Tile>, placedAt: HexKey): Cities {
   return citiesOfTiles(tiles, placedAt)
+}
+
+/** Whether any Station of `a` is one stop by rail from a Station of `b`. */
+export function areNeighborCities(a: TownId[], b: TownId[]): boolean {
+  return a.some(town => townsOneStopAway(town).some(next => b.includes(next)))
 }

@@ -3,13 +3,14 @@ import { hexAt } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import { addVotes } from './bag'
 import { activePlayerState, peopleAt, tilesInBoardOrder } from './boardQueries'
-import { isSameMove, movePerson, movesFrom } from './people'
+import { isSameMove, movePerson, movesFrom, votesForMove } from './people'
 import type { PersonMove, VotesState } from './types'
 
-// A School's relocation: the active player moves 1 person from anywhere on the board
-// (a Residence or a Station) into one Residence next to the School that touches no
-// other School, even a full one. The person moved in is a vote: the active player adds
-// 1 of their cubes to the bag.
+// A School's relocation: the active player moves 1 person into one Residence next to
+// the School that touches no other School, even a full one. The person comes from a
+// Residence or Station in that Residence's city or a neighboring one. As in housing, a
+// person from within the city earns the active player 1 cube for the bag, and one from
+// a neighboring city none.
 
 /** Residences next to the School at `at` that touch no other School. The School needn't be placed yet. */
 export function eligibleResidences(state: VotesState, at: HexKey): HexKey[] {
@@ -45,14 +46,9 @@ export function relocate(state: VotesState, move: PersonMove): VotesState {
   if (!relocationMoves(state).some(legal => isSameMove(legal, move))) {
     throw new IllegalMoveError(`Can't relocate a ${move.color} person from ${move.from} to ${move.to}`)
   }
+  const votes = votesForMove(state, move.from, move.to)
   const moved = movePerson(state, move)
   const voter = activePlayerState(state).color
-  return addVotes(
-    {
-      ...moved,
-      phase: { kind: 'relocation', residences: [] },
-      log: [...moved.log, { kind: 'relocated', turn: state.turn.number, color: move.color, from: move.from, to: move.to, voter }],
-    },
-    1,
-  )
+  const entry = { kind: 'relocated' as const, turn: state.turn.number, color: move.color, from: move.from, to: move.to, voter, votes }
+  return addVotes({ ...moved, phase: { kind: 'relocation', residences: [] }, log: [...moved.log, entry] }, votes)
 }

@@ -45,7 +45,7 @@ function SeatChip({ x, y, seat }: { x: number; y: number; seat: SeatResult }) {
 
 function ResidenceRow({ seat, seatNumber, y }: { seat: SeatResult; seatNumber: number; y: number }) {
   const pieceColorOf = usePieceColorOf()
-  const note = seat.winner ? null : seat.people.length ? 'tie' : 'empty'
+  const note = seat.reason === 'leftmostOfTie' ? 'tie: leftmost' : seat.reason === 'empty' ? 'empty' : null
   return (
     <g>
       <text {...TEXT} x={COLUMNS.town} y={y} fontSize={15} fontWeight={800} fill={COLORS.inkSoft}>

@@ -3,8 +3,9 @@ import { distinctColors, factoriesInCity, factoryPoints, residencesInCity } from
 import { INDEPENDENT, type CubeColor, type ElectionResult, type PlayerColor, type SeatResult, type VotesState } from './types'
 
 // Elections, held after every merger by the newly merged city only. Every Residence is
-// a seat: the colour with the most people on it wins, and a tie counts for nobody, so
-// an empty Residence (a 0–0 tie) is nobody's. The player with the most seats scores the
+// a seat: the colour with the most people on it wins, and a tie goes to the tied colour
+// furthest left, the one that has lived there longest (people sit in a row, newcomers on
+// the right). An empty Residence is nobody's. The player with the most seats scores the
 // city's Factories. Players tied with grey for the most seats still score.
 
 export type ColorCounts = Partial<Record<CubeColor, number>>
@@ -16,8 +17,10 @@ export function countByColor(colors: readonly CubeColor[]): ColorCounts {
 export function seatWinner(people: readonly CubeColor[]): Pick<SeatResult, 'winner' | 'reason'> {
   const counts = countByColor(people)
   const top = Math.max(0, ...Object.values(counts).map(count => count ?? 0))
+  // Colours are listed in the order they first appear, so the first leader is the leftmost.
   const leaders = distinctColors(people).filter(color => counts[color] === top)
-  return leaders.length === 1 ? { winner: leaders[0], reason: 'mostPeople' } : { winner: null, reason: 'tie' }
+  if (people.length === 0) return { winner: null, reason: 'empty' }
+  return { winner: leaders[0], reason: leaders.length === 1 ? 'mostPeople' : 'leftmostOfTie' }
 }
 
 /**

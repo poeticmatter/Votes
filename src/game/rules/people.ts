@@ -1,18 +1,36 @@
 import type { HexKey } from '../map/hexGrid'
-import { distinctColors, peopleAt } from './boardQueries'
+import { distinctColors, cityAt, peopleAt } from './boardQueries'
+import { areNeighborCities } from './cities'
 import type { PersonMove, VotesState } from './types'
 
 // Moving one person (cube) from a Residence or Station into a Residence: what both a
-// School's relocation and housing do.
+// School's relocation and housing do. People move within their city, or from a
+// neighboring city; only a move within the city earns the mover a vote.
+
+/** Whether the tile at `from` is in the city of the Residence at `to`. */
+export function isWithinCity(state: VotesState, from: HexKey, to: HexKey): boolean {
+  return cityAt(state, from)[0] === cityAt(state, to)[0]
+}
+
+/** Whether a person at `from` may move into the Residence at `to`: within its city or from a neighbor. */
+export function canMoveBetween(state: VotesState, from: HexKey, to: HexKey): boolean {
+  return isWithinCity(state, from, to) || areNeighborCities(cityAt(state, from), cityAt(state, to))
+}
+
+/** Cubes the move earns the active player: 1 for a person from within the city, none from a neighbor. */
+export function votesForMove(state: VotesState, from: HexKey, to: HexKey): number {
+  return isWithinCity(state, from, to) ? 1 : 0
+}
 
 export function isSameMove(a: PersonMove, b: PersonMove): boolean {
   return a.from === b.from && a.color === b.color && a.to === b.to
 }
 
-/** Every way to move one person at `from` into one of `destinations`, one move per colour. */
+/** Every way to move one person at `from` into one of `destinations` they may reach, one move per colour. */
 export function movesFrom(state: VotesState, from: HexKey, destinations: HexKey[]): PersonMove[] {
   const colors = distinctColors(peopleAt(state, from))
-  return colors.flatMap(color => destinations.filter(to => to !== from).map(to => ({ from, color, to })))
+  const reachable = destinations.filter(to => to !== from && canMoveBetween(state, from, to))
+  return colors.flatMap(color => reachable.map(to => ({ from, color, to })))
 }
 
 /** Moves the person; the caller has checked the move is legal. */

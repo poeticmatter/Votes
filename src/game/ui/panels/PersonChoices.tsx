@@ -1,7 +1,7 @@
 import { Button } from 'game-kit/turns'
 import type { HexKey } from '../../map/hexGrid'
 import { peopleAt } from '../../rules/boardQueries'
-import { housingVotes } from '../../rules/housing'
+import { votesForMove } from '../../rules/people'
 import { RESIDENCE_CAPACITY, type VotesState } from '../../rules/types'
 import { CubeChip, describeHex, useColorNameOf } from '../names'
 import type { PersonPicker } from '../useTurnControls'
@@ -11,13 +11,14 @@ import { useByLook } from '../viewer'
 // where from (on the map, or from a list of Stations when housing), which colour when
 // there's a choice, then where to. The map highlights the same choices.
 
-const VOTE_NOTE = 'You add 1 of your cubes to the bag for each person who moves in.'
+const VOTE_NOTE =
+  'You add 1 of your cubes to the bag for each person who moves in from within the same city, and none for one from a neighboring city.'
 
 function relocationIntro(): string {
-  return `Your School moves 1 person from anywhere on the board into one of the outlined Residences, even a full one. ${VOTE_NOTE} Choose a Residence or Station on the map to take someone from.`
+  return `Your School moves 1 person into one of the outlined Residences, even a full one, from its city or a neighboring city. ${VOTE_NOTE} Choose a Residence or Station on the map to take someone from.`
 }
 
-const HOUSING_INTRO = `People waiting at Stations move into Residences with space: in their city, or in a city one stop away along the rail. ${VOTE_NOTE} A person from a Station in another city costs you a cube, once per Station each turn. Choose who moves in next.`
+const HOUSING_INTRO = `People waiting at Stations move into Residences with space, within their city or from a neighboring city. ${VOTE_NOTE} Choose who moves in next.`
 
 function ChoiceList({ keys, describe, onChoose }: { keys: HexKey[]; describe: (key: HexKey) => string; onChoose: (key: HexKey) => void }) {
   return (
@@ -54,9 +55,8 @@ export function PersonChoices({ state, picker }: { state: VotesState; picker: Pe
 
   const describeDestination = (to: HexKey) => {
     const people = `${peopleAt(state, to).length}/${RESIDENCE_CAPACITY}`
-    if (!isHousing || !picker.from || !picker.color) return `${describe(to)} · ${people}`
-    const votes = housingVotes(state, { from: picker.from, color: picker.color, to })
-    return `${describe(to)} · ${people} · ${votes === 0 ? 'no cube for you' : '+1 cube'}`
+    if (!picker.from) return `${describe(to)} · ${people}`
+    return `${describe(to)} · ${people} · ${votesForMove(state, picker.from, to) === 0 ? 'no cube for you' : '+1 cube'}`
   }
 
   if (!picker.from) {

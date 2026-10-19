@@ -125,19 +125,19 @@ const E_RESIDENCE = residenceSiteKey('E')
 
 // After housing: C's Residence is full, so its Station's two people were waiting.
 export const HOUSING_EXAMPLE = {
-  position: examplePosition({ playerCount: 3, columns: [7, 10], rows: [2, 7] }, { C: ['blue', 'blue', 'pink'], E: ['grey', 'pink', 'yellow'] }, {
-    [E_NEW_RESIDENCE]: residence(['blue', 'pink', 'grey']),
+  position: examplePosition({ playerCount: 3, columns: [7, 10], rows: [2, 7] }, { C: ['blue', 'blue', 'pink'], E: ['blue', 'pink', 'grey'] }, {
+    [E_NEW_RESIDENCE]: residence(['pink', 'yellow']),
   }),
   moves: [
-    { from: E_STATION, to: E_RESIDENCE, home: 2 },
-    { from: C_STATION, to: E_NEW_RESIDENCE, home: 1 },
-    { from: C_STATION, to: E_NEW_RESIDENCE, home: 2 },
+    { from: E_STATION, to: E_NEW_RESIDENCE, home: 1 },
+    { from: C_STATION, to: E_RESIDENCE, home: 1 },
+    { from: C_STATION, to: E_RESIDENCE, home: 2 },
   ] satisfies PersonArrow[],
-  bagTags: [{ at: E_NEW_RESIDENCE, color: 'yellow', amount: 2, side: 'above' }] satisfies BagTag[],
+  bagTags: [{ at: E_NEW_RESIDENCE, color: 'yellow', amount: 1, side: 'above' }] satisfies BagTag[],
   caption: [
-    'Then housing. Saffron, the active player, picks who moves in. E’s Residences have room for 3. C’s Station is one stop along the rail from E’s, so its people can move into E too.',
-    'The Saffron person waiting at E’s Station moves into E’s Residence: Saffron adds 1 cube to the bag.',
-    'An Orchid and a grey person move from C’s Station into E. The first person from a Station in another city earns no cube, so that is 0 for the Orchid and 1 for the grey: Saffron adds 1 more.',
+    'Then housing. Saffron, the active player, picks who moves in. E has room for 3. C is a neighboring city, since their Stations are one stop apart by rail, so people waiting at C’s Station can move into E too.',
+    'The Saffron person waiting at E’s Station moves into E’s new Residence, joining on the right. They come from within the city, so Saffron adds 1 cube to the bag.',
+    'An Orchid and a grey person move from C’s Station into E’s starting Residence. They come from a neighboring city, so they add no cubes.',
   ],
 }
 
@@ -161,8 +161,8 @@ export const SCHOOL_EXAMPLE = {
   bagTags: [{ at: B_RIGHT, color: 'blue', amount: 1, side: 'below' }] satisfies BagTag[],
   caption: [
     'Cobalt builds a School in B. Three Residences touch it, but the one on the left also touches another School, so it can’t be filled.',
-    'Relocation: Cobalt moves 1 person from anywhere into one of the other two, even a full one. The Cobalt person waiting at B’s Station goes into the full Residence on the right.',
-    'Votes: Cobalt adds 1 Cobalt cube to the bag for the person moved in.',
+    'Relocation: Cobalt moves 1 person into one of the other two, even a full one. The Cobalt person waiting at B’s Station goes into the full Residence on the right, joining on its right.',
+    'Votes: the person came from within the same city, so Cobalt adds 1 Cobalt cube to the bag.',
   ],
 }
 
@@ -178,7 +178,7 @@ export const MERGER_EXAMPLE = {
     {
       '9,4': building('factory'),
       '7,5': building('factory'),
-      '8,6': residence(['yellow', 'yellow']),
+      '8,6': residence(['yellow', 'blue']),
       [MERGER_PLACED]: residence(),
     },
   ),
@@ -201,7 +201,7 @@ export const ELECTION_EXAMPLE = {
   result: mergerElection(),
   caption: [
     'Each of the new city’s 4 Residences is a seat.',
-    'Cobalt wins the starting Residences of both E and C, and Saffron wins the one between them. The new Residence is empty, a 0–0 tie, so it counts for nobody.',
+    'Cobalt wins the starting Residences of both E and C. The Residence between them holds a Saffron and a Cobalt, tied, so the colour furthest left, Saffron, wins it. The new Residence is empty, so it counts for nobody.',
     'Cobalt has the most seats, 2, and scores the city’s Factories: both border the rail, so 4 points.',
   ],
 }

@@ -20,11 +20,8 @@ function Reason({ children }: { children: ReactNode }) {
   return <span className="text-ink-soft"> {children}</span>
 }
 
-function housedReason(entry: Extract<LogEntry, { kind: 'housed' }>): string {
-  if (!entry.isRemote) return '1 for each person housed.'
-  if (entry.votes === 0) return 'The first person from a Station one stop away costs the cube they would have earned.'
-  return 'Another person from that Station: it was already charged this turn.'
-}
+const WITHIN_CITY_REASON = '1 for each person who moves in from within the same city.'
+const NEIGHBOR_REASON = 'A person from a neighboring city adds none.'
 
 function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
   switch (entry.kind) {
@@ -44,8 +41,8 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
       return (
         <>
           <CubeChip color={entry.color} /> A person moved from the {describeHex(state, entry.from)} into the {describeHex(state, entry.to)}.
-          Bag: <BagCubes votes={1} color={entry.voter} />
-          <Reason>1 for each person a School relocates.</Reason>
+          Bag: <BagCubes votes={entry.votes} color={entry.voter} />
+          <Reason>{entry.votes > 0 ? WITHIN_CITY_REASON : NEIGHBOR_REASON}</Reason>
         </>
       )
     case 'arrived':
@@ -62,9 +59,9 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
       return (
         <>
           <CubeChip color={entry.color} /> A person moved from the {describeHex(state, entry.from)}
-          {entry.isRemote && ' (one stop away)'} into the {describeHex(state, entry.to)}. Bag:{' '}
+          {entry.isFromNeighbor && ' (a neighboring city)'} into the {describeHex(state, entry.to)}. Bag:{' '}
           <BagCubes votes={entry.votes} color={entry.voter} />
-          <Reason>{housedReason(entry)}</Reason>
+          <Reason>{entry.isFromNeighbor ? NEIGHBOR_REASON : WITHIN_CITY_REASON}</Reason>
         </>
       )
     case 'merger':

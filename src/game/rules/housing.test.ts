@@ -5,8 +5,8 @@ import { applyMove } from './turnFlow'
 import { factory, newGame, residence, station, withBag, withTiles } from './testStates'
 import type { VotesState } from './types'
 
-// The rail passes the Stations in the order E, C, B, A, D, so E's Station is one stop
-// from C's, C's from B's, and so on. Pink is the active player.
+// The rail passes the Stations in the order E, C, B, A, D, so the cities E and C are
+// neighbors, then C and B, and so on. Pink is the active player.
 const STATION_E = '7,6'
 const START_E = '8,7'
 const NEW_E = '8,6'
@@ -31,24 +31,31 @@ describe('where waiting people can move in', () => {
     expect(housingMoves(state)).toEqual([{ ...moveTo(STATION_E, NEW_E) }])
   })
 
-  it('offers Residences in a city one stop away along the rail', () => {
+  it('offers Residences in a neighboring city', () => {
     const state = housing({ [STATION_E]: station(['grey']), [START_C]: residence() })
     expect(housingMoves(state)).toEqual([moveTo(STATION_E, START_C)])
   })
 
-  it('refuses a city two stops away', () => {
+  it('refuses a city that is not a neighbor', () => {
     const state = housing({ [STATION_E]: station(['grey']), [START_B]: residence() })
     expect(housingMoves(state)).toEqual([])
     expect(() => house(state, moveTo(STATION_E, START_B))).toThrow(IllegalMoveError)
   })
 
-  it('reaches stops in both directions', () => {
+  it('reaches neighbors in both directions along the rail', () => {
     const state = housing({ [STATION_C]: station(['grey']), [START_E]: residence(), [START_B]: residence() })
     expect(housingMoves(state).map(move => move.to)).toEqual([START_B, START_E])
   })
 
   it('does not offer a full Residence', () => {
     expect(housingMoves(housing({ [STATION_E]: station(['grey']) }))).toEqual([])
+  })
+
+  it('reaches the neighbors of every Station of a merged city', () => {
+    // A and D are one city, and A's Station is one stop from B's, so D's Station reaches B's city too.
+    const chain = { '1,4': factory(), '1,5': factory(), '1,6': factory() }
+    const state = housing({ ...chain, '2,7': station(['grey']), [START_B]: residence() })
+    expect(housingMoves(state)).toEqual([moveTo('2,7', START_B)])
   })
 
   it('reaches every Residence of a merged city, however far along the rail', () => {
@@ -62,41 +69,40 @@ describe('where waiting people can move in', () => {
 describe('votes for housing', () => {
   const votesOf = (state: VotesState) => state.bag.pink ?? 0
 
-  it('adds one of the active player’s cubes to the bag per person housed in the city', () => {
+  it('adds one of the active player’s cubes to the bag per person who moves in from within the city', () => {
     const state = housing({ [STATION_E]: station(['grey']), [NEW_E]: residence() })
     expect(votesOf(house(state, moveTo(STATION_E, NEW_E))) - votesOf(state)).toBe(1)
   })
 
-  it('adds one fewer for the first person from a Station one stop away', () => {
-    const state = housing({ [STATION_C]: station(['grey', 'grey']), [START_B]: residence() })
+  it('adds none for a person from a neighboring city', () => {
+    const state = housing({ [STATION_C]: station(['grey']), [START_B]: residence() })
     expect(housingVotes(state, moveTo(STATION_C, START_B))).toBe(0)
+    expect(votesOf(house(state, moveTo(STATION_C, START_B)))).toBe(votesOf(state))
   })
 
-  it('charges that Station only once a turn', () => {
+  it('adds none for every person from a neighboring city, however many', () => {
     const state = housing({ [STATION_C]: station(['grey', 'grey']), [START_B]: residence() })
     const first = house(state, moveTo(STATION_C, START_B))
-    expect(votesOf(first)).toBe(votesOf(state))
-    expect(housingVotes(first, moveTo(STATION_C, START_B))).toBe(1)
-    expect(votesOf(house(first, moveTo(STATION_C, START_B)))).toBe(votesOf(state) + 1)
+    expect(housingVotes(first, moveTo(STATION_C, START_B))).toBe(0)
+    expect(votesOf(house(first, moveTo(STATION_C, START_B)))).toBe(votesOf(state))
   })
 
-  it('charges each Station one stop away', () => {
+  it('counts local and neighboring people separately in one turn', () => {
     const state = housing({
       [STATION_C]: station(['grey']),
       [STATION_E]: station(['grey']),
       [START_B]: residence(),
-      '8,6': residence(),
+      [NEW_E]: residence(),
     })
-    // C's person goes one stop to B's Residence; E's person is in E's own city for [8, 6].
     const afterC = house(state, moveTo(STATION_C, START_B))
     expect(votesOf(afterC)).toBe(votesOf(state))
-    expect(votesOf(house(afterC, moveTo(STATION_E, '8,6'))) - votesOf(afterC)).toBe(1)
+    expect(votesOf(house(afterC, moveTo(STATION_E, NEW_E))) - votesOf(afterC)).toBe(1)
   })
 
-  it('records the cost in the log', () => {
+  it('records where the person came from and the cubes it earned', () => {
     const state = housing({ [STATION_C]: station(['grey']), [START_B]: residence() })
     const entry = house(state, moveTo(STATION_C, START_B)).log.at(-1)
-    expect(entry).toMatchObject({ kind: 'housed', isRemote: true, votes: 0, voter: 'pink' })
+    expect(entry).toMatchObject({ kind: 'housed', isFromNeighbor: true, votes: 0, voter: 'pink' })
   })
 })
 
@@ -104,7 +110,7 @@ describe('the housing log', () => {
   it('records each move as a housed entry, not as the move itself', () => {
     const state = housing({ [STATION_E]: station(['grey']), [NEW_E]: residence() })
     const entry = applyMove(state, { kind: 'house', ...moveTo(STATION_E, NEW_E) }).log.at(-1)
-    expect(entry).toMatchObject({ kind: 'housed', from: STATION_E, to: NEW_E, color: 'grey', votes: 1, isRemote: false })
+    expect(entry).toMatchObject({ kind: 'housed', from: STATION_E, to: NEW_E, color: 'grey', votes: 1, isFromNeighbor: false })
   })
 })
 
