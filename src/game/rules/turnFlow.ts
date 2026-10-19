@@ -114,6 +114,15 @@ function pass(state: VotesState): VotesState {
   }
 }
 
+/**
+ * Whether `move` draws cubes from the bag. It can't be undone then: the player would
+ * have seen what came out and could take the move back to choose differently. Throws
+ * {@link IllegalMoveError} for a move that breaks the rules.
+ */
+export function drawsFromBag(state: VotesState, move: VotesMove): boolean {
+  return applyMove(state, move).randomState !== state.randomState
+}
+
 /** Applies the active player's move. Throws {@link IllegalMoveError} if it breaks the rules. */
 export function applyMove(state: VotesState, move: VotesMove): VotesState {
   switch (move.kind) {

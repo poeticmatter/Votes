@@ -29,6 +29,7 @@ Votes: a 2–5 player, take-turns-in-order browser game with no backend of its o
 - `createInitialState({ settings, playerCount, seed })` and `applyMove(state, move)` must be pure and deterministic. Randomness (the bag) uses GameKit's seeded `nextIndex`, with the generator state kept in the game state, so every client draws the same cubes.
 - `activePlayer(state)` names the seat whose move the game awaits (null once over). A turn may take several moves; GameKit only applies moves from the active player.
 - `applyMove` throws GameKit's `IllegalMoveError` for a move that breaks the rules; GameKit catches it and leaves the state alone.
+- `irreversibleReason(state, move)` (in `rules/index.ts`, via `drawsFromBag` in `turnFlow.ts`) marks moves that draw cubes from the bag. GameKit warns before such a move, and once it is played neither it nor the moves before it this turn can be undone; every other move can, in hot seat, async and live play alike. Needs GameKit 0.5.0 or later.
 - Bump `RULES_VERSION` (`rules/types.ts`) whenever the rules or the state's shape change. Saved async games, and rooms created by a browser still on an older deploy (GitHub Pages caches for about 10 minutes), then show a "different version" message instead of crashing.
 
 ### Seats and transports (in GameKit)

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { IllegalMoveError } from 'game-kit/turns'
 import { citiesOf } from './boardQueries'
-import { applyMove, gameOutcome } from './turnFlow'
+import { applyMove, drawsFromBag, gameOutcome } from './turnFlow'
 import { factory, filledColumns, JOINING_HEX, newGame, residence, school, station, twoCities, withBag, withTiles } from './testStates'
 import type { VotesState } from './types'
 
@@ -18,6 +18,43 @@ describe('a quiet turn', () => {
 
   it('refuses a move from another phase', () => {
     expect(() => applyMove(newGame(), { kind: 'house', from: '1,3', color: 'grey', to: '1,2' })).toThrow(IllegalMoveError)
+  })
+})
+
+describe('moves that draw from the bag', () => {
+  const place = (tile: 'factory' | 'residence') => ({ kind: 'place' as const, tile, at: '4,1' })
+
+  it('include a Factory that brings people', () => {
+    expect(drawsFromBag(withBag(newGame(), { pink: 5 }), place('factory'))).toBe(true)
+  })
+
+  it('leave out a Factory when the bag is empty, since nobody arrives', () => {
+    expect(drawsFromBag(withBag(newGame(), {}), place('factory'))).toBe(false)
+  })
+
+  it('leave out tiles that bring nobody', () => {
+    expect(drawsFromBag(withBag(newGame(), { pink: 5 }), place('residence'))).toBe(false)
+  })
+
+  it('leave out a Factory that is only waiting for the player to choose a Station', () => {
+    // A and D join at [1, 5], giving the city two Stations; the draw comes with the choice.
+    const joinable = withBag(withTiles(newGame(), { '1,4': school(), '1,6': school() }), { vermillion: 6 })
+    const factoryMove = { kind: 'place' as const, tile: 'factory' as const, at: '1,5' }
+    expect(drawsFromBag(joinable, factoryMove)).toBe(false)
+    const choosing = applyMove(joinable, factoryMove)
+    expect(drawsFromBag(choosing, { kind: 'arrive', station: '2,7' })).toBe(true)
+  })
+
+  it('leave out moving people about', () => {
+    const housing = withBag(
+      withTiles(newGame(), { '7,6': station(['grey']), '8,6': residence() }),
+      { pink: 5 },
+    )
+    expect(drawsFromBag({ ...housing, phase: { kind: 'housing' } }, { kind: 'house', from: '7,6', color: 'grey', to: '8,6' })).toBe(false)
+  })
+
+  it('refuse to judge a move that breaks the rules', () => {
+    expect(() => drawsFromBag(newGame(), { kind: 'place', tile: 'residence', at: '3,3' })).toThrow(IllegalMoveError)
   })
 })
 
