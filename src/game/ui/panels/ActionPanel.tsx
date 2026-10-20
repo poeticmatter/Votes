@@ -10,7 +10,7 @@ import type { TurnControls } from '../useTurnControls'
 import { Panel } from './Panel'
 import { PersonChoices } from './PersonChoices'
 
-const TILE_ICON_WIDTH = 34
+const TILE_ICON_WIDTH = 64
 
 function TilePicker({ controls }: { controls: TurnControls }) {
   return (
@@ -23,7 +23,7 @@ function TilePicker({ controls }: { controls: TurnControls }) {
             type="button"
             aria-pressed={isChosen}
             onClick={() => controls.chooseTile(kind)}
-            className={`flex items-center gap-2 rounded-xl border p-2 text-left transition-colors ${
+            className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3 transition-colors ${
               isChosen ? 'border-ink bg-slot' : 'border-rule bg-paper hover:bg-slot'
             }`}
           >
