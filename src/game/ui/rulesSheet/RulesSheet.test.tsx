@@ -26,15 +26,16 @@ describe('the rules sheet', () => {
     expect(markup.match(/Example: /g)).toHaveLength(6)
   })
 
-  it('explains neighboring cities', () => {
-    expect(markup).toContain('neighbors')
+  it('prints the payout table', () => {
+    expect(markup).toContain('Points per seat')
+    expect(markup).toContain('11+ seats')
   })
 
-  it('names the election’s winner in the figure', () => {
-    expect(markup).toContain('Cobalt +4')
+  it('names what each player scores in the election figure', () => {
+    expect(markup).toContain('Cobalt +4, Saffron +2')
   })
 
-  it('keeps the examples’ colours in a disguised hot-seat game', () => {
+  it('keeps the examples’ colours in a disguised solo playtest', () => {
     // A disguise that turns Cobalt (seat 2) into Saffron must not reach the examples.
     expect(renderSheet(seat => (seat === 2 ? 3 : seat))).toContain('Cobalt +4')
   })

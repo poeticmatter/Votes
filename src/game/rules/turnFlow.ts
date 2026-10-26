@@ -38,7 +38,7 @@ export function findWinners(state: VotesState): PlayerColor[] {
   return leaders.filter(leader => leader.cubes === mostCubes).map(leader => leader.color)
 }
 
-/** A finished game's winners and scores by seat, for GameKit's hot-seat playtest summary. */
+/** A finished game's winners and scores by seat, for GameKit's solo playtest summary. */
 export function gameOutcome(state: VotesState): GameOutcome {
   if (state.phase.kind !== 'gameOver') throw new Error('Only a finished game has an outcome')
   const { winners } = state.phase

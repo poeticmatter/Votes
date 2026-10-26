@@ -14,6 +14,7 @@ export const TILE_NAMES: Record<TileKind, string> = {
   residence: 'Residence',
   station: 'Station',
   factory: 'Factory',
+  mine: 'Mine',
   school: 'School',
 }
 

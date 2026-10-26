@@ -1,9 +1,14 @@
 import type { SettingsFormProps } from 'game-kit/turns'
-import { isPlayerCount } from './rules/setup'
-import type { VotesSettings } from './rules/types'
+import { PLACEABLE_KINDS } from './rules/placement'
+import { greyPeopleAtSetup, isPlayerCount } from './rules/setup'
+import type { IndustryKind, PlaceableKind, VotesSettings } from './rules/types'
+import { TILE_NAMES } from './ui/names'
 
 const STARTING_CUBE_RANGE = { min: 0, max: 10 }
+const GREY_CUBE_MAX = 20
 const ARRIVALS_RANGE = { min: 1, max: 6 }
+const TILE_COUNT_RANGE = { min: 1, max: 30 }
+const INDUSTRY_KINDS: readonly IndustryKind[] = ['factory', 'mine']
 
 function Stepper({
   label,
@@ -37,6 +42,12 @@ function Stepper({
 /** The [bracketed] numbers in the rules draft, adjustable for playtesting. */
 export function VotesSettingsForm({ settings, playerCount, onChange }: SettingsFormProps<VotesSettings>) {
   if (!isPlayerCount(playerCount)) throw new Error(`Unsupported player count ${playerCount}`)
+  // The starting Residences always take their grey cubes; only the rest are a choice.
+  const greyRange = { min: greyPeopleAtSetup(playerCount), max: GREY_CUBE_MAX }
+  const setArrivals = (kind: IndustryKind, value: number) =>
+    onChange({ ...settings, arrivals: { ...settings.arrivals, [kind]: value } })
+  const setTileCount = (kind: PlaceableKind, value: number) =>
+    onChange({ ...settings, tileCounts: { ...settings.tileCounts, [kind]: value } })
 
   // Collapsed by default: most games use the rules' values.
   return (
@@ -50,11 +61,29 @@ export function VotesSettingsForm({ settings, playerCount, onChange }: SettingsF
           onChange={value => onChange({ ...settings, startingCubesPerPlayer: value })}
         />
         <Stepper
-          label="People a Factory brings"
-          value={settings.factoryArrivals}
-          range={ARRIVALS_RANGE}
-          onChange={value => onChange({ ...settings, factoryArrivals: value })}
+          label="Grey cubes in the game"
+          value={Math.max(settings.greyCubes, greyRange.min)}
+          range={greyRange}
+          onChange={value => onChange({ ...settings, greyCubes: value })}
         />
+        {INDUSTRY_KINDS.map(kind => (
+          <Stepper
+            key={kind}
+            label={`People a ${TILE_NAMES[kind]} brings`}
+            value={settings.arrivals[kind]}
+            range={ARRIVALS_RANGE}
+            onChange={value => setArrivals(kind, value)}
+          />
+        ))}
+        {PLACEABLE_KINDS.map(kind => (
+          <Stepper
+            key={kind}
+            label={`${TILE_NAMES[kind]} tiles`}
+            value={settings.tileCounts[kind]}
+            range={TILE_COUNT_RANGE}
+            onChange={value => setTileCount(kind, value)}
+          />
+        ))}
       </div>
     </details>
   )

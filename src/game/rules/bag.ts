@@ -10,9 +10,9 @@ export function addToBag(state: VotesState, color: CubeColor, count: number): Vo
   return { ...state, bag: { ...state.bag, [color]: (state.bag[color] ?? 0) + count } }
 }
 
-/** Votes: the active player adds `count` of their own cubes to the bag. */
-export function addVotes(state: VotesState, count: number): VotesState {
-  return addToBag(state, activePlayerState(state).color, count)
+/** A vote: the active player adds 1 of their own cubes to the bag. */
+export function addVote(state: VotesState): VotesState {
+  return addToBag(state, activePlayerState(state).color, 1)
 }
 
 /** Draws one cube at random. The caller must check the bag isn't empty. */

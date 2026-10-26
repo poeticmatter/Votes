@@ -30,23 +30,29 @@ export function ColorTally({ counts, emptyText }: { counts: ColorCounts; emptyTe
   )
 }
 
-function Scorers({ result }: { result: ElectionResult }) {
+function Payout({ result }: { result: ElectionResult }) {
   const byLook = useByLook()
-  if (result.scorers.length === 0) {
-    const greyLeads = largestFirst(result.seatsByColor, ALL_COLORS)[0]?.[0] === INDEPENDENT
-    return <span className="text-ink-soft">{greyLeads ? 'Grey leads: nobody scores' : 'Nobody scores'}</span>
-  }
+  const seatCount = countOf(result.seats.length, 'seat')
+  if (result.pointsPerSeat === 0) return <span className="text-ink-soft">No Factories or Mines: nobody scores</span>
+  const scorers = byLook(PLAYER_COLORS.filter(color => (result.scores[color] ?? 0) > 0))
   return (
-    <span className="inline-flex flex-wrap items-center gap-x-2">
-      {byLook(result.scorers).map(color => (
-        <PlayerChip key={color} color={color} />
-      ))}
-      <span className="text-ink-soft">+{countOf(result.factoryPoints, 'point')}</span>
-    </span>
+    <div className="flex flex-col gap-0.5">
+      <span className="text-ink-soft">
+        Worth {result.cityValue}, {seatCount}: {countOf(result.pointsPerSeat, 'point')} per seat
+      </span>
+      <span className="inline-flex flex-wrap items-center gap-x-3">
+        {scorers.length === 0 && <span className="text-ink-soft">No player holds a seat</span>}
+        {scorers.map(color => (
+          <span key={color} className="inline-flex items-center gap-1">
+            <PlayerChip color={color} /> <span className="tabular-nums text-ink-soft">+{result.scores[color]}</span>
+          </span>
+        ))}
+      </span>
+    </div>
   )
 }
 
-/** A city's seats by colour and who scores its Factories. */
+/** A city's seats by colour and what each player would score. */
 export function CityResult({ result }: { result: ElectionResult }) {
   return (
     <div className="flex flex-col gap-1">
@@ -54,7 +60,7 @@ export function CityResult({ result }: { result: ElectionResult }) {
         <span className="font-bold">{cityLabel(result.city)}</span>
         <ColorTally counts={result.seatsByColor} emptyText="no seats" />
       </div>
-      <Scorers result={result} />
+      <Payout result={result} />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { nextIndex } from 'game-kit/turns'
 import { residenceSiteKey, stationKeyOf, TOWN_IDS } from '../map/board'
-import type { HexKey } from '../map/hexGrid'
+import { hexKey, type HexKey } from '../map/hexGrid'
+import { STARTING_FACTORIES } from '../map/mapData'
 import {
   INDEPENDENT,
   MAX_PLAYERS,
@@ -18,8 +19,10 @@ import {
 
 /** The rules' playtest values. */
 export const DEFAULT_SETTINGS: VotesSettings = {
-  startingCubesPerPlayer: 4,
-  factoryArrivals: 3,
+  startingCubesPerPlayer: 2,
+  greyCubes: 10,
+  arrivals: { factory: 3, mine: 3 },
+  tileCounts: { residence: 15, factory: 10, mine: 5, school: 5 },
 }
 
 const STARTING_PEOPLE = TOWN_IDS.length * STARTING_PEOPLE_PER_RESIDENCE
@@ -28,9 +31,18 @@ export function isPlayerCount(count: number): count is PlayerCount {
   return Number.isInteger(count) && count >= MIN_PLAYERS && count <= MAX_PLAYERS
 }
 
-/** Grey cubes that top the seeded people up to 10: 4 in a 3-player game. Grey never enters the bag. */
+/** Grey cubes that top the seeded people up to 10: 4 in a 3-player game. */
 export function greyPeopleAtSetup(playerCount: PlayerCount): number {
   return STARTING_PEOPLE - playerCount * STARTING_PEOPLE_PER_PLAYER
+}
+
+/** The grey cubes left over after seeding go in the bag, with each player's cubes. */
+function startingBag(settings: VotesSettings, playerCount: PlayerCount): VotesState['bag'] {
+  const greyInBag = Math.max(0, settings.greyCubes - greyPeopleAtSetup(playerCount))
+  return {
+    [INDEPENDENT]: greyInBag,
+    ...Object.fromEntries(PLAYER_COLORS.slice(0, playerCount).map(color => [color, settings.startingCubesPerPlayer])),
+  }
 }
 
 interface SeededPeople {
@@ -57,14 +69,14 @@ function seedPeople(playerCount: PlayerCount, randomState: number): SeededPeople
   return { peopleByTown, randomState: state }
 }
 
-/** Each town's starting Residence, with its two people, and its Station. */
+/** Each town's starting Residence, with its two people, and its Station, and the printed Factories. */
 function startingTiles(peopleByTown: CubeColor[][]): Record<HexKey, Tile> {
-  return Object.fromEntries(
-    TOWN_IDS.flatMap((town, position): [HexKey, Tile][] => [
-      [residenceSiteKey(town), { kind: 'residence', people: peopleByTown[position] }],
-      [stationKeyOf(town), { kind: 'station', people: [] }],
-    ]),
-  )
+  const towns = TOWN_IDS.flatMap((town, position): [HexKey, Tile][] => [
+    [residenceSiteKey(town), { kind: 'residence', people: peopleByTown[position] }],
+    [stationKeyOf(town), { kind: 'station', people: [] }],
+  ])
+  const factories = STARTING_FACTORIES.map(([col, row]): [HexKey, Tile] => [hexKey(col, row), { kind: 'factory' }])
+  return Object.fromEntries([...towns, ...factories])
 }
 
 export interface VotesSetup {
@@ -76,7 +88,7 @@ export interface VotesSetup {
 export function createInitialState({ settings, playerCount, seed }: VotesSetup): VotesState {
   if (!isPlayerCount(playerCount)) throw new Error(`Votes is for ${MIN_PLAYERS}–${MAX_PLAYERS} players, not ${playerCount}`)
   // A lobby running an older deploy sends its own set of dials.
-  if ('greyCubes' in settings || typeof settings.factoryArrivals !== 'number') {
+  if (typeof settings.greyCubes !== 'number' || !settings.arrivals || !settings.tileCounts) {
     throw new Error('These settings come from an older version of Votes; reload the page and start again')
   }
 
@@ -92,9 +104,10 @@ export function createInitialState({ settings, playerCount, seed }: VotesSetup):
     phase: { kind: 'placement' },
     tiles: startingTiles(peopleByTown),
     mergers: [],
-    bag: Object.fromEntries(colors.map(color => [color, settings.startingCubesPerPlayer])),
+    bag: startingBag(settings, playerCount),
     randomState,
-    factoryArrivals: settings.factoryArrivals,
+    arrivals: { ...settings.arrivals },
+    supply: { ...settings.tileCounts },
     consecutivePasses: 0,
     elections: [],
     log: [],

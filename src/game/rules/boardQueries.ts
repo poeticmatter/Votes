@@ -5,6 +5,7 @@ import { citiesOnBoard } from './cities'
 import {
   RESIDENCE_CAPACITY,
   type CubeColor,
+  type IndustryKind,
   type PlayerState,
   type ResidenceTile,
   type StationTile,
@@ -60,13 +61,36 @@ export function stationsInCity(state: VotesState, city: TownId[]): Located<Stati
   return tilesInCity(state, city).filter((entry): entry is Located<StationTile> => entry.tile.kind === 'station')
 }
 
-export function factoriesInCity(state: VotesState, city: TownId[]): Located<Tile>[] {
-  return tilesInCity(state, city).filter(({ tile }) => tile.kind === 'factory')
+export interface IndustryTile {
+  kind: IndustryKind
 }
 
-/** A Factory scores 2 at elections when it borders the rail, otherwise 1. */
-export function factoryPoints(key: HexKey): number {
-  return hexAt(key).bordersRail ? 2 : 1
+const isIndustry = (entry: Located<Tile>): entry is Located<IndustryTile> =>
+  entry.tile.kind === 'factory' || entry.tile.kind === 'mine'
+
+/** The city's Factories and Mines. */
+export function industryInCity(state: VotesState, city: TownId[]): Located<IndustryTile>[] {
+  return tilesInCity(state, city).filter(isIndustry)
+}
+
+const MINE_VALUE = 2
+const FACTORY_BASE_VALUE = 1
+
+/**
+ * What the Factory or Mine at `key` adds to its city's value at elections, as the board
+ * stands: a Mine 2; a Factory 1, +1 if it borders the rail, +1 if it touches a Mine.
+ * The tile needn't be placed yet, so this also previews a placement.
+ */
+export function industryValue(state: VotesState, kind: IndustryKind, key: HexKey): number {
+  if (kind === 'mine') return MINE_VALUE
+  const hex = hexAt(key)
+  const touchesMine = hex.neighbors.some(neighbor => state.tiles[neighbor.key]?.kind === 'mine')
+  return FACTORY_BASE_VALUE + Number(hex.bordersRail) + Number(touchesMine)
+}
+
+/** The value of the city's Factories and Mines added up. */
+export function cityValue(state: VotesState, city: TownId[]): number {
+  return industryInCity(state, city).reduce((total, { key, tile }) => total + industryValue(state, tile.kind, key), 0)
 }
 
 export function hasRoom(residence: ResidenceTile): boolean {

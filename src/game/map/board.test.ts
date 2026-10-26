@@ -1,23 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { BOARD, hexAt, RAIL_ORDER, residenceSiteKey, stationKeyOf, TOWN_IDS, townsOneStopAway } from './board'
+import { BOARD, hexAt, residenceSiteKey, stationKeyOf, TOWN_IDS } from './board'
+import { STARTING_FACTORIES } from './mapData'
 
 describe('derived board', () => {
   it('has only open hexes and mountains', () => {
     expect(new Set(BOARD.hexes.map(hex => hex.terrain))).toEqual(new Set(['open', 'mountain']))
   })
 
-  it('has mountains along the south edge below E', () => {
-    expect(hexAt('6,7').terrain).toBe('mountain')
+  it('marks hexes beside the track as bordering a rail, and others as not', () => {
+    expect(BOARD.hexes.some(hex => hex.bordersRail)).toBe(true)
+    expect(BOARD.hexes.some(hex => hex.terrain === 'open' && !hex.bordersRail)).toBe(true)
   })
 
-  it('marks hexes beside the track as bordering a rail', () => {
-    // [4, 1] is between B and A, where the rail runs south-west.
-    expect(hexAt('4,1').bordersRail).toBe(true)
-    expect(hexAt('5,2').bordersRail).toBe(false)
-  })
-
-  it('runs the rail down the west edge from A to D', () => {
-    expect(hexAt('0,5').bordersRail).toBe(true)
+  it('never lists a mountain as bordering a rail', () => {
+    expect(BOARD.hexes.filter(hex => hex.terrain === 'mountain').every(hex => !hex.bordersRail)).toBe(true)
   })
 })
 
@@ -33,22 +29,21 @@ describe('town sites', () => {
     expect(TOWN_IDS.every(town => hexAt(stationKeyOf(town)).bordersRail)).toBe(true)
   })
 
-  it('ends the rail at D’s Station', () => {
-    expect(hexAt(stationKeyOf('D')).railSides).toEqual(['NW'])
-  })
-
   it('marks each site with its town', () => {
     expect(BOARD.hexes.filter(hex => hex.residenceSite).map(hex => hex.residenceSite).sort()).toEqual(TOWN_IDS)
     expect(BOARD.hexes.filter(hex => hex.stationSite).map(hex => hex.stationSite).sort()).toEqual(TOWN_IDS)
   })
 })
 
-describe('the rail’s stops', () => {
-  it('passes the Stations in the order E, C, B, A, D', () => {
-    expect(RAIL_ORDER).toEqual(['E', 'C', 'B', 'A', 'D'])
+describe('printed Factories', () => {
+  it('are marked on their hexes, and nowhere else', () => {
+    const marked = BOARD.hexes.filter(hex => hex.hasStartingFactory).map(hex => hex.key)
+    expect(marked.sort()).toEqual(STARTING_FACTORIES.map(([col, row]) => `${col},${row}`).sort())
   })
 
-  it('gives the middle towns two stops and each end of the rail one', () => {
-    expect(TOWN_IDS.map(townsOneStopAway)).toEqual([['B', 'D'], ['C', 'A'], ['E', 'B'], ['A'], ['C']])
+  it('sit beside a town’s Residence or Station, so they start in a city', () => {
+    for (const hex of BOARD.hexes.filter(candidate => candidate.hasStartingFactory)) {
+      expect(hex.neighbors.some(neighbor => hexAt(neighbor.key).residenceSite || hexAt(neighbor.key).stationSite)).toBe(true)
+    }
   })
 })

@@ -1,12 +1,13 @@
-import type { SeatResult } from '../../rules/types'
+import type { ReactNode } from 'react'
+import { PLAYER_COLORS, type CubeColor, type ElectionResult, type PlayerColor, type SeatResult } from '../../rules/types'
 import { HouseGlyph, PlaceGlyph } from '../map/glyphs'
 import { COLORS, FONT_FAMILY } from '../theme'
 import { usePieceColorOf } from '../viewer'
 import { ELECTION_EXAMPLE } from './examples'
 
 // The election example as a table: one row per Residence in the merged city, showing
-// its people and who takes its seat, then the city's seats and payout. Ported from the
-// asset generator's src/rules/ElectionFigure.jsx.
+// its people and who takes its seat, then the city's seats and value, and what each seat
+// pays. Ported from the asset generator's src/rules/ElectionFigure.jsx.
 
 const VIEW_WIDTH = 300
 const HEADER_Y = 10
@@ -17,6 +18,7 @@ const COLUMNS = { town: 0, house: 28, cubes: 50, chip: 146, note: 226 }
 const CHIP = { width: 74, height: 24 }
 const HOUSE_SIZE = 24
 const SEAT_DISC = { firstX: 56, pitch: 22, radius: 9 }
+const PAYOUT_ROW_GAP = 28
 const CUBE_OUTLINE = 'rgba(0, 0, 0, 0.45)'
 
 const TEXT = { fontFamily: FONT_FAMILY, dominantBaseline: 'central' } as const
@@ -83,19 +85,57 @@ const ColumnHeader = ({ x, label }: { x: number; label: string }) => (
   </text>
 )
 
-export function ElectionFigure() {
+const SummaryLabel = ({ y, children }: { y: number; children: ReactNode }) => (
+  <text {...TEXT} x={0} y={y} fontSize={13} fontWeight={700} fill={COLORS.inkFaint}>
+    {children}
+  </text>
+)
+
+const SummaryValue = ({ y, children }: { y: number; children: ReactNode }) => (
+  <text {...TEXT} x={VIEW_WIDTH} y={y} textAnchor="end" fontSize={15} fontWeight={700} fill={COLORS.ink}>
+    {children}
+  </text>
+)
+
+/** A seat in its holder's colour, or hollow when nobody holds it. */
+function SeatDisc({ x, y, color }: { x: number; y: number; color: CubeColor | null }) {
   const pieceColorOf = usePieceColorOf()
+  return (
+    <circle
+      cx={x}
+      cy={y}
+      r={SEAT_DISC.radius}
+      fill={color ? pieceColorOf(color).fill : COLORS.paper}
+      stroke={color ? CUBE_OUTLINE : COLORS.rule}
+      strokeWidth={color ? 1 : 2}
+    />
+  )
+}
+
+/** Who scores, most first, e.g. "Cobalt +4, Saffron +2". */
+function useScoresLabel(): (result: ElectionResult) => string {
+  const pieceColorOf = usePieceColorOf()
+  return ({ scores }) => {
+    const pointsOf = (color: PlayerColor) => scores[color] ?? 0
+    const ranked = PLAYER_COLORS.filter(color => pointsOf(color) > 0).sort((a, b) => pointsOf(b) - pointsOf(a))
+    if (ranked.length === 0) return 'Nobody scores'
+    return ranked.map(color => `${pieceColorOf(color).name} +${pointsOf(color)}`).join(', ')
+  }
+}
+
+export function ElectionFigure() {
+  const scoresLabel = useScoresLabel()
   const { result } = ELECTION_EXAMPLE
   const cityY = FIRST_ROW_Y + result.seats.length * ROW_HEIGHT + 30
-  const viewHeight = cityY + 20
-  const ranked = Object.entries(result.seatsByColor).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
-  const seatDiscs = result.seats
-    .flatMap(seat => (seat.winner ? [seat.winner] : []))
-    .sort((a, b) => ranked.findIndex(([color]) => color === a) - ranked.findIndex(([color]) => color === b))
-  const scorerNames = result.scorers.map(color => pieceColorOf(color).name).join(', ')
-  const payout = result.scorers.length
-    ? `${scorerNames} +${result.factoryPoints}${result.scorers.length > 1 ? ' each' : ''}`
-    : 'Nobody scores'
+  const payoutY = cityY + PAYOUT_ROW_GAP
+  const viewHeight = payoutY + 20
+  const winners = result.seats.flatMap(seat => (seat.winner ? [seat.winner] : []))
+  const seatsOf = (color: CubeColor) => result.seatsByColor[color] ?? 0
+  // Held seats grouped by colour, most seats first, empty ones last.
+  const heldSeats = [...winners].sort((a, b) => seatsOf(b) - seatsOf(a) || winners.indexOf(a) - winners.indexOf(b))
+  const emptySeats = result.seats.filter(seat => !seat.winner).map(() => null)
+  const seatDiscs = [...heldSeats, ...emptySeats]
+  const payout = scoresLabel(result)
 
   return (
     <svg viewBox={`0 0 ${VIEW_WIDTH} ${viewHeight}`} className="block h-auto w-full" role="img" aria-label={`Election: ${payout}`}>
@@ -106,24 +146,14 @@ export function ElectionFigure() {
         <ResidenceRow key={seat.residence} seat={seat} seatNumber={index + 1} y={FIRST_ROW_Y + index * ROW_HEIGHT} />
       ))}
       <line x1={0} x2={VIEW_WIDTH} y1={cityY - 22} y2={cityY - 22} stroke={COLORS.rule} strokeWidth={2} />
-      <text {...TEXT} x={0} y={cityY} fontSize={13} fontWeight={700} fill={COLORS.inkFaint}>
-        CITY
-      </text>
+      <SummaryLabel y={cityY}>CITY</SummaryLabel>
       {/* Seats are discs here; squares in the rows above are cubes. */}
       {seatDiscs.map((color, index) => (
-        <circle
-          key={`${color}-${index}`}
-          cx={SEAT_DISC.firstX + index * SEAT_DISC.pitch}
-          cy={cityY}
-          r={SEAT_DISC.radius}
-          fill={pieceColorOf(color).fill}
-          stroke={CUBE_OUTLINE}
-          strokeWidth={1}
-        />
+        <SeatDisc key={`${color}-${index}`} x={SEAT_DISC.firstX + index * SEAT_DISC.pitch} y={cityY} color={color} />
       ))}
-      <text {...TEXT} x={VIEW_WIDTH} y={cityY} textAnchor="end" fontSize={15} fontWeight={700} fill={COLORS.ink}>
-        {payout}
-      </text>
+      <SummaryValue y={cityY}>Worth {result.cityValue}</SummaryValue>
+      <SummaryLabel y={payoutY}>{result.pointsPerSeat} PER SEAT</SummaryLabel>
+      <SummaryValue y={payoutY}>{payout}</SummaryValue>
     </svg>
   )
 }

@@ -14,7 +14,7 @@ function Header() {
     <header className="mb-6">
       <div className="mb-3.5 flex flex-wrap items-baseline justify-between gap-x-4 border-b-8 border-ink pb-2.5">
         <h2 className="text-5xl font-extrabold leading-none tracking-[0.15em] sm:text-6xl">VOTES</h2>
-        <span className="text-base font-bold tracking-[0.2em] text-ink-faint">RULES · 2–5 PLAYERS</span>
+        <span className="text-base font-bold tracking-[0.2em] text-ink-faint">RULES · 3–5 PLAYERS</span>
       </div>
       {LEDE.map(paragraph => (
         <p key={paragraph} className="mt-2 max-w-[900px] text-lg leading-snug first:mt-0">
@@ -27,7 +27,7 @@ function Header() {
 
 export function RulesSheet() {
   // The examples are illustrations in fixed colours that their captions name, so they
-  // skip the hot-seat disguise every player colour on the board goes through.
+  // skip the solo playtest's disguise every player colour on the board goes through.
   const viewer = useViewer()
   return (
     <ViewerProvider viewer={{ ...viewer, lookOf: SAME_LOOK }}>

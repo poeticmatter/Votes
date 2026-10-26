@@ -64,6 +64,16 @@ export const FactoryGlyph = ({ size, color }: GlyphProps) => (
   </Glyph>
 )
 
+// A mine shaft support: a cap beam over two posts, with a small gap between the beam
+// and each post.
+const SHAFT_TIMBERS = 'M6 9 H42 V16 H6 Z M11 19 H18 V42 H11 Z M30 19 H37 V42 H30 Z'
+
+export const MineGlyph = ({ size, color }: GlyphProps) => (
+  <Glyph size={size}>
+    <path d={SHAFT_TIMBERS} fill={color} />
+  </Glyph>
+)
+
 export const SchoolGlyph = ({ size, color }: GlyphProps) => (
   <Glyph size={size}>
     <path d="M23 13 C17 9 10 9 4 11 V39 C10 37 17 37 23 41 Z" fill={color} />

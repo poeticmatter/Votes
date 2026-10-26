@@ -14,19 +14,20 @@ export const TILE_RADIUS = HEX_RADIUS * TILE_STYLE.sizeRatio
 
 // Positions and sizes inside a tile, in px at map scale.
 export const TILE_LAYOUT = {
-  houseSize: 0.46 * TILE_RADIUS,
-  startingHouseSize: 0.52 * TILE_RADIUS,
-  houseY: -0.36 * TILE_RADIUS,
-  slotSize: 0.29 * TILE_RADIUS,
-  slotPitch: 0.36 * TILE_RADIUS,
-  slotY: 0.2 * TILE_RADIUS,
-  // People beyond a Residence's 3 homes (a School can overfill it) sit in a row under them.
-  overflowY: 0.56 * TILE_RADIUS,
+  cubePitch: 0.36 * TILE_RADIUS,
+  // A Residence's people sit in a row over the bottom of its house, clear of a starting
+  // Residence's letter.
+  homesY: 0.42 * TILE_RADIUS,
+  // People beyond a Residence's 3 homes (a School can overfill it) sit in a row above
+  // them, the only room left on the tile.
+  overflowY: 0.06 * TILE_RADIUS,
   // People waiting at a Station sit over the bottom of its glyph.
   waitingY: 0.42 * TILE_RADIUS,
   cubeSize: 0.32 * TILE_RADIUS,
+  residenceSize: 0.84 * TILE_RADIUS,
   stationSize: 0.92 * TILE_RADIUS,
   factorySize: 0.84 * TILE_RADIUS,
+  mineSize: 0.84 * TILE_RADIUS,
   schoolSize: 0.86 * TILE_RADIUS,
 } as const
 
@@ -62,22 +63,22 @@ function cubeRows(tileCenter: Point, { firstRowY, rowStep, count }: CubeRows): P
     const row = Math.floor(index / CUBES_PER_ROW)
     const inRow = Math.min(CUBES_PER_ROW, count - row * CUBES_PER_ROW)
     return {
-      x: tileCenter.x + ((index % CUBES_PER_ROW) - (inRow - 1) / 2) * TILE_LAYOUT.slotPitch,
+      x: tileCenter.x + ((index % CUBES_PER_ROW) - (inRow - 1) / 2) * TILE_LAYOUT.cubePitch,
       y: tileCenter.y + firstRowY + row * rowStep,
     }
   })
 }
 
 /** Centres of a Residence's homes, left to right; people fill them in order. */
-export function homeCenters(tileCenter: Point): Point[] {
-  return cubeRows(tileCenter, { firstRowY: TILE_LAYOUT.slotY, rowStep: 0, count: RESIDENCE_CAPACITY })
+function homeCenters(tileCenter: Point): Point[] {
+  return cubeRows(tileCenter, { firstRowY: TILE_LAYOUT.homesY, rowStep: 0, count: RESIDENCE_CAPACITY })
 }
 
 /** Where `count` people on a Residence sit: its homes, then any overflow. */
 export function residentCenters(tileCenter: Point, count: number): Point[] {
   const overflow = cubeRows(tileCenter, {
     firstRowY: TILE_LAYOUT.overflowY,
-    rowStep: TILE_LAYOUT.slotPitch,
+    rowStep: -TILE_LAYOUT.cubePitch,
     count: Math.max(0, count - RESIDENCE_CAPACITY),
   })
   return [...homeCenters(tileCenter), ...overflow].slice(0, count)
@@ -85,5 +86,5 @@ export function residentCenters(tileCenter: Point, count: number): Point[] {
 
 /** Where `count` people waiting at a Station sit. */
 export function waitingCenters(tileCenter: Point, count: number): Point[] {
-  return cubeRows(tileCenter, { firstRowY: TILE_LAYOUT.waitingY, rowStep: -TILE_LAYOUT.slotPitch, count })
+  return cubeRows(tileCenter, { firstRowY: TILE_LAYOUT.waitingY, rowStep: -TILE_LAYOUT.cubePitch, count })
 }

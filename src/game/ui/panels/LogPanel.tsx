@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import { cityAt } from '../../rules/boardQueries'
 import type { LogEntry, PlayerColor, VotesState } from '../../rules/types'
 import { cityLabel, countOf, CubeChip, describeHex, PlayerChip, TILE_NAMES } from '../names'
@@ -6,22 +5,14 @@ import { Panel } from './Panel'
 
 const RECENT_ENTRY_COUNT = 25
 
-/** "+2 cubes" with the cubes themselves, or "no cube". */
-function BagCubes({ votes, color }: { votes: number; color: PlayerColor }) {
-  if (votes === 0) return <strong>no cube</strong>
+/** The voter's cube that a move into a Residence adds to the bag. */
+function BagCube({ color }: { color: PlayerColor }) {
   return (
     <strong className="inline-flex items-center gap-1">
-      +{countOf(votes, 'cube')} <CubeChip color={color} />
+      +1 cube <CubeChip color={color} />
     </strong>
   )
 }
-
-function Reason({ children }: { children: ReactNode }) {
-  return <span className="text-ink-soft"> {children}</span>
-}
-
-const WITHIN_CITY_REASON = '1 for each person who moves in from within the same city.'
-const NEIGHBOR_REASON = 'A person from a neighboring city adds none.'
 
 function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
   switch (entry.kind) {
@@ -40,9 +31,8 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
     case 'relocated':
       return (
         <>
-          <CubeChip color={entry.color} /> A person moved from the {describeHex(state, entry.from)} into the {describeHex(state, entry.to)}.
-          Bag: <BagCubes votes={entry.votes} color={entry.voter} />
-          <Reason>{entry.votes > 0 ? WITHIN_CITY_REASON : NEIGHBOR_REASON}</Reason>
+          <CubeChip color={entry.color} /> The School moved a person from the {describeHex(state, entry.from)} into the{' '}
+          {describeHex(state, entry.to)}. Bag: <BagCube color={entry.voter} />
         </>
       )
     case 'arrived':
@@ -58,10 +48,8 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
     case 'housed':
       return (
         <>
-          <CubeChip color={entry.color} /> A person moved from the {describeHex(state, entry.from)}
-          {entry.isFromNeighbor && ' (a neighboring city)'} into the {describeHex(state, entry.to)}. Bag:{' '}
-          <BagCubes votes={entry.votes} color={entry.voter} />
-          <Reason>{entry.isFromNeighbor ? NEIGHBOR_REASON : WITHIN_CITY_REASON}</Reason>
+          <CubeChip color={entry.color} /> A person moved from the {describeHex(state, entry.from)} into the{' '}
+          {describeHex(state, entry.to)}. Bag: <BagCube color={entry.voter} />
         </>
       )
     case 'merger':

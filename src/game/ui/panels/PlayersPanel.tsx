@@ -7,7 +7,7 @@ import { Panel } from './Panel'
 
 /**
  * Seats in turn order from the viewer's own, or from the first player's for a spectator.
- * Seat order would give a disguised hot-seat player's real seat away.
+ * Seat order would give a solo playtester's real seat away.
  */
 function useSeatsFromViewer(state: VotesState): PlayerIndex[] {
   const { role } = useViewer()

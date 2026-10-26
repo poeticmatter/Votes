@@ -72,8 +72,9 @@ function usePlacementControls(state: VotesState, onMove: (move: VotesMove) => vo
     placement,
     chooseTile: tile => {
       if (placement.tile === tile) setPlacement(NO_PLACEMENT)
-      // Every kind fits the same hexes, so a chosen hex survives a change of kind.
-      else setPlacement({ tile, at: placement.at })
+      // A chosen hex survives a change of kind when the new kind fits there too; Mines
+      // and the rest never share a hex.
+      else setPlacement({ tile, at: placement.at && legalPlacements(state, tile).includes(placement.at) ? placement.at : null })
     },
     setAt: at => setPlacement({ ...placement, at }),
     confirmPlacement: () => {
@@ -135,7 +136,7 @@ function placementMap(state: VotesState, placement: PlacementChoice, setAt: (at:
   const { tile, at } = placement
   if (!tile) return IDLE_MAP
   return {
-    targets: legalPlacements(state),
+    targets: legalPlacements(state, tile),
     describeTarget: () => `Place a ${TILE_NAMES[tile]} here`,
     onTarget: setAt,
     preview: at ? { tile: newTile(tile), at } : null,

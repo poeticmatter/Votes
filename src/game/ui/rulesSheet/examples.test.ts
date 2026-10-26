@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { hexAt, stationKeyOf, townsOneStopAway } from '../../map/board'
-import { citiesOf, cityAt, factoryPoints, peopleAt, stationsInCity } from '../../rules/boardQueries'
+import { hexAt } from '../../map/board'
+import { citiesOf, cityAt, industryValue, peopleAt, stationsInCity } from '../../rules/boardQueries'
 import { beginHousing, housingMoves } from '../../rules/housing'
 import { citiesTouchedBy } from '../../rules/mergers'
-import { legalPlacements } from '../../rules/placement'
-import { eligibleResidences } from '../../rules/relocation'
+import { legalPlacements, terrainFor } from '../../rules/placement'
+import { eligibleResidences, relocationSources } from '../../rules/relocation'
 import { DEFAULT_SETTINGS } from '../../rules/setup'
+import { withTiles } from '../../rules/testStates'
 import { RESIDENCE_CAPACITY } from '../../rules/types'
 import {
   ELECTION_EXAMPLE,
@@ -20,9 +21,6 @@ import {
 
 // The rules sheet's examples must show what the game's rules actually do.
 
-const C_STATION = stationKeyOf('C')
-const E_NEW_RESIDENCE = HOUSING_EXAMPLE.moves[0].to
-
 const POSITIONS: [string, ExamplePosition][] = [
   ['placement', PLACEMENT_EXAMPLE.position],
   ['immigration', IMMIGRATION_EXAMPLE.position],
@@ -34,8 +32,11 @@ const POSITIONS: [string, ExamplePosition][] = [
 describe.each(POSITIONS)('the %s example', (name, position) => {
   const state = stateOf(position)
 
-  it('puts tiles only on open hexes', () => {
-    expect(Object.keys(position.tiles).every(key => hexAt(key).terrain === 'open')).toBe(true)
+  it('puts Mines only on mountains, and every other tile on open hexes', () => {
+    for (const [key, tile] of Object.entries(position.tiles)) {
+      const terrain = tile.kind === 'mine' ? terrainFor('mine') : 'open'
+      expect(hexAt(key).terrain).toBe(terrain)
+    }
   })
 
   it('has Stations only where they are printed', () => {
@@ -59,21 +60,21 @@ describe('the placement example', () => {
   const state = stateOf(PLACEMENT_EXAMPLE.position)
 
   it.each(PLACEMENT_EXAMPLE.candidates)('marks candidate $number allowed only if the rules allow it', candidate => {
-    expect(legalPlacements(state).includes(candidate.at)).toBe(candidate.isAllowed)
+    expect(legalPlacements(state, candidate.kind).includes(candidate.at)).toBe(candidate.isAllowed)
   })
 })
 
 describe('the immigration example', () => {
   const state = stateOf(IMMIGRATION_EXAMPLE.position)
 
-  it('builds a Factory beside the rail, worth 2 points as its caption says', () => {
-    expect(factoryPoints(IMMIGRATION_EXAMPLE.placed)).toBe(2)
+  it('builds a Factory beside the rail and touching no Mine, worth 2 as its caption says', () => {
+    expect(industryValue(state, 'factory', IMMIGRATION_EXAMPLE.placed)).toBe(2)
   })
 
   it('brings as many people as a Factory does, to the only Station in its city', () => {
     const stations = stationsInCity(state, cityAt(state, IMMIGRATION_EXAMPLE.placed))
     expect(stations).toHaveLength(1)
-    expect(stations[0].tile.people).toHaveLength(DEFAULT_SETTINGS.factoryArrivals)
+    expect(stations[0].tile.people).toHaveLength(DEFAULT_SETTINGS.arrivals.factory)
   })
 })
 
@@ -84,15 +85,12 @@ describe('the housing example', () => {
     expect(housingMoves(beginHousing(state))).toEqual([])
   })
 
-  it('moves people in from a neighboring city, as its caption says', () => {
-    expect(townsOneStopAway('C')).toContain('E')
-    expect(cityAt(state, C_STATION)).not.toEqual(cityAt(state, E_NEW_RESIDENCE))
+  it('moves people only within their city', () => {
+    for (const { from, to } of HOUSING_EXAMPLE.moves) expect(cityAt(state, from)).toEqual(cityAt(state, to))
   })
 
-  it('tags one cube for each person who moved in from within the city, and none for a neighboring city', () => {
-    const local = HOUSING_EXAMPLE.moves.filter(move => cityAt(state, move.from)[0] === cityAt(state, move.to)[0])
-    expect(HOUSING_EXAMPLE.bagTags.reduce((sum, tag) => sum + tag.amount, 0)).toBe(local.length)
-    expect(local).toHaveLength(1)
+  it('tags one cube for each person who moved in', () => {
+    expect(HOUSING_EXAMPLE.bagTags.reduce((sum, tag) => sum + tag.amount, 0)).toBe(HOUSING_EXAMPLE.moves.length)
   })
 
   it('fills the Residences the arrows point to', () => {
@@ -102,6 +100,7 @@ describe('the housing example', () => {
 
 describe('the School example', () => {
   const state = stateOf(SCHOOL_EXAMPLE.position)
+  const [move] = SCHOOL_EXAMPLE.moves
 
   it('leaves out the Residence that touches another School, as its caption says', () => {
     const eligible = eligibleResidences(state, SCHOOL_EXAMPLE.placed)
@@ -110,8 +109,18 @@ describe('the School example', () => {
   })
 
   it('moves the one person into an eligible Residence', () => {
-    const [{ to }] = SCHOOL_EXAMPLE.moves
-    expect(eligibleResidences(state, SCHOOL_EXAMPLE.placed)).toContain(to)
+    expect(eligibleResidences(state, SCHOOL_EXAMPLE.placed)).toContain(move.to)
+  })
+
+  it('takes the person from a Residence a School may take from', () => {
+    // The position is drawn after the move, so put the person back to ask the rules.
+    const before = withTiles(state, { [move.from]: { kind: 'residence', people: ['blue', 'pink'] } })
+    expect(relocationSources(before)).toContain(move.from)
+  })
+
+  it('may not take from C’s starting Residence, as its caption says', () => {
+    expect(hexAt('7,0').bordersRail).toBe(true)
+    expect(relocationSources(state)).not.toContain('7,0')
   })
 
   it('tags one cube for the person moved in', () => {
@@ -120,24 +129,29 @@ describe('the School example', () => {
 })
 
 describe('the merger example', () => {
-  it('joins C to E on the marked edge', () => {
+  it('joins C to B', () => {
     const { own, joins } = citiesTouchedBy(stateOf(MERGER_EXAMPLE.position), MERGER_EXAMPLE.placed)
-    expect(own).toEqual(['E'])
-    expect(joins).toEqual([{ city: ['C'], between: MERGER_EXAMPLE.marker.between }])
+    expect([own, ...joins.map(join => join.city)].flat().sort()).toEqual(['B', 'C'])
   })
 })
 
 describe('the election example', () => {
-  it('has Cobalt score the city’s 4 Factory points, as its caption says', () => {
-    expect(ELECTION_EXAMPLE.result).toMatchObject({ scorers: ['blue'], factoryPoints: 4 })
-  })
+  const { result } = ELECTION_EXAMPLE
 
-  it('has 4 seats, the empty Residence counting for nobody', () => {
-    expect(ELECTION_EXAMPLE.result.seats).toHaveLength(4)
-    expect(ELECTION_EXAMPLE.result.seats.filter(seat => seat.winner === null)).toHaveLength(1)
+  it('has 4 seats, the empty Residence belonging to nobody', () => {
+    expect(result.seats).toHaveLength(4)
+    expect(result.seats.filter(seat => seat.winner === null)).toHaveLength(1)
   })
 
   it('gives the tied Residence to Saffron, the colour furthest left', () => {
-    expect(ELECTION_EXAMPLE.result.seats.filter(seat => seat.reason === 'leftmostOfTie').map(seat => seat.winner)).toEqual(['yellow'])
+    expect(result.seats.filter(seat => seat.reason === 'leftmostOfTie').map(seat => seat.winner)).toEqual(['yellow'])
+  })
+
+  it('values the city at 7 and pays 2 per seat, as its caption says', () => {
+    expect(result).toMatchObject({ cityValue: 7, pointsPerSeat: 2 })
+  })
+
+  it('has Cobalt score 4 and Saffron 2', () => {
+    expect(result.scores).toEqual({ blue: 4, yellow: 2 })
   })
 })

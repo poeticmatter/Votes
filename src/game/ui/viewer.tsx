@@ -4,9 +4,10 @@ import { INDEPENDENT, PLAYER_COLORS, type CubeColor, type PlayerColor } from '..
 import { PIECE_COLORS, type PieceColor } from './pieceColors'
 
 // Who is looking at the board, and the colours they see. Seat i plays PLAYER_COLORS[i],
-// but in a hot-seat playtest GameKit disguises the seats (BoardProps.lookOf): the seat
-// being played wears seat 0's colour and the others' colours are shuffled. So the board
-// draws, names and orders every player colour through its look, never the colour itself.
+// but in a solo playtest GameKit disguises the seats (BoardProps.lookOf): the seat being
+// played wears seat 0's colour and the others' colours are shuffled. So the board draws,
+// names and orders every player colour through its look, never the colour itself.
+// docs/solo-playtest.md explains why.
 
 export interface Viewer {
   players: PlayerProfile[]

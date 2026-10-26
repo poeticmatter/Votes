@@ -78,13 +78,13 @@ describe('board rendering', () => {
     expect(render(olderGame, { role: 0 })).toContain('started with a different version of Votes')
   })
 
-  it('names players instead of saying "You" in a hot-seat game', () => {
-    expect(render(start, { role: activeRole(start), seating: 'hot_seat' })).not.toContain('Your turn')
+  it('names players instead of saying "You" in a solo playtest', () => {
+    expect(render(start, { role: activeRole(start), seating: 'solo_playtest' })).not.toContain('Your turn')
   })
 
   it('draws a disguised seat only in the colour it looks like', () => {
     // Seat 1 plays vermillion; disguised as seat 3, everything of vermillion's should come out yellow.
-    const markup = render(afterElection, { role: 'spectator', seating: 'hot_seat', lookOf: seat => (seat === 1 ? 3 : seat) })
+    const markup = render(afterElection, { role: 'spectator', seating: 'solo_playtest', lookOf: seat => (seat === 1 ? 3 : seat) })
     expect(markup).toContain(PIECE_COLORS.yellow.fill)
     expect(markup).not.toContain(PIECE_COLORS.vermillion.fill)
   })

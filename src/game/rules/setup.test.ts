@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { residenceSiteKey, stationKeyOf, TOWN_IDS } from '../map/board'
+import { STARTING_FACTORIES } from '../map/mapData'
 import { countByColor } from './elections'
 import { citiesOf, peopleOnBoard, residences, stations, tilesInBoardOrder } from './boardQueries'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
@@ -9,9 +10,16 @@ const game = (playerCount: number, seed = 3) => createInitialState({ settings: D
 const threePlayers = (seed = 3) => game(3, seed)
 
 describe('setup', () => {
-  it('puts a starting Residence and a Station in every town, and nothing else', () => {
-    const expected = TOWN_IDS.flatMap(town => [residenceSiteKey(town), stationKeyOf(town)]).sort()
-    expect(tilesInBoardOrder(threePlayers()).map(({ key }) => key).sort()).toEqual(expected)
+  it('puts a starting Residence and a Station in every town, and the printed Factories, and nothing else', () => {
+    const towns = TOWN_IDS.flatMap(town => [residenceSiteKey(town), stationKeyOf(town)])
+    const factories = STARTING_FACTORIES.map(([col, row]) => `${col},${row}`)
+    expect(tilesInBoardOrder(threePlayers()).map(({ key }) => key).sort()).toEqual([...towns, ...factories].sort())
+  })
+
+  it('starts each printed Factory in the city it touches', () => {
+    const state = threePlayers()
+    for (const [col, row] of STARTING_FACTORIES) expect(state.tiles[`${col},${row}`]).toEqual({ kind: 'factory' })
+    expect(citiesOf(state)).toHaveLength(TOWN_IDS.length)
   })
 
   it('starts every town as a city of its own', () => {
@@ -28,13 +36,22 @@ describe('setup', () => {
     expect(countByColor(peopleOnBoard(threePlayers()))).toEqual({ pink: 2, vermillion: 2, blue: 2, [INDEPENDENT]: 4 })
   })
 
-  it('seeds six grey people with two players and none with five', () => {
-    expect(countByColor(peopleOnBoard(game(2)))[INDEPENDENT]).toBe(6)
+  it('seeds four grey people with three players and none with five', () => {
+    expect(countByColor(peopleOnBoard(threePlayers()))[INDEPENDENT]).toBe(4)
     expect(countByColor(peopleOnBoard(game(5)))[INDEPENDENT]).toBeUndefined()
   })
 
-  it('bags four cubes of each player colour and no grey', () => {
-    expect(threePlayers().bag).toEqual({ pink: 4, vermillion: 4, blue: 4 })
+  it('bags two cubes of each player colour and the grey cubes left over', () => {
+    expect(threePlayers().bag).toEqual({ pink: 2, vermillion: 2, blue: 2, [INDEPENDENT]: 6 })
+    expect(game(5).bag[INDEPENDENT]).toBe(10)
+  })
+
+  it('starts with the full tile supply', () => {
+    expect(threePlayers().supply).toEqual(DEFAULT_SETTINGS.tileCounts)
+  })
+
+  it('refuses two players', () => {
+    expect(() => game(2)).toThrow('3–5 players')
   })
 
   it('deals the seeded people differently for different seeds', () => {
@@ -44,8 +61,8 @@ describe('setup', () => {
   })
 
   it('refuses settings from a lobby running an older version', () => {
-    // An older lobby's settings have a dial this version dropped, which the type forbids.
-    const settings = { ...DEFAULT_SETTINGS, greyCubes: 10 } as VotesSettings
-    expect(() => createInitialState({ settings, playerCount: 3, seed: 1 })).toThrow('older version')
+    // Draft 5.8's dials, which lack this version's; the cast stands in for a lobby the types can't see.
+    const older = { startingCubesPerPlayer: 4, factoryArrivals: 3 } as unknown as VotesSettings
+    expect(() => createInitialState({ settings: older, playerCount: 3, seed: 1 })).toThrow('older version')
   })
 })

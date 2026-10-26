@@ -3,18 +3,31 @@ import type { HexKey } from '../map/hexGrid'
 import { drawFromBag } from './bag'
 import { bagSize, cityAt, stationsInCity } from './boardQueries'
 import { beginHousing } from './housing'
-import type { CubeColor, VotesState } from './types'
+import type { CubeColor, IndustryKind, VotesState } from './types'
 
-// Immigration: a new Factory draws people from the bag onto a Station in its city,
-// where they wait to be housed. The active player chooses the Station when the city
+// Immigration: a new Factory or Mine draws people from the bag onto a Station in its
+// city, where they wait to be housed. The active player chooses the Station when the city
 // has more than one. Nobody pays for a draw, so the bag can run low; once it's empty
 // nobody else arrives.
 
-/** Stations a Factory placed this turn may bring people to; none for any other tile. */
+/** The Factory or Mine placed this turn, if that's what it was. */
+function placedIndustry(state: VotesState): IndustryKind | null {
+  const at = state.turn.placedAt
+  const kind = at ? state.tiles[at]?.kind : undefined
+  return kind === 'factory' || kind === 'mine' ? kind : null
+}
+
+/** Stations a Factory or Mine placed this turn may bring people to; none for any other tile. */
 export function arrivalStations(state: VotesState): HexKey[] {
   const at = state.turn.placedAt
-  if (!at || state.tiles[at]?.kind !== 'factory') return []
+  if (!at || !placedIndustry(state)) return []
   return stationsInCity(state, cityAt(state, at)).map(({ key }) => key)
+}
+
+/** How many people this turn's tile brings from the bag. */
+export function arrivalCount(state: VotesState): number {
+  const kind = placedIndustry(state)
+  return kind ? state.arrivals[kind] : 0
 }
 
 function arriveAt(state: VotesState, station: HexKey): VotesState {
@@ -23,7 +36,8 @@ function arriveAt(state: VotesState, station: HexKey): VotesState {
 
   let current = state
   const arrived: CubeColor[] = []
-  while (arrived.length < state.factoryArrivals && bagSize(current) > 0) {
+  const count = arrivalCount(state)
+  while (arrived.length < count && bagSize(current) > 0) {
     const draw = drawFromBag(current)
     current = draw.state
     arrived.push(draw.color)

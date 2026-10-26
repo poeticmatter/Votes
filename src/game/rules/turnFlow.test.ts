@@ -2,12 +2,26 @@ import { describe, expect, it } from 'vitest'
 import { IllegalMoveError } from 'game-kit/turns'
 import { citiesOf } from './boardQueries'
 import { applyMove, drawsFromBag, gameOutcome } from './turnFlow'
-import { factory, filledColumns, JOINING_HEX, newGame, residence, school, station, twoCities, withBag, withTiles } from './testStates'
+import { chainBetween, chainWithGap, HOME, NEXT, soloNeighborOf, startOf, stationOf, threeWayJoin, hexTouchingNothing } from './testMap'
+import {
+  crowdedTowns,
+  factory,
+  filledColumns,
+  joiningHex,
+  newGame,
+  residence,
+  school,
+  station,
+  tilesOn,
+  twoCities,
+  withBag,
+  withTiles,
+} from './testStates'
 import type { VotesState } from './types'
 
 describe('a quiet turn', () => {
   it('passes play to the next player when nothing needs a decision', () => {
-    const state = applyMove(newGame(), { kind: 'place', tile: 'residence', at: '4,1' })
+    const state = applyMove(newGame(), { kind: 'place', tile: 'residence', at: soloNeighborOf(HOME) })
     expect(state.turn).toEqual({ number: 2, playerIndex: 1, placedAt: null })
     expect(state.phase).toEqual({ kind: 'placement' })
   })
@@ -17,12 +31,12 @@ describe('a quiet turn', () => {
   })
 
   it('refuses a move from another phase', () => {
-    expect(() => applyMove(newGame(), { kind: 'house', from: '1,3', color: 'grey', to: '1,2' })).toThrow(IllegalMoveError)
+    expect(() => applyMove(newGame(), { kind: 'house', from: stationOf(HOME), color: 'grey', to: startOf(HOME) })).toThrow(IllegalMoveError)
   })
 })
 
 describe('moves that draw from the bag', () => {
-  const place = (tile: 'factory' | 'residence') => ({ kind: 'place' as const, tile, at: '4,1' })
+  const place = (tile: 'factory' | 'residence') => ({ kind: 'place' as const, tile, at: soloNeighborOf(HOME) })
 
   it('include a Factory that brings people', () => {
     expect(drawsFromBag(withBag(newGame(), { pink: 5 }), place('factory'))).toBe(true)
@@ -37,100 +51,94 @@ describe('moves that draw from the bag', () => {
   })
 
   it('leave out a Factory that is only waiting for the player to choose a Station', () => {
-    // A and D join at [1, 5], giving the city two Stations; the draw comes with the choice.
-    const joinable = withBag(withTiles(newGame(), { '1,4': school(), '1,6': school() }), { vermillion: 6 })
-    const factoryMove = { kind: 'place' as const, tile: 'factory' as const, at: '1,5' }
+    // The Factory joins two towns, giving the city two Stations; the draw comes with the choice.
+    const { filled, gap } = chainWithGap(chainBetween(HOME, NEXT))
+    const joinable = withBag(withTiles(newGame(), tilesOn(filled, school)), { vermillion: 6 })
+    const factoryMove = { kind: 'place' as const, tile: 'factory' as const, at: gap }
     expect(drawsFromBag(joinable, factoryMove)).toBe(false)
     const choosing = applyMove(joinable, factoryMove)
-    expect(drawsFromBag(choosing, { kind: 'arrive', station: '2,7' })).toBe(true)
+    expect(drawsFromBag(choosing, { kind: 'arrive', station: stationOf(NEXT) })).toBe(true)
   })
 
   it('leave out moving people about', () => {
-    const housing = withBag(
-      withTiles(newGame(), { '7,6': station(['grey']), '8,6': residence() }),
-      { pink: 5 },
-    )
-    expect(drawsFromBag({ ...housing, phase: { kind: 'housing' } }, { kind: 'house', from: '7,6', color: 'grey', to: '8,6' })).toBe(false)
+    const housing = withBag(withTiles(newGame(), { [stationOf(HOME)]: station(['grey']), [soloNeighborOf(HOME)]: residence() }), { pink: 5 })
+    const move = { kind: 'house' as const, from: stationOf(HOME), color: 'grey' as const, to: soloNeighborOf(HOME) }
+    expect(drawsFromBag({ ...housing, phase: { kind: 'housing' } }, move)).toBe(false)
   })
 
   it('refuse to judge a move that breaks the rules', () => {
-    expect(() => drawsFromBag(newGame(), { kind: 'place', tile: 'residence', at: '3,3' })).toThrow(IllegalMoveError)
+    expect(() => drawsFromBag(newGame(), { kind: 'place', tile: 'residence', at: hexTouchingNothing() })).toThrow(IllegalMoveError)
   })
 })
 
 describe('mergers', () => {
-  // A tile at [8, 3] touches C's Station and a School at [7, 2], the end of an arm of
-  // tiles from B. B's starting Residence has two pink people and C's one vermillion, so
-  // the new city has a seat each and an empty seat that counts for nobody. B's Factory
-  // at [6, 1] borders the rail.
+  // A chain of tiles runs from NEXT's city towards HOME's, with a gap in the middle that a
+  // Residence fills, joining them. HOME's starting Residence holds two pink and NEXT's one
+  // vermillion, so the new city has a seat each and an empty seat that belongs to nobody.
+  // The first tile of the chain is a Factory, and the last a School.
+  const chain = chainBetween(HOME, NEXT)
+  const { filled, gap } = chainWithGap(chain)
+  const [firstOfHome] = chain
   const beforeMerger = withTiles(newGame(), {
-    '5,1': residence(['pink', 'pink']),
-    '9,2': residence(['vermillion']),
-    '6,1': factory(),
-    '7,1': school(),
-    '7,2': school(),
+    ...tilesOn(filled, school),
+    [firstOfHome]: factory(),
+    [startOf(HOME)]: residence(['pink', 'pink']),
+    [startOf(NEXT)]: residence(['vermillion']),
   })
-  const merged = applyMove(beforeMerger, { kind: 'place', tile: 'residence', at: '8,3' })
+  const merged = applyMove(beforeMerger, { kind: 'place', tile: 'residence', at: gap })
 
   it('joins the two cities', () => {
-    expect(citiesOf(merged)).toEqual([['A'], ['B', 'C'], ['D'], ['E']])
+    expect(citiesOf(merged).filter(city => city.includes(HOME))).toEqual([[HOME, NEXT].sort()])
   })
 
-  it('puts a merger marker on the edge between them', () => {
-    expect(merged.mergers).toEqual([{ number: 1, between: ['8,3', '7,2'] }])
+  it('puts a merger marker on an edge of the new tile', () => {
+    expect(merged.mergers).toHaveLength(1)
+    expect(merged.mergers[0].between[0]).toBe(gap)
   })
 
   it('holds the election in the merged city only', () => {
-    expect(merged.elections.map(election => election.city)).toEqual([['B', 'C']])
+    expect(merged.elections.map(election => election.city)).toEqual([[HOME, NEXT].sort()])
   })
 
-  it('pays tied leaders the city’s Factories', () => {
-    expect(merged.players.map(player => player.score)).toEqual([2, 2])
+  it('pays each player for every seat they hold', () => {
+    const [{ pointsPerSeat }] = merged.elections
+    expect(pointsPerSeat).toBeGreaterThan(0)
+    expect(merged.players.map(player => player.score)).toEqual([pointsPerSeat, pointsPerSeat, 0])
   })
 
   it('merges every city a tile touches in one election', () => {
-    // [3, 3] touches arms from A at [2, 3], from B at [4, 3] and from D at [3, 4].
-    const threeWay = withTiles(newGame(), {
-      '2,3': residence(),
-      '5,2': residence(),
-      '4,3': residence(),
-      '2,6': residence(),
-      '3,5': residence(),
-      '3,4': residence(),
-    })
-    const state = applyMove(threeWay, { kind: 'place', tile: 'residence', at: '3,3' })
-    expect(citiesOf(state)).toEqual([['A', 'B', 'D'], ['C'], ['E']])
+    const { hex, arms, towns } = threeWayJoin()
+    const threeWay = withTiles(newGame(), tilesOn(arms, school))
+    const state = applyMove(threeWay, { kind: 'place', tile: 'residence', at: hex })
+    expect(citiesOf(state).filter(city => towns.includes(city[0]))).toEqual([towns])
     expect(state.mergers).toHaveLength(2)
     expect(state.elections).toHaveLength(1)
   })
 
   it('does not merge anything for a tile that touches one city', () => {
-    const state = applyMove(newGame(), { kind: 'place', tile: 'residence', at: '4,1' })
+    const state = applyMove(newGame(), { kind: 'place', tile: 'residence', at: soloNeighborOf(HOME) })
     expect(state.mergers).toEqual([])
     expect(state.elections).toEqual([])
   })
 
   it('houses people in the merged city the same turn', () => {
-    // Someone waits at C's Station, and the only room is the new Residence, which is in the
-    // merged city. The neighboring cities, A and E, are full.
+    // Someone waits at NEXT's Station, and the only room is the new Residence, which is in the
+    // merged city. Every other starting Residence is full.
     const waiting = withTiles(beforeMerger, {
-      '9,3': station(['pink']),
-      '9,2': residence(['vermillion', 'vermillion', 'vermillion']),
-      '5,1': residence(['pink', 'pink', 'pink']),
-      '8,7': residence(['pink', 'pink', 'pink']),
-      '1,2': residence(['pink', 'pink', 'pink']),
+      ...crowdedTowns(),
+      [stationOf(NEXT)]: station(['pink']),
     })
-    const state = applyMove(waiting, { kind: 'place', tile: 'residence', at: '8,3' })
-    expect(state.tiles['8,3']).toEqual(residence(['pink']))
+    const state = applyMove(waiting, { kind: 'place', tile: 'residence', at: gap })
+    expect(state.tiles[gap]).toEqual(residence(['pink']))
   })
 })
 
 describe('game end', () => {
   const nearlyDone: VotesState = twoCities(newGame())
-  const lastMerger = (state: VotesState) => applyMove(state, { kind: 'place', tile: 'factory', at: JOINING_HEX })
+  const lastMerger = (state: VotesState) => applyMove(state, { kind: 'place', tile: 'factory', at: joiningHex() })
 
   it('leaves two cities before the last tile', () => {
-    expect(citiesOf(nearlyDone)).toEqual([['A', 'D'], ['B', 'C', 'E']])
+    expect(citiesOf(nearlyDone)).toHaveLength(2)
   })
 
   it('ends after the merger that leaves one city', () => {
@@ -139,18 +147,10 @@ describe('game end', () => {
 
   it('breaks a tied score on cubes on the board, people waiting at Stations included', () => {
     // Every starting Residence is full of grey, so grey takes every seat and nobody scores.
-    // Vermillion's cube waiting at A's Station is the only one on the board.
-    const fullOfGrey = residence(['grey', 'grey', 'grey'])
-    const tied = withTiles(nearlyDone, {
-      '1,2': fullOfGrey,
-      '5,1': fullOfGrey,
-      '9,2': fullOfGrey,
-      '1,7': fullOfGrey,
-      '8,7': fullOfGrey,
-      '1,3': station(['vermillion']),
-    })
+    // Vermillion's cube waiting at a Station is the only one on the board.
+    const tied = withTiles(nearlyDone, { ...crowdedTowns(), [stationOf(HOME)]: station(['vermillion']) })
     const state = lastMerger(withBag(tied, {}))
-    expect(state.tiles['1,3']).toEqual(station(['vermillion']))
+    expect(state.tiles[stationOf(HOME)]).toEqual(station(['vermillion']))
     expect(state.phase).toEqual({ kind: 'gameOver', winners: ['vermillion'] })
   })
 
@@ -164,7 +164,15 @@ describe('game end', () => {
   })
 
   it('ends when the board is full and a player can only pass', () => {
-    const full = filledColumns(newGame(), () => true)
+    const full = { ...filledColumns(newGame(), () => true), supply: { ...newGame().supply, mine: 0 } }
     expect(applyMove(full, { kind: 'pass' }).phase.kind).toBe('gameOver')
+  })
+
+  it('ends once the tiles have run out and everyone has passed', () => {
+    const empty = { residence: 0, factory: 0, mine: 0, school: 0 }
+    const outOfTiles: VotesState = { ...newGame(), supply: empty }
+    const afterTwo = applyMove(applyMove(outOfTiles, { kind: 'pass' }), { kind: 'pass' })
+    expect(afterTwo.phase.kind).toBe('placement')
+    expect(applyMove(afterTwo, { kind: 'pass' }).phase.kind).toBe('gameOver')
   })
 })

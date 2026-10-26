@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { cityScorers, countVotes, seatWinner } from './elections'
-import { factory, newGame, residence, withTiles } from './testStates'
-import type { PlayerColor } from './types'
+import { BOARD } from '../map/board'
+import { countVotes, seatWinner } from './elections'
+import { industryValue } from './boardQueries'
+import { pointsPerSeat } from './payout'
+import { HOME, NEXT, soloNeighborOf, startOf, townHexes, townSpots } from './testMap'
+import { factory, mine, newGame, residence, withTiles } from './testStates'
 
 describe('a Residence’s seat', () => {
   it('goes to the colour with the most people on it', () => {
@@ -21,58 +24,94 @@ describe('a Residence’s seat', () => {
     expect(seatWinner(['grey', 'pink'])).toEqual({ winner: 'grey', reason: 'leftmostOfTie' })
   })
 
-  it('counts for nobody when empty', () => {
+  it('belongs to nobody when empty', () => {
     expect(seatWinner([])).toEqual({ winner: null, reason: 'empty' })
   })
 })
 
-describe('a city’s vote', () => {
-  // City C: its starting Residence at [9, 2], another at [10, 2] and Factories at
-  // [10, 3], which borders the rail, and [8, 3], which doesn't. B's Residence is in
-  // another city.
-  const board = withTiles(newGame(), {
-    '9,2': residence(['pink', 'pink']),
-    '10,2': residence(['vermillion', 'pink']),
-    '10,3': factory(),
-    '8,3': factory(),
-    '5,1': residence(['vermillion', 'vermillion']),
+describe('Factory and Mine values', () => {
+  // An open hex beside a mountain, both off the rail, for a Factory and a Mine side by side.
+  const pair = BOARD.hexes.flatMap(hex => {
+    if (hex.terrain !== 'open' || hex.bordersRail) return []
+    const mountain = hex.neighbors.find(neighbor => BOARD.hexByKey.get(neighbor.key)?.terrain === 'mountain')
+    return mountain ? [{ open: hex.key, mountain: mountain.key }] : []
+  })[0]
+
+  it('makes a Mine worth 2', () => {
+    expect(industryValue(newGame(), 'mine', pair.mountain)).toBe(2)
   })
-  const result = countVotes(board, ['C'])
+
+  it('makes a Factory off the rail worth 1, and 1 more beside the rail', () => {
+    const { rail, plain } = townSpots(HOME)
+    expect(industryValue(newGame(), 'factory', plain)).toBe(1)
+    expect(industryValue(newGame(), 'factory', rail)).toBe(2)
+  })
+
+  it('adds 1 to a Factory touching a Mine', () => {
+    const state = withTiles(newGame(), { [pair.mountain]: mine() })
+    expect(industryValue(state, 'factory', pair.open)).toBe(2)
+  })
+})
+
+describe('the payout table', () => {
+  it('pays nothing for a city with no Factories or Mines', () => {
+    expect(pointsPerSeat(0, 4)).toBe(0)
+  })
+
+  it('pays by the city’s value and its number of seats', () => {
+    expect(pointsPerSeat(4, 2)).toBe(1)
+    expect(pointsPerSeat(7, 4)).toBe(2)
+    expect(pointsPerSeat(10, 3)).toBe(4)
+    expect(pointsPerSeat(16, 10)).toBe(2)
+    expect(pointsPerSeat(25, 11)).toBe(2)
+    expect(pointsPerSeat(30, 2)).toBe(6)
+  })
+
+  it('pays less per seat as a city of the same value gains seats', () => {
+    expect(pointsPerSeat(12, 3)).toBeGreaterThan(pointsPerSeat(12, 12))
+  })
+})
+
+describe('a city’s vote', () => {
+  // HOME gets a second Residence, a Factory beside the rail and a Factory off it, worth 3 in
+  // all. The first Residence holds 2 pink; the second a vermillion and a pink, tied, so the
+  // vermillion on the left takes it. NEXT's Residence is in another city, as is a Factory
+  // beside it.
+  const { rail, plain, other } = townSpots(HOME)
+  const board = withTiles(newGame(), {
+    [startOf(HOME)]: residence(['pink', 'pink']),
+    [other]: residence(['vermillion', 'pink']),
+    [rail]: factory(),
+    [plain]: factory(),
+    [startOf(NEXT)]: residence(['vermillion', 'vermillion']),
+    [soloNeighborOf(NEXT)]: factory(),
+  })
+  const result = countVotes(board, [HOME])
 
   it('makes every Residence in the city a seat', () => {
     expect(result.seats).toHaveLength(2)
   })
 
   it('gives a tied seat to the colour furthest left', () => {
-    expect(result.seats.map(seat => seat.winner)).toEqual(['pink', 'vermillion'])
     expect(result.seatsByColor).toEqual({ pink: 1, vermillion: 1 })
   })
 
-  it('scores the city’s Factories, 2 for one beside the rail', () => {
-    expect(result.factoryPoints).toBe(3)
-  })
-})
-
-describe('city payout', () => {
-  const players: PlayerColor[] = ['pink', 'vermillion']
-
-  it('pays the player with the most seats', () => {
-    expect(cityScorers({ pink: 2, vermillion: 1 }, players)).toEqual(['pink'])
+  it('adds up the value of the city’s own Factories and Mines', () => {
+    // Any Factory printed beside HOME is in its city too.
+    const printed = townHexes(HOME).filter(key => board.tiles[key]?.kind === 'factory')
+    const printedValue = printed.reduce((total, key) => total + industryValue(board, 'factory', key), 0)
+    expect(result.cityValue).toBe(2 + 1 + printedValue)
   })
 
-  it('pays every tied player', () => {
-    expect(cityScorers({ pink: 1, vermillion: 1 }, players)).toEqual(['pink', 'vermillion'])
+  it('pays every player for each seat they hold', () => {
+    expect(result.pointsPerSeat).toBe(pointsPerSeat(result.cityValue, 2))
+    expect(result.scores).toEqual({ pink: result.pointsPerSeat, vermillion: result.pointsPerSeat })
   })
 
-  it('pays nobody when grey leads', () => {
-    expect(cityScorers({ grey: 2, vermillion: 1 }, players)).toEqual([])
-  })
-
-  it('still pays players who tie with grey', () => {
-    expect(cityScorers({ grey: 1, vermillion: 1 }, players)).toEqual(['vermillion'])
-  })
-
-  it('pays nobody when no player holds a seat', () => {
-    expect(cityScorers({}, players)).toEqual([])
+  it('pays nobody for grey or empty seats, though they count as seats', () => {
+    const withGrey = withTiles(board, { [other]: residence(['grey']), [startOf(HOME)]: residence() })
+    const greyResult = countVotes(withGrey, [HOME])
+    expect(greyResult.seats).toHaveLength(2)
+    expect(greyResult.scores).toEqual({})
   })
 })

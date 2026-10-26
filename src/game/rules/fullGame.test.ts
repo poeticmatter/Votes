@@ -10,8 +10,8 @@ import { applyMove } from './turnFlow'
 import { RESIDENCE_CAPACITY, type VotesMove, type VotesState } from './types'
 
 // Whole games played by seeded random agents, checking the rules' invariants after
-// every move. A cautious agent avoids merging while it can, which drives games long
-// enough to fill much of the board.
+// every move. A cautious agent avoids merging while it can, which drives games on until
+// the tiles run out.
 
 type Agent = 'random' | 'cautious'
 
@@ -40,7 +40,11 @@ function expectInvariants(state: VotesState, peopleBefore: number): void {
   expect(peopleOnBoard(state).length).toBeGreaterThanOrEqual(peopleBefore)
   expect(citiesOf(state).flat().sort()).toEqual(['A', 'B', 'C', 'D', 'E'])
   expect(Object.values(state.bag).every(count => (count ?? 0) >= 0)).toBe(true)
-  for (const key of Object.keys(state.tiles)) expect(BOARD.hexByKey.get(key)?.terrain).toBe('open')
+  // Mines sit on mountains, and every other tile on open hexes.
+  for (const [key, tile] of Object.entries(state.tiles)) {
+    expect(BOARD.hexByKey.get(key)?.terrain).toBe(tile.kind === 'mine' ? 'mountain' : 'open')
+  }
+  expect(Object.values(state.supply).every(count => count >= 0)).toBe(true)
   // A new turn starts with everyone housed who could be.
   if (state.phase.kind === 'placement') expect(housingMoves(beginHousing(state))).toEqual([])
 }
@@ -61,11 +65,14 @@ function playOut(playerCount: number, seed: number, agent: Agent): { final: Vote
   return { final: state, moves }
 }
 
-describe.each([2, 3, 4, 5])('%i-player games', playerCount => {
+/** How the game ended: the last merger, or everyone passing once the tiles ran out. */
+const endReason = (state: VotesState) => state.log.find(entry => entry.kind === 'gameOver')
+
+describe.each([3, 4, 5])('%i-player games', playerCount => {
   it.each([1, 2, 3, 4, 5])('random agents finish game %i', seed => {
     const { final } = playOut(playerCount, seed, 'random')
     expect(final.phase.kind).toBe('gameOver')
-    expect(citiesOf(final)).toHaveLength(1)
+    expect(citiesOf(final).length === 1).toBe(endReason(final)?.reason === 'lastMerger')
   })
 
   it.each([1, 2, 3])('cautious agents finish game %i', seed => {
@@ -75,7 +82,10 @@ describe.each([2, 3, 4, 5])('%i-player games', playerCount => {
 
 describe('seeded games', () => {
   // So the invariants above are checked through every kind of decision.
-  const movesPlayed = [2, 3, 4, 5].flatMap(playerCount => playOut(playerCount, 1, 'cautious').moves)
+  const movesPlayed = [3, 4, 5].flatMap(playerCount => [
+    ...playOut(playerCount, 1, 'cautious').moves,
+    ...playOut(playerCount, 1, 'random').moves,
+  ])
 
   it('relocate people for Schools', () => {
     expect(movesPlayed.some(move => move.kind === 'relocate')).toBe(true)
@@ -85,8 +95,12 @@ describe('seeded games', () => {
     expect(movesPlayed.some(move => move.kind === 'house')).toBe(true)
   })
 
-  it('let the player choose a Station for a Factory’s people', () => {
+  it('let the player choose a Station for a Factory’s or Mine’s people', () => {
     expect(movesPlayed.some(move => move.kind === 'arrive')).toBe(true)
+  })
+
+  it('place Mines', () => {
+    expect(movesPlayed.some(move => move.kind === 'place' && move.tile === 'mine')).toBe(true)
   })
 })
 
@@ -98,7 +112,7 @@ describe('determinism', () => {
   })
 
   it('never overdraws the bag', () => {
-    const { final } = playOut(2, 3, 'cautious')
+    const { final } = playOut(3, 3, 'cautious')
     expect(bagSize(final)).toBeGreaterThanOrEqual(0)
   })
 

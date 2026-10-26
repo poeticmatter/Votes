@@ -3,13 +3,11 @@ import type { TownId } from '../../map/mapData'
 import type { CubeColor, Tile } from '../../rules/types'
 import { COLORS, FONT_FAMILY, TILE_STYLE } from '../theme'
 import { usePieceColorOf } from '../viewer'
-import { homeCenters, residentCenters, TILE_LAYOUT, TILE_RADIUS, waitingCenters } from './geometry'
-import { FactoryGlyph, HouseGlyph, LetteredHouseGlyph, PlaceGlyph, SchoolGlyph, StationGlyph } from './glyphs'
+import { residentCenters, TILE_LAYOUT, TILE_RADIUS, waitingCenters } from './geometry'
+import { FactoryGlyph, HouseGlyph, LetteredHouseGlyph, MineGlyph, PlaceGlyph, SchoolGlyph, StationGlyph } from './glyphs'
 
 // Pieces on the map, ported from the asset generator's src/pieces/Tile.jsx and
 // Tokens.jsx. Every piece is drawn around a centre point at map scale.
-
-const offset = (center: Point, dx: number, dy: number): Point => ({ x: center.x + dx, y: center.y + dy })
 
 const TileBase = ({ center, fill }: { center: Point; fill: string }) => (
   <path
@@ -44,45 +42,23 @@ const Cubes = ({ colors, positions }: { colors: CubeColor[]; positions: Point[] 
   </g>
 )
 
-/** Empty homes are white with a dashed outline. No cube is white, so an empty home can't be mistaken for a person. */
-const Homes = ({ center, people }: { center: Point; people: CubeColor[] }) => {
-  const { slotSize } = TILE_LAYOUT
-  return (
-    <g>
-      {homeCenters(center).slice(people.length).map(slot => (
-        <rect
-          key={slot.x}
-          x={slot.x - slotSize / 2}
-          y={slot.y - slotSize / 2}
-          width={slotSize}
-          height={slotSize}
-          rx={slotSize * 0.18}
-          fill={COLORS.paper}
-          stroke={TILE_STYLE.emptySlot}
-          strokeWidth={1.5}
-          strokeDasharray={TILE_STYLE.emptySlotDash}
-        />
-      ))}
-      <Cubes colors={people} positions={residentCenters(center, people.length)} />
-    </g>
-  )
-}
-
-/** `townLetter` marks a town's starting Residence, which carries the letter in its house. */
+/**
+ * `townLetter` marks a town's starting Residence, which carries the letter in its house.
+ * Only the people show, sitting in a row over the house; there are no empty home slots.
+ */
 const ResidenceTile = ({ center, fill, people, townLetter }: { center: Point; fill: string; people: CubeColor[]; townLetter: TownId | null }) => {
-  const { houseSize, startingHouseSize, houseY } = TILE_LAYOUT
-  const size = townLetter ? startingHouseSize : houseSize
+  const size = TILE_LAYOUT.residenceSize
   return (
     <g>
       <TileBase center={center} fill={fill} />
-      <PlaceGlyph center={offset(center, 0, houseY)} size={size}>
+      <PlaceGlyph center={center} size={size}>
         {townLetter ? (
           <LetteredHouseGlyph size={size} color={TILE_STYLE.ink} letter={townLetter} letterColor={fill} fontFamily={FONT_FAMILY} />
         ) : (
           <HouseGlyph size={size} color={TILE_STYLE.ink} />
         )}
       </PlaceGlyph>
-      <Homes center={center} people={people} />
+      <Cubes colors={people} positions={residentCenters(center, people.length)} />
     </g>
   )
 }
@@ -102,10 +78,11 @@ const StationTile = ({ center, fill, people }: { center: Point; fill: string; pe
 
 const BUILDING_GLYPHS = {
   factory: { size: TILE_LAYOUT.factorySize, Glyph: FactoryGlyph },
+  mine: { size: TILE_LAYOUT.mineSize, Glyph: MineGlyph },
   school: { size: TILE_LAYOUT.schoolSize, Glyph: SchoolGlyph },
 } as const
 
-const BuildingTile = ({ center, fill, kind }: { center: Point; fill: string; kind: 'factory' | 'school' }) => {
+const BuildingTile = ({ center, fill, kind }: { center: Point; fill: string; kind: keyof typeof BUILDING_GLYPHS }) => {
   const { size, Glyph } = BUILDING_GLYPHS[kind]
   return (
     <g>
@@ -126,6 +103,7 @@ export function TilePiece({ tile, center, townLetter }: { tile: Tile; center: Po
     case 'station':
       return <StationTile center={center} fill={fill} people={tile.people} />
     case 'factory':
+    case 'mine':
     case 'school':
       return <BuildingTile center={center} fill={fill} kind={tile.kind} />
   }

@@ -39,7 +39,7 @@ export function TurnBanner({ state, isViewersTurn, seating }: { state: VotesStat
     <div className="flex items-center justify-center gap-2 rounded-2xl border border-rule bg-paper px-4 py-2.5">
       <span className="text-ink-soft">Turn {state.turn.number}:</span>
       <PlayerChip color={player.color} />
-      <span className="text-ink-soft">{seating === 'hot_seat' ? 'to play' : 'is playing'}</span>
+      <span className="text-ink-soft">{seating === 'solo_playtest' ? 'to play' : 'is playing'}</span>
     </div>
   )
 }

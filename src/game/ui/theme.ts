@@ -31,11 +31,9 @@ export const TILE_STYLE = {
   // stay readable once a tile is down.
   sizeRatio: 0.74,
   cornerRadius: 12,
-  emptySlotDash: '3 2.5',
-  // One colour for every tile: Residences, Factories, Schools and Stations differ by
-  // glyph. The outline keeps the pale fill clear of the white cells.
+  // One colour for every tile: Residences, Factories, Mines, Schools and Stations differ
+  // by glyph. The outline keeps the pale fill clear of the white cells.
   fill: '#f1e1b8',
   ink: COLORS.ink,
   outline: { color: 'rgba(38, 42, 49, 0.4)', width: 2 },
-  emptySlot: COLORS.inkSoft,
 } as const

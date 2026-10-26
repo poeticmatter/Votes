@@ -1,10 +1,11 @@
 import { Button } from 'game-kit/turns'
 import type { HexKey } from '../../map/hexGrid'
-import { activePlayerState, factoryPoints, peopleAt } from '../../rules/boardQueries'
+import { activePlayerState, industryValue, peopleAt } from '../../rules/boardQueries'
+import { arrivalCount } from '../../rules/immigration'
 import { citiesTouchedBy } from '../../rules/mergers'
-import { hasAnyLegalPlacement, newTile, PLACEABLE_KINDS } from '../../rules/placement'
+import { hasAnyLegalPlacement, newTile, PLACEABLE_KINDS, placeableKinds } from '../../rules/placement'
 import { eligibleResidences } from '../../rules/relocation'
-import { RESIDENCE_CAPACITY, type PlaceableKind, type VotesMove, type VotesState } from '../../rules/types'
+import { RESIDENCE_CAPACITY, type IndustryKind, type PlaceableKind, type VotesMove, type VotesState } from '../../rules/types'
 import { cityLabel, countOf, describeHex, PlayerChip, TILE_NAMES, TileIcon } from '../names'
 import type { TurnControls } from '../useTurnControls'
 import { Panel } from './Panel'
@@ -12,23 +13,35 @@ import { PersonChoices } from './PersonChoices'
 
 const TILE_ICON_WIDTH = 64
 
-function TilePicker({ controls }: { controls: TurnControls }) {
+/** Why a kind can't be chosen: none left, or nowhere it fits. */
+function unavailableNote(state: VotesState, kind: PlaceableKind): string {
+  if (state.supply[kind] === 0) return 'none left'
+  return kind === 'mine' ? 'no mountain free' : 'no room'
+}
+
+function TilePicker({ state, controls }: { state: VotesState; controls: TurnControls }) {
+  const available = placeableKinds(state)
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-2 gap-2">
       {PLACEABLE_KINDS.map(kind => {
         const isChosen = controls.placement.tile === kind
+        const isAvailable = available.includes(kind)
         return (
           <button
             key={kind}
             type="button"
             aria-pressed={isChosen}
+            disabled={!isAvailable}
             onClick={() => controls.chooseTile(kind)}
-            className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3 transition-colors ${
-              isChosen ? 'border-ink bg-slot' : 'border-rule bg-paper hover:bg-slot'
+            className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3 transition-colors disabled:opacity-40 ${
+              isChosen ? 'border-ink bg-slot' : 'border-rule bg-paper enabled:hover:bg-slot'
             }`}
           >
             <TileIcon tile={newTile(kind)} width={TILE_ICON_WIDTH} />
             <span className="text-sm font-semibold">{TILE_NAMES[kind]}</span>
+            <span className="text-xs tabular-nums text-ink-soft">
+              {state.supply[kind]} left{isAvailable ? '' : ` · ${unavailableNote(state, kind)}`}
+            </span>
           </button>
         )
       })}
@@ -40,8 +53,15 @@ function schoolEffects(state: VotesState, at: HexKey): string[] {
   const eligible = eligibleResidences(state, at).length
   if (eligible === 0) return ['No Residence next to it is free of another School, so nobody is relocated.']
   return [
-    `Relocation: you move 1 person, from that Residence’s city or a neighboring one, into one of the ${countOf(eligible, 'Residence')} next to it that touch no other School, even a full one.`,
+    `Relocation: you move 1 person into one of the ${countOf(eligible, 'Residence')} next to it that touch no other School, even a full one. They come from a Residence that touches no School and doesn’t border the rail.`,
   ]
+}
+
+/** What the tile would add to its city's value at elections, as the board stands. */
+function valueEffect(state: VotesState, kind: IndustryKind, at: HexKey): string {
+  const value = industryValue(state, kind, at)
+  const why = kind === 'factory' ? ' (1, +1 if it borders the rail, +1 if it touches a Mine)' : ''
+  return `Worth ${value} at elections${why}.`
 }
 
 /** What placing the chosen tile here would do, so the player can confirm with eyes open. */
@@ -50,11 +70,10 @@ function placementEffects(state: VotesState, kind: PlaceableKind, at: HexKey): s
   const towns = [...own, ...joins.flatMap(join => join.city)]
   const effects: string[] = []
   if (kind === 'residence') effects.push(`A seat, with space for ${countOf(RESIDENCE_CAPACITY, 'person', 'people')}.`)
-  if (kind === 'factory') {
+  if (kind === 'factory' || kind === 'mine') {
     const where = towns.length === 1 ? 'the Station' : 'a Station of your choice'
-    effects.push(`Immigration: draws ${countOf(state.factoryArrivals, 'person', 'people')} from the bag onto ${where} of city ${cityLabel(towns)}.`)
-    const points = factoryPoints(at)
-    effects.push(`Worth ${countOf(points, 'point')} at elections${points > 1 ? ' (it borders the rail)' : ''}.`)
+    effects.push(`Immigration: draws ${countOf(state.arrivals[kind], 'person', 'people')} from the bag onto ${where} of city ${cityLabel(towns)}.`)
+    effects.push(valueEffect(state, kind, at))
   }
   if (kind === 'school') effects.push(...schoolEffects(state, at))
   if (joins.length) {
@@ -100,9 +119,9 @@ function PlacementChoices({ state, controls, onMove }: { state: VotesState; cont
       <p className="text-sm text-ink-soft">
         {controls.placement.tile
           ? 'Choose a highlighted hex on the map.'
-          : 'Choose a tile to place. It goes on an empty hex touching a tile or Station.'}
+          : 'Choose a tile to place. It goes on an empty hex touching a tile or Station; only Mines go on mountains.'}
       </p>
-      <TilePicker controls={controls} />
+      <TilePicker state={state} controls={controls} />
       <ChosenPlacement state={state} controls={controls} />
     </div>
   )
@@ -113,8 +132,8 @@ function StationChoices({ state, stations, onMove }: { state: VotesState; statio
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-ink-soft">
-        Your Factory brings {countOf(state.factoryArrivals, 'person', 'people')} from the bag to one Station in its city. Choose a
-        highlighted Station on the map, or here.
+        Your {placedName(state)} brings {countOf(arrivalCount(state), 'person', 'people')} from the bag to one Station in its city.
+        Choose a highlighted Station on the map, or here.
       </p>
       <div className="flex flex-col gap-1.5">
         {stations.map(station => (
@@ -132,11 +151,18 @@ function StationChoices({ state, stations, onMove }: { state: VotesState; statio
   )
 }
 
+/** "Factory" or "Mine": the tile placed this turn. */
+function placedName(state: VotesState): string {
+  const at = state.turn.placedAt
+  const tile = at ? state.tiles[at] : undefined
+  return tile ? TILE_NAMES[tile.kind] : 'tile'
+}
+
 function waitingText(state: VotesState): string {
   const { phase } = state
   if (phase.kind === 'placement') return 'is placing a tile'
   if (phase.kind === 'relocation') return 'is moving a person for their School'
-  if (phase.kind === 'immigration') return 'is choosing where their Factory’s people arrive'
+  if (phase.kind === 'immigration') return `is choosing where their ${placedName(state)}’s people arrive`
   if (phase.kind === 'housing') return 'is housing people'
   return ''
 }
