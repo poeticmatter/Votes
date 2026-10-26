@@ -2,13 +2,13 @@ import { IllegalMoveError } from 'game-kit/turns'
 import { hexAt } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import { addVote } from './bag'
-import { activePlayerState, residences } from './boardQueries'
+import { activePlayerState, tilesInBoardOrder } from './boardQueries'
 import { isSameMove, movePerson, movesFrom } from './people'
 import type { PersonMove, VotesState } from './types'
 
 // A School's relocation: the active player moves 1 person into one Residence next to
 // the School that touches no other School, even a full one. The person comes from any
-// Residence that touches no School and doesn't border the rail. Like every move into a
+// Residence that touches no School, or from any Station. Like every move into a
 // Residence, it earns the active player 1 cube for the bag.
 
 const touchesSchool = (state: VotesState, residence: HexKey, except: HexKey | null = null): boolean =>
@@ -21,10 +21,13 @@ export function eligibleResidences(state: VotesState, at: HexKey): HexKey[] {
     .map(({ key }) => key)
 }
 
-/** Residences a School may take a person from: touching no School and off the rail. */
+/** Where a School may take a person from: a Residence touching no School, or a Station. */
 export function relocationSources(state: VotesState): HexKey[] {
-  return residences(state)
-    .filter(({ key, tile }) => tile.people.length > 0 && !touchesSchool(state, key) && !hexAt(key).bordersRail)
+  return tilesInBoardOrder(state)
+    .filter(({ key, tile }) => {
+      if (tile.kind === 'station') return tile.people.length > 0
+      return tile.kind === 'residence' && tile.people.length > 0 && !touchesSchool(state, key)
+    })
     .map(({ key }) => key)
 }
 

@@ -12,7 +12,7 @@ import { useByLook } from '../viewer'
 
 const VOTE_NOTE = 'You add 1 of your cubes to the bag for each person who moves into a Residence.'
 
-const RELOCATION_INTRO = `Your School moves 1 person into one of the outlined Residences, even a full one. They come from a Residence that touches no School and doesn’t border the rail. ${VOTE_NOTE} Choose a Residence on the map to take someone from.`
+const RELOCATION_INTRO = `Your School moves 1 person into one of the outlined Residences, even a full one. They come from any Residence that touches no School, or from any Station. ${VOTE_NOTE} Choose a Residence or Station on the map to take someone from.`
 
 const HOUSING_INTRO = `People waiting at Stations move into Residences with space in the same city. ${VOTE_NOTE} Choose who moves in next.`
 

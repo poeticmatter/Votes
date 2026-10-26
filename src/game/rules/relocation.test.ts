@@ -14,14 +14,12 @@ const START = startOf(town)
 
 const touches = (a: string, b: string) => hexAt(a).neighbors.some(neighbor => neighbor.key === b)
 
-/** A free hex beside some town's tiles, off the rail and clear of both Schools: a Residence there may lose a person. */
+/** A free hex beside some town's tiles and clear of both Schools: a Residence there may lose a person. */
 const SOURCE = must(
-  TOWN_IDS.flatMap(soloNeighborsOf).find(
-    key => !hexAt(key).bordersRail && ![SCHOOL, NEW, RIVAL].includes(key) && !touches(key, SCHOOL) && !touches(key, RIVAL),
-  ),
-  'hex off the rail and clear of the Schools',
+  TOWN_IDS.flatMap(soloNeighborsOf).find(key => ![SCHOOL, NEW, RIVAL].includes(key) && !touches(key, SCHOOL) && !touches(key, RIVAL)),
+  'hex clear of the Schools',
 )
-/** A starting Residence beside the rail and clear of the School, which a School may not take from. */
+/** A starting Residence beside the rail and clear of the School: the rail doesn't stop a School taking from it. */
 const RAILSIDE = must(
   TOWN_IDS.map(startOf).find(key => hexAt(key).bordersRail && !touches(key, SCHOOL) && !touches(key, RIVAL)),
   'starting Residence beside the rail and clear of the School',
@@ -76,21 +74,23 @@ describe('a School’s relocation', () => {
     expect(() => relocate(relocating, NEW, 'vermillion', START)).toThrow(IllegalMoveError)
   })
 
-  it('refuses a person from a Residence beside the rail', () => {
+  it('can take a person from a Residence beside the rail', () => {
     const railside = placeSchool(withTiles(board, { [RAILSIDE]: residence(['grey']) }))
-    expect(() => relocate(railside, RAILSIDE, 'grey', START)).toThrow(IllegalMoveError)
+    expect(relocate(railside, RAILSIDE, 'grey', START).tiles[RAILSIDE]).toEqual(residence())
   })
 
-  it('refuses a person waiting at a Station', () => {
-    const waiting = placeSchool(withTiles(board, { [stationOf(town)]: station(['grey']) }))
-    expect(() => relocate(waiting, stationOf(town), 'grey', NEW)).toThrow(IllegalMoveError)
+  it('can take a person waiting at any Station', () => {
+    for (const from of TOWN_IDS.map(stationOf)) {
+      const waiting = placeSchool(withTiles(board, { [from]: station(['grey']) }))
+      expect(relocate(waiting, from, 'grey', NEW).tiles[from]).toEqual(station())
+    }
   })
 
   it('refuses a Residence the School doesn’t touch', () => {
     expect(() => relocate(relocating, SOURCE, 'pink', RAILSIDE)).toThrow(IllegalMoveError)
   })
 
-  it('moves nobody when no Residence may lose a person', () => {
+  it('moves nobody when nobody can be taken', () => {
     expect(placeSchool(withTiles(board, { [SOURCE]: residence() })).turn.playerIndex).toBe(1)
   })
 

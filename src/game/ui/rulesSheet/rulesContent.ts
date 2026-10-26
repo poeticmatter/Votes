@@ -104,7 +104,7 @@ export const BUILDINGS: BuildingEntry[] = [
   {
     tile: { kind: 'school' },
     name: 'School',
-    text: 'Relocation: move 1 person from any Residence that touches no School and doesn’t border the rail into an adjacent Residence that touches no other School, even a full one.',
+    text: 'Relocation: move 1 person from any Station, or any Residence that touches no School, into an adjacent Residence that touches no other School, even a full one.',
   },
   {
     tile: { kind: 'station', people: [] },

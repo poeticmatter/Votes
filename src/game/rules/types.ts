@@ -142,9 +142,10 @@ export type LogEntry =
  * recognised instead of misread. 2 is Draft 5.4, 3 Draft 5.7 with town colours, 4 the
  * same on the mountains-only map, 5 the first Draft 5.8, 6 Draft 5.8 with neighboring
  * cities and ties going left, 7 the redrawn map with its printed Factory, 8 Draft 5.10
- * (Mines, a tile supply, the payout table).
+ * (Mines, a tile supply, the payout table), 9 Schools taking from Stations and from
+ * Residences beside the rail.
  */
-export const RULES_VERSION = 8
+export const RULES_VERSION = 9
 
 export interface VotesState {
   /** {@link RULES_VERSION} when the game was created; missing in games from before it existed. */

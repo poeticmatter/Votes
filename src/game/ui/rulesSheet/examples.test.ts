@@ -118,8 +118,8 @@ describe('the School example', () => {
     expect(relocationSources(before)).toContain(move.from)
   })
 
-  it('may not take from C’s starting Residence, as its caption says', () => {
-    expect(hexAt('7,0').bordersRail).toBe(true)
+  it('may not take from C’s starting Residence, which touches the new School, as its caption says', () => {
+    expect(hexAt('7,0').neighbors.map(neighbor => neighbor.key)).toContain(SCHOOL_EXAMPLE.placed)
     expect(relocationSources(state)).not.toContain('7,0')
   })
 
