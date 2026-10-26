@@ -6,8 +6,8 @@ import { activePlayerState, tilesInBoardOrder } from './boardQueries'
 import { isSameMove, movePerson, movesFrom } from './people'
 import type { PersonMove, VotesState } from './types'
 
-// A School's relocation: the active player moves 1 person into one Residence next to
-// the School that touches no other School, even a full one. The person comes from any
+// A School's relocation: the active player moves 1 person into each Residence next to
+// the School that touches no other School, even a full one, in the order they choose. The person comes from any
 // Residence that touches no School, or from any Station. Like every move into a
 // Residence, it earns the active player 1 cube for the bag.
 
@@ -44,7 +44,7 @@ export function relocationMoves(state: VotesState): PersonMove[] {
   return relocationSources(state).flatMap(from => movesFrom(state, from, phase.residences))
 }
 
-/** Over once the person has moved, or nobody can be taken. */
+/** Over once every Residence owed a person has one, or nobody can be taken. */
 export function isRelocationOver(state: VotesState): boolean {
   return relocationMoves(state).length === 0
 }
@@ -56,5 +56,6 @@ export function relocate(state: VotesState, move: PersonMove): VotesState {
   const moved = movePerson(state, move)
   const voter = activePlayerState(state).color
   const entry = { kind: 'relocated' as const, turn: state.turn.number, color: move.color, from: move.from, to: move.to, voter }
-  return addVote({ ...moved, phase: { kind: 'relocation', residences: [] }, log: [...moved.log, entry] })
+  const stillOwed = (state.phase.kind === 'relocation' ? state.phase.residences : []).filter(key => key !== move.to)
+  return addVote({ ...moved, phase: { kind: 'relocation', residences: stillOwed }, log: [...moved.log, entry] })
 }

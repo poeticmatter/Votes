@@ -160,12 +160,15 @@ const C_BLOCKED = '6,1'
 const C_FULL = '7,2'
 /** Touches no School, so the School may take from it. */
 const C_SOURCE = '7,3'
+const C_STATION = stationKeyOf('C')
+const C_STARTING_RESIDENCE = residenceSiteKey('C')
 
-// Cobalt's person lived at C_SOURCE, beside the Orchid one, until the School moved them.
+// Cobalt's person lived at C_SOURCE, beside the Orchid one, and a grey person waited at
+// C's Station, until the School moved them.
 export const SCHOOL_EXAMPLE = {
   position: examplePosition(
     { playerCount: 3, columns: [5, 8], rows: [0, 3] },
-    { C: ['grey', 'yellow'] },
+    { C: ['grey', 'yellow', 'grey'] },
     {
       [C_BLOCKED]: residence(['pink', 'yellow', 'grey']),
       [C_FULL]: residence(['yellow', 'blue', 'grey', 'blue']),
@@ -176,13 +179,17 @@ export const SCHOOL_EXAMPLE = {
   ),
   placed: C_SCHOOL,
   blocked: C_BLOCKED,
-  moves: [{ from: C_SOURCE, to: C_FULL, home: 3 }] satisfies PersonArrow[],
-  bagTags: [{ at: '8,3', color: 'blue', amount: 1, side: 'above' }] satisfies BagTag[],
+  moves: [
+    { from: C_SOURCE, to: C_FULL, home: 3 },
+    { from: C_STATION, to: C_STARTING_RESIDENCE, home: 2 },
+  ] satisfies PersonArrow[],
+  bagTags: [{ at: '8,3', color: 'blue', amount: 2, side: 'above' }] satisfies BagTag[],
   caption: [
     'Cobalt builds a School in C. Three Residences touch it, but the one on the left also touches another School, so nobody can move into it.',
-    'Relocation: Cobalt moves 1 person into one of the other two, even a full one. They may come from any Station, or any Residence that touches no School, so not from C’s starting Residence, which touches the new School.',
+    'Relocation: Cobalt moves 1 person into each of the other two, even a full one. Each may come from any Station, or any Residence that touches no School.',
     'Cobalt takes the Cobalt person from the bottom Residence; the Orchid one slides left. The Cobalt person joins the full Residence on its right, and Cobalt now has the most people there.',
-    'Votes: a person moved into a Residence, so Cobalt adds 1 Cobalt cube to the bag.',
+    'Cobalt takes the grey person waiting at C’s Station into C’s starting Residence, joining on its right.',
+    'Votes: 2 people moved into Residences, so Cobalt adds 2 Cobalt cubes to the bag.',
   ],
 }
 

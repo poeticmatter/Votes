@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hexAt } from '../../map/board'
+import { hexAt, stationKeyOf } from '../../map/board'
 import { citiesOf, cityAt, industryValue, peopleAt, stationsInCity } from '../../rules/boardQueries'
 import { beginHousing, housingMoves } from '../../rules/housing'
 import { citiesTouchedBy } from '../../rules/mergers'
@@ -100,30 +100,27 @@ describe('the housing example', () => {
 
 describe('the School example', () => {
   const state = stateOf(SCHOOL_EXAMPLE.position)
-  const [move] = SCHOOL_EXAMPLE.moves
+  const eligible = eligibleResidences(state, SCHOOL_EXAMPLE.placed)
 
   it('leaves out the Residence that touches another School, as its caption says', () => {
-    const eligible = eligibleResidences(state, SCHOOL_EXAMPLE.placed)
     expect(eligible).toHaveLength(2)
     expect(eligible).not.toContain(SCHOOL_EXAMPLE.blocked)
   })
 
-  it('moves the one person into an eligible Residence', () => {
-    expect(eligibleResidences(state, SCHOOL_EXAMPLE.placed)).toContain(move.to)
+  it('moves 1 person into each eligible Residence', () => {
+    expect(SCHOOL_EXAMPLE.moves.map(move => move.to).sort()).toEqual([...eligible].sort())
   })
 
-  it('takes the person from a Residence a School may take from', () => {
-    // The position is drawn after the move, so put the person back to ask the rules.
-    const before = withTiles(state, { [move.from]: { kind: 'residence', people: ['blue', 'pink'] } })
-    expect(relocationSources(before)).toContain(move.from)
+  it('takes each person from a Station or a Residence a School may take from', () => {
+    // The position is drawn after the moves, so put the people back to ask the rules.
+    const before = withTiles(state, {
+      '7,3': { kind: 'residence', people: ['blue', 'pink'] },
+      [stationKeyOf('C')]: { kind: 'station', people: ['grey'] },
+    })
+    for (const { from } of SCHOOL_EXAMPLE.moves) expect(relocationSources(before)).toContain(from)
   })
 
-  it('may not take from C’s starting Residence, which touches the new School, as its caption says', () => {
-    expect(hexAt('7,0').neighbors.map(neighbor => neighbor.key)).toContain(SCHOOL_EXAMPLE.placed)
-    expect(relocationSources(state)).not.toContain('7,0')
-  })
-
-  it('tags one cube for the person moved in', () => {
+  it('tags one cube for each person moved in', () => {
     expect(SCHOOL_EXAMPLE.bagTags.reduce((sum, tag) => sum + tag.amount, 0)).toBe(SCHOOL_EXAMPLE.moves.length)
   })
 })

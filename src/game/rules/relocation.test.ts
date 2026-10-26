@@ -56,8 +56,31 @@ describe('a School’s relocation', () => {
     expect(state.tiles[SOURCE]).toEqual(residence(['grey']))
   })
 
-  it('moves only the one person, then the turn goes on', () => {
-    expect(relocate(relocating, SOURCE, 'pink', START).turn.playerIndex).toBe(1)
+  it('still owes a person to each Residence not yet filled', () => {
+    const afterOne = relocate(relocating, SOURCE, 'pink', START)
+    expect(afterOne.phase).toEqual({ kind: 'relocation', residences: [NEW] })
+    expect(afterOne.turn.playerIndex).toBe(0)
+  })
+
+  it('refuses a second person for a Residence already filled', () => {
+    const afterOne = relocate(relocating, SOURCE, 'pink', START)
+    expect(() => relocate(afterOne, SOURCE, 'grey', START)).toThrow(IllegalMoveError)
+  })
+
+  it('moves 1 person into each Residence it touches, then the turn goes on', () => {
+    const afterBoth = relocate(relocate(relocating, SOURCE, 'pink', START), SOURCE, 'grey', NEW)
+    expect(afterBoth.tiles[NEW]).toEqual(residence(['vermillion', 'grey']))
+    expect(afterBoth.turn.playerIndex).toBe(1)
+  })
+
+  it('adds a cube to the bag for every person moved', () => {
+    const afterBoth = relocate(relocate(relocating, SOURCE, 'pink', START), SOURCE, 'grey', NEW)
+    expect(afterBoth.bag.pink).toBe((board.bag.pink ?? 0) + 2)
+  })
+
+  it('ends early once nobody is left to take', () => {
+    const lonely = placeSchool(withTiles(board, { [SOURCE]: residence(['pink']) }))
+    expect(relocate(lonely, SOURCE, 'pink', START).turn.playerIndex).toBe(1)
   })
 
   it('adds a cube to the bag for the person moved', () => {

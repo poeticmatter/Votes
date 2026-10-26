@@ -73,7 +73,7 @@ export interface PlayerState {
 
 export type Phase =
   | { kind: 'placement' }
-  /** A new School's relocation: the one move it owes, into one of these Residences. */
+  /** A new School's relocation: it owes 1 person to each of these Residences, the ones not yet filled. */
   | { kind: 'relocation'; residences: HexKey[] }
   /** A new Factory's or Mine's people arrive at one of these Stations, the player's choice. */
   | { kind: 'immigration'; stations: HexKey[] }
@@ -143,9 +143,9 @@ export type LogEntry =
  * same on the mountains-only map, 5 the first Draft 5.8, 6 Draft 5.8 with neighboring
  * cities and ties going left, 7 the redrawn map with its printed Factory, 8 Draft 5.10
  * (Mines, a tile supply, the payout table), 9 Schools taking from Stations and from
- * Residences beside the rail.
+ * Residences beside the rail, 10 Schools filling every Residence they touch.
  */
-export const RULES_VERSION = 9
+export const RULES_VERSION = 10
 
 export interface VotesState {
   /** {@link RULES_VERSION} when the game was created; missing in games from before it existed. */
