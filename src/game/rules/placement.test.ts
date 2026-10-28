@@ -1,8 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import { IllegalMoveError } from 'game-kit/turns'
 import { hasAnyLegalPlacement, legalPlacements, placeableKinds, placeTile } from './placement'
-import { filledColumns, newGame, residence } from './testStates'
-import { hexTouchingNothing, hexTouchingOnly, HOME, mountainNextToTile, soloNeighborOf, startOf, stationOf } from './testMap'
+import { filledColumns, newGame, residence, school, tilesOn, withTiles } from './testStates'
+import {
+  chainBetween,
+  chainWithGap,
+  hexTouchingNothing,
+  hexTouchingOnly,
+  HOME,
+  mountainNextToTile,
+  NEXT,
+  soloNeighborOf,
+  soloNeighborsOf,
+  startOf,
+  stationOf,
+} from './testMap'
 import type { VotesState } from './types'
 
 const withSupply = (state: VotesState, supply: Partial<VotesState['supply']>): VotesState => ({
@@ -61,6 +73,26 @@ describe('legal placements', () => {
   it('still has a Mine to place once the open hexes are full', () => {
     const full = filledColumns(newGame(), () => true)
     expect(placeableKinds(full)).toEqual(['mine'])
+  })
+
+  it('refuses a School in a city that already has one', () => {
+    const [first, second] = soloNeighborsOf(HOME)
+    const withSchool = withTiles(newGame(), { [first]: school() })
+    expect(legalPlacements(withSchool, 'school')).not.toContain(second)
+    expect(legalPlacements(withSchool, 'residence')).toContain(second)
+  })
+
+  it('refuses a School that would join a city that has one', () => {
+    const chain = chainBetween(HOME, NEXT)
+    const { filled, gap } = chainWithGap(chain)
+    const board = withTiles(newGame(), { ...tilesOn(filled, residence), [chain[0]]: school() })
+    expect(legalPlacements(board, 'school')).not.toContain(gap)
+    expect(legalPlacements(board, 'residence')).toContain(gap)
+  })
+
+  it('allows a School in a city without one', () => {
+    const withSchool = withTiles(newGame(), { [soloNeighborOf(HOME)]: school() })
+    expect(legalPlacements(withSchool, 'school')).toContain(soloNeighborOf(NEXT))
   })
 
   it('rejects an illegal hex', () => {

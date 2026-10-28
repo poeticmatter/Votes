@@ -2,15 +2,14 @@ import { useState } from 'react'
 import type { HexKey } from '../map/hexGrid'
 import { housingMoves } from '../rules/housing'
 import { legalPlacements, newTile } from '../rules/placement'
-import { relocationMoves } from '../rules/relocation'
 import type { CubeColor, PersonMove, PlaceableKind, VotesMove, VotesState } from '../rules/types'
 import type { TilePreview } from './map/MapView'
 import { describeHex, TILE_NAMES } from './names'
 
 // Turns the current phase into what the active player can click on the map. Placement
-// is chosen first and confirmed second, because it can't be taken back. Moving a person
-// (a School's relocation, or housing) is picked in steps: where from, which colour when
-// there's a choice, then where to; it commits on that last click.
+// is chosen first and confirmed second, because it can't be taken back. Housing a person
+// is picked in steps: where from, which colour when there's a choice, then where to; it
+// commits on that last click.
 
 export interface PlacementChoice {
   tile: PlaceableKind | null
@@ -87,9 +86,7 @@ function usePlacementControls(state: VotesState, onMove: (move: VotesMove) => vo
 }
 
 function personMovesNow(state: VotesState): PersonMove[] {
-  if (state.phase.kind === 'relocation') return relocationMoves(state)
-  if (state.phase.kind === 'housing') return housingMoves(state)
-  return []
+  return state.phase.kind === 'housing' ? housingMoves(state) : []
 }
 
 /**
@@ -125,7 +122,7 @@ function usePersonPicker(state: VotesState, onMove: (move: VotesMove) => void): 
     chooseColor: picked => setChoice({ position, from, color: picked }),
     chooseDestination: to => {
       if (!from || !color) return
-      onMove({ kind: state.phase.kind === 'relocation' ? 'relocate' : 'house', from, color, to })
+      onMove({ kind: 'house', from, color, to })
       reset()
     },
     reset,
@@ -155,16 +152,12 @@ function immigrationMap(state: VotesState, stations: HexKey[], onMove: (move: Vo
 }
 
 function personMap(state: VotesState, person: PersonPicker): MapControls {
-  const { phase } = state
-  const isRelocation = phase.kind === 'relocation'
   if (!person.from) {
     return {
       ...IDLE_MAP,
       targets: distinct(person.moves.map(move => move.from)),
-      describeTarget: key => (isRelocation ? 'Take a person from here' : `House a person waiting at the ${describeHex(state, key)}`),
+      describeTarget: key => `House a person from the ${describeHex(state, key)}`,
       onTarget: person.chooseFrom,
-      // While the player looks for someone to move, show where they're owed.
-      emphasized: isRelocation ? phase.residences : [],
     }
   }
   return {

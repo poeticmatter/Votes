@@ -155,41 +155,29 @@ export const HOUSING_EXAMPLE = {
 }
 
 const C_SCHOOL = '7,1'
-/** Beside the existing School, so nobody can move into it. */
-const C_BLOCKED = '6,1'
-const C_FULL = '7,2'
-/** Touches no School, so the School may take from it. */
-const C_SOURCE = '7,3'
-const C_STATION = stationKeyOf('C')
+const B_STATION = stationKeyOf('B')
+const B_STARTING_RESIDENCE = residenceSiteKey('B')
 const C_STARTING_RESIDENCE = residenceSiteKey('C')
 
-// Cobalt's person lived at C_SOURCE, beside the Orchid one, and a grey person waited at
-// C's Station, until the School moved them.
+// After housing: C had room for 2, and B has no School, so C took a person waiting at B's
+// Station and one living in B's starting Residence, which held a Cobalt and two Orchids.
 export const SCHOOL_EXAMPLE = {
   position: examplePosition(
-    { playerCount: 3, columns: [5, 8], rows: [0, 3] },
-    { C: ['grey', 'yellow', 'grey'] },
-    {
-      [C_BLOCKED]: residence(['pink', 'yellow', 'grey']),
-      [C_FULL]: residence(['yellow', 'blue', 'grey', 'blue']),
-      [C_SOURCE]: residence(['pink']),
-      '5,1': building('school'),
-      [C_SCHOOL]: building('school'),
-    },
+    { playerCount: 3, columns: [6, 10], rows: [0, 3] },
+    { C: ['grey', 'blue', 'pink'], B: ['blue', 'pink'] },
+    { [C_SCHOOL]: building('school') },
   ),
   placed: C_SCHOOL,
-  blocked: C_BLOCKED,
   moves: [
-    { from: C_SOURCE, to: C_FULL, home: 3 },
-    { from: C_STATION, to: C_STARTING_RESIDENCE, home: 2 },
+    { from: B_STATION, to: C_STARTING_RESIDENCE, home: 1 },
+    { from: B_STARTING_RESIDENCE, to: C_STARTING_RESIDENCE, home: 2 },
   ] satisfies PersonArrow[],
-  bagTags: [{ at: '8,3', color: 'blue', amount: 2, side: 'above' }] satisfies BagTag[],
+  bagTags: [{ at: '8,1', color: 'yellow', amount: 2, side: 'above' }] satisfies BagTag[],
   caption: [
-    'Cobalt builds a School in C. Three Residences touch it, but the one on the left also touches another School, so nobody can move into it.',
-    'Relocation: Cobalt moves 1 person into each of the other two, even a full one. Each may come from any Station, or any Residence that touches no School.',
-    'Cobalt takes the Cobalt person from the bottom Residence; the Orchid one slides left. The Cobalt person joins the full Residence on its right, and Cobalt now has the most people there.',
-    'Cobalt takes the grey person waiting at C’s Station into C’s starting Residence, joining on its right.',
-    'Votes: 2 people moved into Residences, so Cobalt adds 2 Cobalt cubes to the bag.',
+    'Saffron builds a School in C, beside C’s starting Residence, which has room for 2. A city may have only one School.',
+    'Housing: a city with a School may also take people waiting at any Station, or living in a Residence in a city with no School. Housing is mandatory, so C fills up.',
+    'Saffron moves the Cobalt person waiting at B’s Station, and an Orchid person from B’s starting Residence, into C’s Residence.',
+    'Votes: 2 people moved into a Residence, so Saffron adds 2 Saffron cubes to the bag.',
   ],
 }
 

@@ -24,14 +24,9 @@ function agentMoves(state: VotesState, agent: Agent): VotesMove[] {
   return quiet.length ? quiet : moves
 }
 
-const isNextToSchool = (state: VotesState, key: string) =>
-  BOARD.hexByKey.get(key)?.neighbors.some(neighbor => state.tiles[neighbor.key]?.kind === 'school') ?? false
-
 function expectInvariants(state: VotesState, peopleBefore: number): void {
-  for (const { key, tile } of residences(state)) {
-    // Only a School pushes people into a full Residence.
-    if (tile.people.length > RESIDENCE_CAPACITY) expect(isNextToSchool(state, key)).toBe(true)
-  }
+  // Nobody moves into a full Residence.
+  for (const { tile } of residences(state)) expect(tile.people.length).toBeLessThanOrEqual(RESIDENCE_CAPACITY)
   for (const { key, tile } of tilesInBoardOrder(state)) {
     // Stations stay where they're printed, and nothing else goes there.
     expect(tile.kind === 'station').toBe(hexAt(key).stationSite !== null)
@@ -82,13 +77,15 @@ describe.each([3, 4, 5])('%i-player games', playerCount => {
 
 describe('seeded games', () => {
   // So the invariants above are checked through every kind of decision.
-  const movesPlayed = [3, 4, 5].flatMap(playerCount => [
-    ...playOut(playerCount, 1, 'cautious').moves,
-    ...playOut(playerCount, 1, 'random').moves,
-  ])
+  const games = [3, 4, 5].flatMap(playerCount => [playOut(playerCount, 1, 'cautious'), playOut(playerCount, 1, 'random')])
+  const movesPlayed = games.flatMap(game => game.moves)
 
-  it('relocate people for Schools', () => {
-    expect(movesPlayed.some(move => move.kind === 'relocate')).toBe(true)
+  it('house people from other cities’ Residences into School cities', () => {
+    // Tiles never change kind, so the finished board tells where each person came from.
+    const fromResidences = games.flatMap(({ final }) =>
+      final.log.filter(entry => entry.kind === 'housed' && final.tiles[entry.from]?.kind === 'residence'),
+    )
+    expect(fromResidences.length).toBeGreaterThan(0)
   })
 
   it('let the player choose where people are housed', () => {

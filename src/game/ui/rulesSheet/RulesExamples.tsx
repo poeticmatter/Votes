@@ -57,7 +57,7 @@ export function RulesExamples() {
       <Example title="Example: housing" figure={<HousingFigure />}>
         <CaptionLines lines={HOUSING_EXAMPLE.caption} />
       </Example>
-      <Example title="Example: a School, then housing" figure={<SchoolFigure />}>
+      <Example title="Example: a School" figure={<SchoolFigure />}>
         <CaptionLines lines={SCHOOL_EXAMPLE.caption} />
       </Example>
       <Example title="Example: a merger" figure={<MergerFigure />}>

@@ -2,8 +2,8 @@ import type { HexKey } from '../map/hexGrid'
 import { distinctColors, cityAt, peopleAt } from './boardQueries'
 import type { PersonMove, VotesState } from './types'
 
-// Moving one person (cube) into a Residence: what both a School's relocation and
-// housing do. Every person who moves into a Residence earns the mover 1 vote.
+// Moving one person (cube) into a Residence, which is what housing does. Every person who
+// moves into a Residence earns the mover 1 vote.
 
 /** Whether the tile at `from` is in the same city as the one at `to`. */
 export function isWithinCity(state: VotesState, from: HexKey, to: HexKey): boolean {

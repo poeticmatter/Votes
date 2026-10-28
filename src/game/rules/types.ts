@@ -20,7 +20,7 @@ export type PlayerCount = 3 | 4 | 5
 export const MIN_PLAYERS: PlayerCount = 3
 export const MAX_PLAYERS: PlayerCount = 5
 
-/** A Residence holding this many people is full, though a School can push more in. */
+/** A Residence holding this many people is full. */
 export const RESIDENCE_CAPACITY = 3
 /** People seeded on each starting Residence at setup. */
 export const STARTING_PEOPLE_PER_RESIDENCE = 2
@@ -73,11 +73,9 @@ export interface PlayerState {
 
 export type Phase =
   | { kind: 'placement' }
-  /** A new School's relocation: it owes 1 person to each of these Residences, the ones not yet filled. */
-  | { kind: 'relocation'; residences: HexKey[] }
   /** A new Factory's or Mine's people arrive at one of these Stations, the player's choice. */
   | { kind: 'immigration'; stations: HexKey[] }
-  /** People waiting at Stations move into Residences with space. */
+  /** People waiting at Stations, and some in other cities' Residences, move into Residences with space. */
   | { kind: 'housing' }
   | { kind: 'gameOver'; winners: PlayerColor[] }
 
@@ -127,8 +125,6 @@ export interface ElectionResult {
 export type LogEntry =
   | { kind: 'placed'; turn: number; player: PlayerColor; tile: PlaceableKind; at: HexKey }
   | { kind: 'passed'; turn: number; player: PlayerColor }
-  /** A School's relocation; the voter added 1 cube to the bag. */
-  | { kind: 'relocated'; turn: number; color: CubeColor; from: HexKey; to: HexKey; voter: PlayerColor }
   /** People drawn from the bag onto a Station. */
   | { kind: 'arrived'; turn: number; station: HexKey; people: CubeColor[] }
   /** Housing; the voter added 1 cube to the bag. */
@@ -143,9 +139,10 @@ export type LogEntry =
  * same on the mountains-only map, 5 the first Draft 5.8, 6 Draft 5.8 with neighboring
  * cities and ties going left, 7 the redrawn map with its printed Factory, 8 Draft 5.10
  * (Mines, a tile supply, the payout table), 9 Schools taking from Stations and from
- * Residences beside the rail, 10 Schools filling every Residence they touch.
+ * Residences beside the rail, 10 Schools filling every Residence they touch, 11 Draft
+ * 5.11 (no relocation; a School widens its city's housing, one School per city).
  */
-export const RULES_VERSION = 10
+export const RULES_VERSION = 11
 
 export interface VotesState {
   /** {@link RULES_VERSION} when the game was created; missing in games from before it existed. */
@@ -181,9 +178,7 @@ export type VotesMove =
   | { kind: 'place'; tile: PlaceableKind; at: HexKey }
   /** Only legal when no tile can be placed anywhere. */
   | { kind: 'pass' }
-  /** A School's relocation: `to` is one of the Residences it may fill. */
-  | ({ kind: 'relocate' } & PersonMove)
   /** A Factory's or Mine's people arrive at this Station of its city. */
   | { kind: 'arrive'; station: HexKey }
-  /** Houses a person waiting at Station `from` in Residence `to`. */
+  /** Houses a person from Station or Residence `from` in Residence `to`. */
   | ({ kind: 'house' } & PersonMove)

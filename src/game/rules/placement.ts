@@ -1,7 +1,7 @@
 import { IllegalMoveError } from 'game-kit/turns'
 import { BOARD, type Terrain } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
-import { activePlayerState } from './boardQueries'
+import { activePlayerState, cityAt, schoolCities } from './boardQueries'
 import type { PlaceableKind, Tile, VotesState } from './types'
 
 export const PLACEABLE_KINDS: readonly PlaceableKind[] = ['residence', 'factory', 'mine', 'school']
@@ -11,11 +11,18 @@ export function terrainFor(kind: PlaceableKind): Terrain {
   return kind === 'mine' ? 'mountain' : 'open'
 }
 
-/** An empty hex of the tile's terrain, touching a tile or Station. */
+/**
+ * An empty hex of the tile's terrain, touching a tile or Station. A School may not go in
+ * a city that already has one, nor join one.
+ */
 function isLegalHex(state: VotesState, kind: PlaceableKind, at: HexKey): boolean {
   const hex = BOARD.hexByKey.get(at)
   if (!hex || hex.terrain !== terrainFor(kind) || state.tiles[at]) return false
-  return hex.neighbors.some(({ key }) => state.tiles[key])
+  const touched = hex.neighbors.filter(({ key }) => state.tiles[key])
+  if (touched.length === 0) return false
+  if (kind !== 'school') return true
+  const schools = schoolCities(state)
+  return touched.every(({ key }) => !schools.has(cityAt(state, key)[0]))
 }
 
 /** Hexes where the active player may place a tile of `kind` right now; none once the supply has run out. */

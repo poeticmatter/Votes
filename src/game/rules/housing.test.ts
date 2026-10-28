@@ -3,7 +3,7 @@ import { IllegalMoveError } from 'game-kit/turns'
 import { beginHousing, house, housingMoves } from './housing'
 import { applyMove } from './turnFlow'
 import { chainBetween, HOME, must, NEXT, soloNeighborsOf, soloNeighborOf, startOf, stationOf } from './testMap'
-import { crowdedTowns, factory, fullResidence, newGame, residence, station, tilesOn, withBag, withTiles } from './testStates'
+import { crowdedTowns, factory, fullResidence, newGame, residence, school, station, tilesOn, withBag, withTiles } from './testStates'
 import type { VotesState } from './types'
 
 // Pink is the active player. Every starting Residence is full unless a test gives one
@@ -37,6 +37,51 @@ describe('where waiting people can move in', () => {
     const chain = tilesOn(chainBetween(HOME, NEXT), factory)
     const state = housing({ ...chain, [stationOf(NEXT)]: station(['grey']), [startOf(HOME)]: residence() })
     expect(housingMoves(state)).toEqual([moveTo(stationOf(NEXT), startOf(HOME))])
+  })
+})
+
+describe('a city with a School', () => {
+  // HOME has a School, a full starting Residence and room in a new one; NEXT is a city of
+  // its own. Every other Residence starts empty, so a School city could pull from any
+  // crowded one.
+  const SCHOOL_AT = must(soloNeighborsOf(HOME).find(key => key !== NEW_HOME), `second free hex beside town ${HOME}`)
+  const schoolTiles = { [SCHOOL_AT]: school(), [startOf(HOME)]: fullResidence(), [NEW_HOME]: residence() }
+  const schoolCity = (tiles: VotesState['tiles']) => beginHousing(withTiles(newGame(), { ...schoolTiles, ...tiles }))
+
+  it('takes people waiting at another city’s Station', () => {
+    // They may still move into their own city's empty Residence instead.
+    const state = schoolCity({ [stationOf(NEXT)]: station(['grey']) })
+    const moves = housingMoves(state)
+    expect(moves.every(move => move.from === stationOf(NEXT))).toBe(true)
+    expect(moves.map(move => move.to).sort()).toEqual([startOf(NEXT), NEW_HOME].sort())
+  })
+
+  it('takes people living in a city with no School', () => {
+    const state = schoolCity({ [startOf(NEXT)]: residence(['grey']) })
+    expect(housingMoves(state)).toEqual([moveTo(startOf(NEXT), NEW_HOME)])
+  })
+
+  it('leaves people living in another city with a School', () => {
+    const otherSchool = must(soloNeighborsOf(NEXT)[0], `free hex beside town ${NEXT}`)
+    const state = schoolCity({ [startOf(NEXT)]: residence(['grey']), [otherSchool]: school() })
+    expect(housingMoves(state)).toEqual([])
+  })
+
+  it('never moves its own people between its Residences', () => {
+    const state = schoolCity({ [startOf(HOME)]: residence(['grey']) })
+    expect(housingMoves(state)).toEqual([])
+  })
+
+  it('doesn’t open other cities’ Residences to its own Station', () => {
+    const state = schoolCity({ [NEW_HOME]: fullResidence(), [stationOf(HOME)]: station(['grey']) })
+    expect(housingMoves(state)).toEqual([])
+  })
+
+  it('pulls people in by itself, since housing is mandatory', () => {
+    const board = withTiles(newGame(), { [startOf(HOME)]: fullResidence(), [NEW_HOME]: residence(), [startOf(NEXT)]: residence(['grey']) })
+    const state = applyMove(withBag(board, {}), { kind: 'place', tile: 'school', at: SCHOOL_AT })
+    expect(state.tiles[NEW_HOME]).toEqual(residence(['grey']))
+    expect(state.tiles[startOf(NEXT)]).toEqual(residence())
   })
 })
 

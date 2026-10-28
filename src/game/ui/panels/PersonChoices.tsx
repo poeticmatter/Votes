@@ -6,15 +6,12 @@ import { CubeChip, describeHex, useColorNameOf } from '../names'
 import type { PersonPicker } from '../useTurnControls'
 import { useByLook } from '../viewer'
 
-// Moving one person, for a School's relocation or for housing: the active player picks
-// where from (on the map, or from a list of Stations when housing), which colour when
-// there's a choice, then where to. The map highlights the same choices.
+// Housing one person: the active player picks where from (on the map, or from a list),
+// which colour when there's a choice, then where to. The map highlights the same choices.
 
 const VOTE_NOTE = 'You add 1 of your cubes to the bag for each person who moves into a Residence.'
 
-const RELOCATION_INTRO = `Your School moves 1 person into each outlined Residence, even a full one, one at a time. They come from any Residence that touches no School, or from any Station. ${VOTE_NOTE} Choose a Residence or Station on the map to take someone from.`
-
-const HOUSING_INTRO = `People waiting at Stations move into Residences with space in the same city. ${VOTE_NOTE} Choose who moves in next.`
+const HOUSING_INTRO = `People waiting at Stations move into Residences with space in the same city. A city with a School may also take people waiting at any Station, or living in a city with no School. Everyone who can move in must. ${VOTE_NOTE} Choose who moves in next.`
 
 function ChoiceList({ keys, describe, onChoose }: { keys: HexKey[]; describe: (key: HexKey) => string; onChoose: (key: HexKey) => void }) {
   return (
@@ -44,8 +41,6 @@ function ColorChoices({ picker }: { picker: PersonPicker }) {
 
 /** Picks one person to move: where from, which colour if there's a choice, then where to. */
 export function PersonChoices({ state, picker }: { state: VotesState; picker: PersonPicker }) {
-  const isHousing = state.phase.kind === 'housing'
-  const intro = isHousing ? HOUSING_INTRO : RELOCATION_INTRO
   const describe = (key: HexKey) => describeHex(state, key)
   const colorNameOf = useColorNameOf()
 
@@ -58,8 +53,8 @@ export function PersonChoices({ state, picker }: { state: VotesState; picker: Pe
     const sources = [...new Set(picker.moves.map(move => move.from))]
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-sm text-ink-soft">{intro}</p>
-        {isHousing && <ChoiceList keys={sources} describe={describe} onChoose={picker.chooseFrom} />}
+        <p className="text-sm text-ink-soft">{HOUSING_INTRO}</p>
+        <ChoiceList keys={sources} describe={describe} onChoose={picker.chooseFrom} />
       </div>
     )
   }

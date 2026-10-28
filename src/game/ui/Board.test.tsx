@@ -44,7 +44,6 @@ const otherRole = (state: VotesState) => (state.turn.playerIndex + 1) % PLAYERS.
 
 describe('board rendering', () => {
   const start = playUntil(() => true)
-  const relocating = playUntil(state => state.phase.kind === 'relocation')
   const housing = playUntil(state => state.phase.kind === 'housing')
   const afterElection = playUntil(state => state.elections.length > 0 && state.phase.kind === 'placement')
   const finished = playUntil(state => state.phase.kind === 'gameOver')
@@ -55,10 +54,6 @@ describe('board rendering', () => {
 
   it('tells everyone else whose turn it is', () => {
     expect(render(start, { role: otherRole(start) })).toContain('is placing a tile')
-  })
-
-  it('asks who a School relocates', () => {
-    expect(render(relocating, { role: activeRole(relocating) })).toContain('Your School moves 1 person')
   })
 
   it('lists the Stations with people to house', () => {

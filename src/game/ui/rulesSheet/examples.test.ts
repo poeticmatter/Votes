@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { hexAt, stationKeyOf } from '../../map/board'
+import { hexAt, residenceSiteKey, stationKeyOf } from '../../map/board'
 import { citiesOf, cityAt, industryValue, peopleAt, stationsInCity } from '../../rules/boardQueries'
 import { beginHousing, housingMoves } from '../../rules/housing'
 import { citiesTouchedBy } from '../../rules/mergers'
 import { legalPlacements, terrainFor } from '../../rules/placement'
-import { eligibleResidences, relocationSources } from '../../rules/relocation'
 import { DEFAULT_SETTINGS } from '../../rules/setup'
 import { withTiles } from '../../rules/testStates'
 import { RESIDENCE_CAPACITY } from '../../rules/types'
@@ -47,11 +46,9 @@ describe.each(POSITIONS)('the %s example', (name, position) => {
     expect(citiesOf(state)).toHaveLength(name === 'merger' ? 4 : 5)
   })
 
-  it('overfills a Residence only beside a School', () => {
-    const schools = Object.keys(state.tiles).filter(key => state.tiles[key].kind === 'school')
-    for (const [key, tile] of Object.entries(state.tiles)) {
-      if (tile.kind !== 'residence' || tile.people.length <= RESIDENCE_CAPACITY) continue
-      expect(schools.some(school => eligibleResidences(state, school).includes(key))).toBe(true)
+  it('never overfills a Residence', () => {
+    for (const tile of Object.values(state.tiles)) {
+      if (tile.kind === 'residence') expect(tile.people.length).toBeLessThanOrEqual(RESIDENCE_CAPACITY)
     }
   })
 })
@@ -100,24 +97,30 @@ describe('the housing example', () => {
 
 describe('the School example', () => {
   const state = stateOf(SCHOOL_EXAMPLE.position)
-  const eligible = eligibleResidences(state, SCHOOL_EXAMPLE.placed)
-
-  it('leaves out the Residence that touches another School, as its caption says', () => {
-    expect(eligible).toHaveLength(2)
-    expect(eligible).not.toContain(SCHOOL_EXAMPLE.blocked)
+  // The position is drawn after housing, so put the two people back where they came from.
+  const before = withTiles(state, {
+    [residenceSiteKey('C')]: { kind: 'residence', people: ['grey'] },
+    [residenceSiteKey('B')]: { kind: 'residence', people: ['blue', 'pink', 'pink'] },
+    [stationKeyOf('B')]: { kind: 'station', people: ['blue'] },
   })
 
-  it('moves 1 person into each eligible Residence', () => {
-    expect(SCHOOL_EXAMPLE.moves.map(move => move.to).sort()).toEqual([...eligible].sort())
+  it('places the School where a School may go', () => {
+    const { [SCHOOL_EXAMPLE.placed]: placed, ...rest } = before.tiles
+    expect(placed).toEqual({ kind: 'school' })
+    expect(legalPlacements({ ...before, tiles: rest }, 'school')).toContain(SCHOOL_EXAMPLE.placed)
   })
 
-  it('takes each person from a Station or a Residence a School may take from', () => {
-    // The position is drawn after the moves, so put the people back to ask the rules.
-    const before = withTiles(state, {
-      '7,3': { kind: 'residence', people: ['blue', 'pink'] },
-      [stationKeyOf('C')]: { kind: 'station', people: ['grey'] },
-    })
-    for (const { from } of SCHOOL_EXAMPLE.moves) expect(relocationSources(before)).toContain(from)
+  it('makes each move one housing allows', () => {
+    const moves = housingMoves(beginHousing(before))
+    for (const { from, to } of SCHOOL_EXAMPLE.moves) expect(moves.some(move => move.from === from && move.to === to)).toBe(true)
+  })
+
+  it('takes people from another city, as its caption says', () => {
+    for (const { from, to } of SCHOOL_EXAMPLE.moves) expect(cityAt(state, from)).not.toEqual(cityAt(state, to))
+  })
+
+  it('leaves nobody who could still be housed', () => {
+    expect(housingMoves(beginHousing(state))).toEqual([])
   })
 
   it('tags one cube for each person moved in', () => {

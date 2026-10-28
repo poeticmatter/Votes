@@ -28,13 +28,6 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
           <PlayerChip color={entry.player} /> couldn’t place a tile and passed.
         </>
       )
-    case 'relocated':
-      return (
-        <>
-          <CubeChip color={entry.color} /> The School moved a person from the {describeHex(state, entry.from)} into the{' '}
-          {describeHex(state, entry.to)}. Bag: <BagCube color={entry.voter} />
-        </>
-      )
     case 'arrived':
       return (
         <>

@@ -3,7 +3,6 @@ import type { HexKey } from '../map/hexGrid'
 import { housingMoves } from './housing'
 import { arrivalStations } from './immigration'
 import { legalPlacements, PLACEABLE_KINDS } from './placement'
-import { relocationMoves } from './relocation'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
 import { splitColumn, startOf } from './testMap'
 import type { CubeColor, Tile, VotesMove, VotesState } from './types'
@@ -70,7 +69,6 @@ export const joiningHex = (): HexKey => splitColumn().joining
 /** Every move the active player could make now; a pass only when nothing can be placed. */
 export function legalMoves(state: VotesState): VotesMove[] {
   const { phase } = state
-  if (phase.kind === 'relocation') return relocationMoves(state).map(move => ({ kind: 'relocate', ...move }))
   if (phase.kind === 'immigration') return arrivalStations(state).map(station => ({ kind: 'arrive', station }))
   if (phase.kind === 'housing') return housingMoves(state).map(move => ({ kind: 'house', ...move }))
   if (phase.kind === 'gameOver') return []

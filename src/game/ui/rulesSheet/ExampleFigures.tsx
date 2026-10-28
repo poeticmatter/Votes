@@ -127,7 +127,7 @@ export const HousingFigure = () => (
 )
 
 export const SchoolFigure = () => (
-  <MapExcerpt position={SCHOOL_EXAMPLE.position} label="Town C after a School's relocation">
+  <MapExcerpt position={SCHOOL_EXAMPLE.position} label="Town C after its School brings in people from B">
     <JustPlacedOutline center={centerOfHex(SCHOOL_EXAMPLE.placed)} />
     <Moves position={SCHOOL_EXAMPLE.position} moves={SCHOOL_EXAMPLE.moves} />
     <BagTags tags={SCHOOL_EXAMPLE.bagTags} />

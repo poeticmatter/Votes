@@ -5,11 +5,10 @@ import { house, houseWhileForced, isHousingOver } from './housing'
 import { arrive, beginImmigration } from './immigration'
 import { addMergerMarkers, citiesTouchedBy } from './mergers'
 import { hasAnyLegalPlacement, placeTile } from './placement'
-import { beginRelocation, isRelocationOver, relocate } from './relocation'
 import type { Phase, PlayerColor, VotesMove, VotesState } from './types'
 
-// A turn: place a tile, then its relocation (a School), its immigration (a Factory),
-// housing, and a merger with its election if the tile joined cities (they join the
+// A turn: place a tile, then its immigration (a Factory or Mine), housing, and a merger
+// with its election if the tile joined cities (they join the
 // moment the tile is placed; see mergers.ts). Each move is one
 // decision by the active player; everything that needs no decision runs straight on.
 
@@ -95,9 +94,6 @@ function endTurn(state: VotesState): VotesState {
 
 /** Runs the turn on until the active player has a decision to make, or the turn ends. */
 function advance(state: VotesState): VotesState {
-  if (state.phase.kind === 'relocation') {
-    return isRelocationOver(state) ? advance(beginImmigration(state)) : state
-  }
   if (state.phase.kind === 'housing') {
     const housed = houseWhileForced(state)
     return isHousingOver(housed) ? endTurn(housed) : housed
@@ -128,13 +124,11 @@ export function applyMove(state: VotesState, move: VotesMove): VotesState {
   switch (move.kind) {
     case 'place':
       requirePhase(state, 'placement')
-      return advance(beginRelocation(placeTile(state, move.tile, move.at)))
+      return advance(beginImmigration(placeTile(state, move.tile, move.at)))
     case 'pass':
       requirePhase(state, 'placement')
-      return advance(beginRelocation(pass(state)))
-    case 'relocate':
-      requirePhase(state, 'relocation')
-      return advance(relocate(state, move))
+      // Nothing was placed, so nobody arrives, but housing still runs.
+      return advance(beginImmigration(pass(state)))
     case 'arrive':
       requirePhase(state, 'immigration')
       return advance(arrive(state, move.station))

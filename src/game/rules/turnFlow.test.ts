@@ -5,6 +5,7 @@ import { applyMove, drawsFromBag, gameOutcome } from './turnFlow'
 import { chainBetween, chainWithGap, HOME, NEXT, soloNeighborOf, startOf, stationOf, threeWayJoin, hexTouchingNothing } from './testMap'
 import {
   crowdedTowns,
+  fullResidence,
   factory,
   filledColumns,
   joiningHex,
@@ -123,9 +124,11 @@ describe('mergers', () => {
 
   it('houses people in the merged city the same turn', () => {
     // Someone waits at NEXT's Station, and the only room is the new Residence, which is in the
-    // merged city. Every other starting Residence is full.
+    // merged city: its two starting Residences are full, and the other towns' are empty, so
+    // the city's Schools have nobody to pull from them.
     const waiting = withTiles(beforeMerger, {
-      ...crowdedTowns(),
+      [startOf(HOME)]: fullResidence(),
+      [startOf(NEXT)]: fullResidence(),
       [stationOf(NEXT)]: station(['pink']),
     })
     const state = applyMove(waiting, { kind: 'place', tile: 'residence', at: gap })

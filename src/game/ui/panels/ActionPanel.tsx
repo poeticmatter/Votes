@@ -3,8 +3,7 @@ import type { HexKey } from '../../map/hexGrid'
 import { activePlayerState, industryValue, peopleAt } from '../../rules/boardQueries'
 import { arrivalCount } from '../../rules/immigration'
 import { citiesTouchedBy } from '../../rules/mergers'
-import { hasAnyLegalPlacement, newTile, PLACEABLE_KINDS, placeableKinds } from '../../rules/placement'
-import { eligibleResidences } from '../../rules/relocation'
+import { hasAnyLegalPlacement, legalPlacements, newTile, PLACEABLE_KINDS, placeableKinds } from '../../rules/placement'
 import { RESIDENCE_CAPACITY, type IndustryKind, type PlaceableKind, type VotesMove, type VotesState } from '../../rules/types'
 import { cityLabel, countOf, describeHex, PlayerChip, TILE_NAMES, TileIcon } from '../names'
 import type { TurnControls } from '../useTurnControls'
@@ -16,7 +15,10 @@ const TILE_ICON_WIDTH = 64
 /** Why a kind can't be chosen: none left, or nowhere it fits. */
 function unavailableNote(state: VotesState, kind: PlaceableKind): string {
   if (state.supply[kind] === 0) return 'none left'
-  return kind === 'mine' ? 'no mountain free' : 'no room'
+  if (kind === 'mine') return 'no mountain free'
+  // Somewhere a Residence fits, so it's the one-School-per-city rule that stops it.
+  if (kind === 'school' && legalPlacements(state, 'residence').length > 0) return 'every city has one'
+  return 'no room'
 }
 
 function TilePicker({ state, controls }: { state: VotesState; controls: TurnControls }) {
@@ -49,13 +51,8 @@ function TilePicker({ state, controls }: { state: VotesState; controls: TurnCont
   )
 }
 
-function schoolEffects(state: VotesState, at: HexKey): string[] {
-  const eligible = eligibleResidences(state, at).length
-  if (eligible === 0) return ['No Residence next to it is free of another School, so nobody is relocated.']
-  return [
-    `Relocation: you move 1 person into each of the ${countOf(eligible, 'Residence')} next to it that touch no other School, even a full one. They come from any Residence that touches no School, or from any Station.`,
-  ]
-}
+const SCHOOL_EFFECT =
+  'Housing in this city may also take people waiting at any Station, or living in a Residence in a city with no School. Only one School per city.'
 
 /** What the tile would add to its city's value at elections, as the board stands. */
 function valueEffect(state: VotesState, kind: IndustryKind, at: HexKey): string {
@@ -75,7 +72,7 @@ function placementEffects(state: VotesState, kind: PlaceableKind, at: HexKey): s
     effects.push(`Immigration: draws ${countOf(state.arrivals[kind], 'person', 'people')} from the bag onto ${where} of city ${cityLabel(towns)}.`)
     effects.push(valueEffect(state, kind, at))
   }
-  if (kind === 'school') effects.push(...schoolEffects(state, at))
+  if (kind === 'school') effects.push(SCHOOL_EFFECT)
   if (joins.length) {
     effects.push(`Merges city ${cityLabel(own)} with ${joins.map(join => cityLabel(join.city)).join(' and ')}. The new city votes.`)
   }
@@ -161,7 +158,6 @@ function placedName(state: VotesState): string {
 function waitingText(state: VotesState): string {
   const { phase } = state
   if (phase.kind === 'placement') return 'is placing a tile'
-  if (phase.kind === 'relocation') return 'is moving a person for their School'
   if (phase.kind === 'immigration') return `is choosing where their ${placedName(state)}’s people arrive`
   if (phase.kind === 'housing') return 'is housing people'
   return ''
@@ -203,7 +199,7 @@ export function ActionPanel({
     )
   }
   return (
-    <Panel title={phase.kind === 'relocation' ? 'Relocation' : 'Housing'}>
+    <Panel title="Housing">
       <PersonChoices state={state} picker={controls.person} />
     </Panel>
   )

@@ -1,7 +1,7 @@
 import { DEFAULT_SETTINGS } from '../../rules/setup'
 import type { Tile } from '../../rules/types'
 
-// The one-page rules: Rules/Votes.md (Draft 5.10) in the asset generator, condensed. The
+// The one-page rules: Rules/Votes.md (Draft 5.11) in the asset generator, condensed. The
 // payout table itself comes from rules/payout.ts.
 // Player colours go by the names the game shows: Cobalt, Saffron, Orchid, Jade.
 
@@ -47,16 +47,15 @@ export const CITIES =
   'A city is a group of connected tiles and Stations. Each city starts as a single town: a starting Residence and its Station; the letter on the Residence names it.'
 
 export const CORE_CONCEPTS: { intro: string; items: LeadText[] } = {
-  intro: 'Cubes are people. Every tile you place brings people in or moves them around, in one of three ways:',
+  intro: 'Cubes are people. Every tile you place brings people in or moves them around, in one of two ways:',
   items: [
-    { lead: 'Relocation', text: 'Move people already on the board, as the tile says.' },
     {
       lead: 'Immigration',
       text: 'People arrive by train and wait at a Station: draw them from the bag and place them on it. If the bag is empty, nobody arrives.',
     },
     {
       lead: 'Housing',
-      text: 'Move people waiting at Stations into Residences with space in the same city, as many as fit. You choose who. A Residence with 3 people is full.',
+      text: 'Move people waiting at Stations into Residences with space in the same city, as many as fit. This is mandatory: if anyone can move in, they do. You choose who. A Residence with 3 people is full.',
     },
     {
       lead: 'Votes',
@@ -70,9 +69,8 @@ export const MERGER_STEP_TITLE = 'Merger'
 
 export const TURN: TitledText[] = [
   { title: 'Place a tile', text: 'On an empty hex touching a tile or Station. Only Mines go on mountains.' },
-  { title: 'Relocation', text: 'If the tile has one.' },
   { title: 'Immigration', text: 'If the tile has one.' },
-  { title: 'Housing', text: 'Relocation may have freed space, so people can cascade into it.' },
+  { title: 'Housing', text: 'Everyone who can move in does.' },
   {
     title: MERGER_STEP_TITLE,
     text: 'If the tile touches two or more cities, they become one city. Hold an election.',
@@ -104,7 +102,7 @@ export const BUILDINGS: BuildingEntry[] = [
   {
     tile: { kind: 'school' },
     name: 'School',
-    text: 'Relocation: move 1 person into each adjacent Residence that touches no other School, even a full one. Each comes from any Station, or any Residence that touches no School.',
+    text: 'Housing in this city may also take people waiting at any Station, or living in a Residence in a city with no School. You may not place a School in a city that already has one.',
   },
   {
     tile: { kind: 'station', people: [] },

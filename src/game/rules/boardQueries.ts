@@ -93,6 +93,11 @@ export function cityValue(state: VotesState, city: TownId[]): number {
   return industryInCity(state, city).reduce((total, { key, tile }) => total + industryValue(state, tile.kind, key), 0)
 }
 
+/** Every city that has a School, by its first town. */
+export function schoolCities(state: VotesState): Set<TownId> {
+  return new Set(tilesInBoardOrder(state).flatMap(({ key, tile }) => (tile.kind === 'school' ? [cityAt(state, key)[0]] : [])))
+}
+
 export function hasRoom(residence: ResidenceTile): boolean {
   return residence.people.length < RESIDENCE_CAPACITY
 }
