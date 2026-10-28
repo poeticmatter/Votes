@@ -140,9 +140,10 @@ export type LogEntry =
  * cities and ties going left, 7 the redrawn map with its printed Factory, 8 Draft 5.10
  * (Mines, a tile supply, the payout table), 9 Schools taking from Stations and from
  * Residences beside the rail, 10 Schools filling every Residence they touch, 11 Draft
- * 5.11 (no relocation; a School widens its city's housing, one School per city).
+ * 5.11 (no relocation; a School widens its city's housing, one School per city), 12
+ * the 7-row map.
  */
-export const RULES_VERSION = 11
+export const RULES_VERSION = 12
 
 export interface VotesState {
   /** {@link RULES_VERSION} when the game was created; missing in games from before it existed. */

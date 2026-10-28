@@ -113,11 +113,11 @@ export const PLACEMENT_EXAMPLE = {
 }
 
 // Town A during Saffron's turn: after immigration, then after housing.
-const A_FRAME: Omit<ExamplePosition, 'tiles'> = { playerCount: 3, columns: [7, 10], rows: [5, 8] }
-const A_FACTORY = '8,6'
+const A_FRAME: Omit<ExamplePosition, 'tiles'> = { playerCount: 3, columns: [7, 10], rows: [3, 6] }
+const A_FACTORY = '7,5'
 const A_STATION = stationKeyOf('A')
 const A_STARTING_RESIDENCE = residenceSiteKey('A')
-const A_SECOND_RESIDENCE = '9,7'
+const A_SECOND_RESIDENCE = '9,4'
 
 export const IMMIGRATION_EXAMPLE = {
   position: examplePosition(
@@ -146,7 +146,7 @@ export const HOUSING_EXAMPLE = {
     { from: A_STATION, to: A_SECOND_RESIDENCE, home: 2 },
     { from: A_STATION, to: A_STARTING_RESIDENCE, home: 2 },
   ] satisfies PersonArrow[],
-  bagTags: [{ at: A_SECOND_RESIDENCE, color: 'yellow', amount: 2, side: 'below' }] satisfies BagTag[],
+  bagTags: [{ at: A_SECOND_RESIDENCE, color: 'yellow', amount: 2, side: 'above' }] satisfies BagTag[],
   caption: [
     'Then housing. People move only within their own city, and A has room for 2: one place in each Residence.',
     'Saffron, the active player, picks who moves in. The Saffron person goes to the Residence on the right and the Orchid one to A’s starting Residence, each joining on the right. The Cobalt person keeps waiting.',
