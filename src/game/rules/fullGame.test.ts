@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { nextIndex } from 'game-kit/turns'
-import { BOARD, hexAt } from '../map/board'
-import { bagSize, citiesOf, peopleOnBoard, residences, tilesInBoardOrder } from './boardQueries'
-import { beginHousing, housingMoves } from './housing'
+import { BOARD } from '../map/board'
+import { bagSize, citiesOf, peopleOnBoard } from './boardQueries'
+import { beginMovement, movementMoves } from './movement'
 import { citiesTouchedBy } from './mergers'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
 import { legalMoves } from './testStates'
 import { applyMove } from './turnFlow'
-import { RESIDENCE_CAPACITY, type VotesMove, type VotesState } from './types'
+import type { VotesMove, VotesState } from './types'
 
 // Whole games played by seeded random agents, checking the rules' invariants after
 // every move. A cautious agent avoids merging while it can, which drives games on until
@@ -25,12 +25,8 @@ function agentMoves(state: VotesState, agent: Agent): VotesMove[] {
 }
 
 function expectInvariants(state: VotesState, peopleBefore: number): void {
-  // Nobody moves into a full Residence.
-  for (const { tile } of residences(state)) expect(tile.people.length).toBeLessThanOrEqual(RESIDENCE_CAPACITY)
-  for (const { key, tile } of tilesInBoardOrder(state)) {
-    // Stations stay where they're printed, and nothing else goes there.
-    expect(tile.kind === 'station').toBe(hexAt(key).stationSite !== null)
-  }
+  // Every starting Residence stays where it's printed.
+  for (const hex of BOARD.hexes.filter(candidate => candidate.residenceSite)) expect(state.tiles[hex.key]?.kind).toBe('residence')
   // Cubes never leave the board, and every tile belongs to a city.
   expect(peopleOnBoard(state).length).toBeGreaterThanOrEqual(peopleBefore)
   expect(citiesOf(state).flat().sort()).toEqual(['A', 'B', 'C', 'D', 'E'])
@@ -40,8 +36,8 @@ function expectInvariants(state: VotesState, peopleBefore: number): void {
     expect(BOARD.hexByKey.get(key)?.terrain).toBe(tile.kind === 'mine' ? 'mountain' : 'open')
   }
   expect(Object.values(state.supply).every(count => count >= 0)).toBe(true)
-  // A new turn starts with everyone housed who could be.
-  if (state.phase.kind === 'placement') expect(housingMoves(beginHousing(state))).toEqual([])
+  // A new turn starts with nobody able to move.
+  if (state.phase.kind === 'placement') expect(movementMoves(beginMovement(state))).toEqual([])
 }
 
 function playOut(playerCount: number, seed: number, agent: Agent): { final: VotesState; moves: VotesMove[] } {
@@ -80,19 +76,21 @@ describe('seeded games', () => {
   const games = [3, 4, 5].flatMap(playerCount => [playOut(playerCount, 1, 'cautious'), playOut(playerCount, 1, 'random')])
   const movesPlayed = games.flatMap(game => game.moves)
 
-  it('house people from other cities’ Residences into School cities', () => {
-    // Tiles never change kind, so the finished board tells where each person came from.
-    const fromResidences = games.flatMap(({ final }) =>
-      final.log.filter(entry => entry.kind === 'housed' && final.tiles[entry.from]?.kind === 'residence'),
-    )
-    expect(fromResidences.length).toBeGreaterThan(0)
+  const movesLogged = games.flatMap(({ final }) => final.log.filter(entry => entry.kind === 'moved'))
+
+  it('level people within cities', () => {
+    expect(movesLogged.some(entry => entry.reason === 'levelling')).toBe(true)
   })
 
-  it('let the player choose where people are housed', () => {
-    expect(movesPlayed.some(move => move.kind === 'house')).toBe(true)
+  it('pull people into School cities', () => {
+    expect(movesLogged.some(entry => entry.reason === 'schoolPull')).toBe(true)
   })
 
-  it('let the player choose a Station for a Factory’s or Mine’s people', () => {
+  it('let the player break ties when people move', () => {
+    expect(movesPlayed.some(move => move.kind === 'move')).toBe(true)
+  })
+
+  it('let the player choose between tied Residences for a Factory’s or Mine’s people', () => {
     expect(movesPlayed.some(move => move.kind === 'arrive')).toBe(true)
   })
 

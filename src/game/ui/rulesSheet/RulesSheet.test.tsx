@@ -32,7 +32,7 @@ describe('the rules sheet', () => {
   })
 
   it('names what each player scores in the election figure', () => {
-    expect(markup).toContain('Cobalt +4, Saffron +2')
+    expect(markup).toContain('Cobalt +4, Orchid +2, Saffron +2')
   })
 
   it('keeps the examples’ colours in a disguised solo playtest', () => {

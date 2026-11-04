@@ -12,8 +12,8 @@ export function terrainFor(kind: PlaceableKind): Terrain {
 }
 
 /**
- * An empty hex of the tile's terrain, touching a tile or Station. A School may not go in
- * a city that already has one, nor join one.
+ * An empty hex of the tile's terrain, touching a tile. A School may not go in a city that
+ * already has one, nor join one.
  */
 function isLegalHex(state: VotesState, kind: PlaceableKind, at: HexKey): boolean {
   const hex = BOARD.hexByKey.get(at)

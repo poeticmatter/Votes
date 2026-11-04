@@ -1,14 +1,15 @@
 import { IllegalMoveError } from 'game-kit/turns'
 import type { HexKey } from '../map/hexGrid'
-import { drawFromBag } from './bag'
-import { bagSize, cityAt, stationsInCity } from './boardQueries'
-import { beginHousing } from './housing'
+import { addVote, drawFromBag } from './bag'
+import { activePlayerState, bagSize, cityAt, crowdOf, residencesInCity } from './boardQueries'
+import { beginMovement } from './movement'
 import type { CubeColor, IndustryKind, VotesState } from './types'
 
-// Immigration: a new Factory or Mine draws people from the bag onto a Station in its
-// city, where they wait to be housed. The active player chooses the Station when the city
-// has more than one. Nobody pays for a draw, so the bag can run low; once it's empty
-// nobody else arrives.
+// Immigration: a new Factory or Mine draws people from the bag one at a time, and each
+// moves into the least crowded Residence of its city, rechecked after every arrival. When
+// Residences tie, the active player chooses. Each arrival adds 1 of the active player's
+// cubes to the bag, which a later draw may bring out. Once the bag is empty nobody else
+// arrives.
 
 /** The Factory or Mine placed this turn, if that's what it was. */
 function placedIndustry(state: VotesState): IndustryKind | null {
@@ -17,50 +18,51 @@ function placedIndustry(state: VotesState): IndustryKind | null {
   return kind === 'factory' || kind === 'mine' ? kind : null
 }
 
-/** Stations a Factory or Mine placed this turn may bring people to; none for any other tile. */
-export function arrivalStations(state: VotesState): HexKey[] {
-  const at = state.turn.placedAt
-  if (!at || !placedIndustry(state)) return []
-  return stationsInCity(state, cityAt(state, at)).map(({ key }) => key)
-}
-
 /** How many people this turn's tile brings from the bag. */
 export function arrivalCount(state: VotesState): number {
   const kind = placedIndustry(state)
   return kind ? state.arrivals[kind] : 0
 }
 
-function arriveAt(state: VotesState, station: HexKey): VotesState {
-  const tile = state.tiles[station]
-  if (tile?.kind !== 'station') throw new Error(`Expected a Station at ${station}`)
-
-  let current = state
-  const arrived: CubeColor[] = []
-  const count = arrivalCount(state)
-  while (arrived.length < count && bagSize(current) > 0) {
-    const draw = drawFromBag(current)
-    current = draw.state
-    arrived.push(draw.color)
-  }
-  if (arrived.length === 0) return state
-
-  return {
-    ...current,
-    tiles: { ...current.tiles, [station]: { ...tile, people: [...tile.people, ...arrived] } },
-    log: [...current.log, { kind: 'arrived', turn: state.turn.number, station, people: arrived }],
-  }
+/** The Residences of the placed tile's city that hold the fewest people. */
+export function leastCrowdedResidences(state: VotesState): HexKey[] {
+  const at = state.turn.placedAt
+  if (!at) return []
+  const homes = residencesInCity(state, cityAt(state, at)).map(({ key }) => key)
+  const fewest = Math.min(...homes.map(key => crowdOf(state, key)))
+  return homes.filter(key => crowdOf(state, key) === fewest)
 }
 
-/** Starts this turn's immigration, which waits for a choice only when the city has several Stations. */
+function settle(state: VotesState, color: CubeColor, residence: HexKey): VotesState {
+  const tile = state.tiles[residence]
+  if (tile?.kind !== 'residence') throw new Error(`Expected a Residence at ${residence}`)
+  const voter = activePlayerState(state).color
+  const entry = { kind: 'arrived' as const, turn: state.turn.number, color, residence, voter }
+  return addVote({
+    ...state,
+    tiles: { ...state.tiles, [residence]: { ...tile, people: [...tile.people, color] } },
+    log: [...state.log, entry],
+  })
+}
+
+/** Draws the next of `remaining` people, settling them unless Residences tie for least crowded. */
+function drawNext(state: VotesState, remaining: number): VotesState {
+  if (remaining === 0 || bagSize(state) === 0) return beginMovement(state)
+  const { state: drawn, color } = drawFromBag(state)
+  const residences = leastCrowdedResidences(drawn)
+  if (residences.length > 1) return { ...drawn, phase: { kind: 'arrival', person: color, residences, remaining: remaining - 1 } }
+  return drawNext(settle(drawn, color, residences[0]), remaining - 1)
+}
+
+/** Starts this turn's immigration; a tile that isn't a Factory or Mine brings nobody. */
 export function beginImmigration(state: VotesState): VotesState {
-  const stations = arrivalStations(state)
-  if (stations.length > 1 && bagSize(state) > 0) return { ...state, phase: { kind: 'immigration', stations } }
-  return beginHousing(stations.length === 1 ? arriveAt(state, stations[0]) : state)
+  return drawNext(state, arrivalCount(state))
 }
 
-export function arrive(state: VotesState, station: HexKey): VotesState {
-  if (state.phase.kind !== 'immigration' || !state.phase.stations.includes(station)) {
-    throw new IllegalMoveError(`People can't arrive at ${station}`)
+export function arrive(state: VotesState, residence: HexKey): VotesState {
+  const { phase } = state
+  if (phase.kind !== 'arrival' || !phase.residences.includes(residence)) {
+    throw new IllegalMoveError(`The new person can't move into ${residence}`)
   }
-  return beginHousing(arriveAt(state, station))
+  return drawNext(settle(state, phase.person, residence), phase.remaining)
 }

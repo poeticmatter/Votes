@@ -3,8 +3,8 @@ import type { HexKey } from '../map/hexGrid'
 import type { TownId } from '../map/mapData'
 import type { Tile } from './types'
 
-// A city is a group of connected tiles and Stations. Each starts as one town, a
-// starting Residence and its Station, and grows by tiles placed next to it. Two cities
+// A city is a group of connected tiles. Each starts as one town, its starting Residence,
+// and grows by tiles placed next to it. Two cities
 // are one the moment a tile connects them, so cities are never stored: they are read
 // off the tiles. A city is named by its towns, the ones whose starting Residence it
 // holds, in alphabetical order.

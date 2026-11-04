@@ -20,17 +20,15 @@ export type PlayerCount = 3 | 4 | 5
 export const MIN_PLAYERS: PlayerCount = 3
 export const MAX_PLAYERS: PlayerCount = 5
 
-/** A Residence holding this many people is full. */
-export const RESIDENCE_CAPACITY = 3
 /** People seeded on each starting Residence at setup. */
 export const STARTING_PEOPLE_PER_RESIDENCE = 2
 /** Cubes of each player's colour among the people seeded at setup. */
 export const STARTING_PEOPLE_PER_PLAYER = 2
 
-export type TileKind = 'residence' | 'station' | 'factory' | 'mine' | 'school'
+export type TileKind = 'residence' | 'factory' | 'mine' | 'school'
 
-/** Stations are printed on the map; players place the rest. */
-export type PlaceableKind = Exclude<TileKind, 'station'>
+/** Players place every kind of tile; the starting Residences and printed Factories are on the map from the start. */
+export type PlaceableKind = TileKind
 
 /** Tiles that bring people from the bag and are worth points at elections. */
 export type IndustryKind = 'factory' | 'mine'
@@ -41,21 +39,16 @@ export interface VotesSettings {
   startingCubesPerPlayer: number
   /** Grey cubes in the game: the ones not seeded on the starting Residences go in the bag. */
   greyCubes: number
-  /** People a new Factory or Mine draws onto a Station in its city. */
+  /** People a new Factory or Mine draws from the bag into its city. */
   arrivals: Record<IndustryKind, number>
   /** Tiles of each kind in the supply at setup. */
   tileCounts: Record<PlaceableKind, number>
 }
 
+/** A Residence has no capacity: people keep moving in while the rules send them. */
 export interface ResidenceTile {
   kind: 'residence'
   /** People living here, in the order they moved in. */
-  people: CubeColor[]
-}
-
-export interface StationTile {
-  kind: 'station'
-  /** People who arrived here and are waiting to be housed. */
   people: CubeColor[]
 }
 
@@ -64,7 +57,7 @@ export interface BuildingTile {
 }
 
 /** Tiles belong to nobody. */
-export type Tile = ResidenceTile | StationTile | BuildingTile
+export type Tile = ResidenceTile | BuildingTile
 
 export interface PlayerState {
   color: PlayerColor
@@ -73,10 +66,13 @@ export interface PlayerState {
 
 export type Phase =
   | { kind: 'placement' }
-  /** A new Factory's or Mine's people arrive at one of these Stations, the player's choice. */
-  | { kind: 'immigration'; stations: HexKey[] }
-  /** People waiting at Stations, and some in other cities' Residences, move into Residences with space. */
-  | { kind: 'housing' }
+  /**
+   * A new Factory or Mine drew `person` from the bag, and these Residences of its city
+   * tie for least crowded: the player picks one. `remaining` more are drawn afterwards.
+   */
+  | { kind: 'arrival'; person: CubeColor; residences: HexKey[]; remaining: number }
+  /** Levelling and School pulls, until nobody can move; the player breaks ties. */
+  | { kind: 'movement' }
   | { kind: 'gameOver'; winners: PlayerColor[] }
 
 export interface TurnState {
@@ -92,6 +88,9 @@ export interface MergerMarker {
   number: number
   between: [HexKey, HexKey]
 }
+
+/** Levelling within a city, or a School city pulling from a city without one. */
+export type MoveReason = 'levelling' | 'schoolPull'
 
 /** Why a Residence's seat went where it did: the most people, the leftmost of a tie, or nobody's when empty. */
 export type SeatReason = 'mostPeople' | 'leftmostOfTie' | 'empty'
@@ -125,10 +124,10 @@ export interface ElectionResult {
 export type LogEntry =
   | { kind: 'placed'; turn: number; player: PlayerColor; tile: PlaceableKind; at: HexKey }
   | { kind: 'passed'; turn: number; player: PlayerColor }
-  /** People drawn from the bag onto a Station. */
-  | { kind: 'arrived'; turn: number; station: HexKey; people: CubeColor[] }
-  /** Housing; the voter added 1 cube to the bag. */
-  | { kind: 'housed'; turn: number; color: CubeColor; from: HexKey; to: HexKey; voter: PlayerColor }
+  /** A person drawn from the bag into a Residence; the voter added 1 cube to the bag. */
+  | { kind: 'arrived'; turn: number; color: CubeColor; residence: HexKey; voter: PlayerColor }
+  /** A person moved between Residences; the voter added 1 cube to the bag. */
+  | { kind: 'moved'; turn: number; color: CubeColor; from: HexKey; to: HexKey; voter: PlayerColor; reason: MoveReason }
   | { kind: 'merger'; turn: number; city: TownId[]; electionNumber: number }
   | { kind: 'gameOver'; turn: number; winners: PlayerColor[]; reason: 'lastMerger' | 'nobodyCanBuild' }
 
@@ -141,9 +140,10 @@ export type LogEntry =
  * (Mines, a tile supply, the payout table), 9 Schools taking from Stations and from
  * Residences beside the rail, 10 Schools filling every Residence they touch, 11 Draft
  * 5.11 (no relocation; a School widens its city's housing, one School per city), 12
- * the 7-row map.
+ * the 7-row map, 13 Draft 5.12 (no rail or Stations; arrivals into the least crowded
+ * Residence, levelling and School pulls).
  */
-export const RULES_VERSION = 12
+export const RULES_VERSION = 13
 
 export interface VotesState {
   /** {@link RULES_VERSION} when the game was created; missing in games from before it existed. */
@@ -168,7 +168,7 @@ export interface VotesState {
   log: LogEntry[]
 }
 
-/** One person moved from a Residence or Station into a Residence. */
+/** One person moved from one Residence into another. */
 export interface PersonMove {
   from: HexKey
   color: CubeColor
@@ -179,7 +179,7 @@ export type VotesMove =
   | { kind: 'place'; tile: PlaceableKind; at: HexKey }
   /** Only legal when no tile can be placed anywhere. */
   | { kind: 'pass' }
-  /** A Factory's or Mine's people arrive at this Station of its city. */
-  | { kind: 'arrive'; station: HexKey }
-  /** Houses a person from Station or Residence `from` in Residence `to`. */
-  | ({ kind: 'house' } & PersonMove)
+  /** The person a Factory or Mine just drew goes into this Residence, one of those tied for least crowded. */
+  | { kind: 'arrive'; residence: HexKey }
+  /** Levelling or a School pull: `to` is one of the moves the rules allow now. */
+  | ({ kind: 'move' } & PersonMove)

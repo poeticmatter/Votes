@@ -30,9 +30,9 @@ describe('a Residence’s seat', () => {
 })
 
 describe('Factory and Mine values', () => {
-  // An open hex beside a mountain, both off the rail, for a Factory and a Mine side by side.
+  // An open hex beside a mountain, for a Factory and a Mine side by side.
   const pair = BOARD.hexes.flatMap(hex => {
-    if (hex.terrain !== 'open' || hex.bordersRail) return []
+    if (hex.terrain !== 'open') return []
     const mountain = hex.neighbors.find(neighbor => BOARD.hexByKey.get(neighbor.key)?.terrain === 'mountain')
     return mountain ? [{ open: hex.key, mountain: mountain.key }] : []
   })[0]
@@ -41,10 +41,8 @@ describe('Factory and Mine values', () => {
     expect(industryValue(newGame(), 'mine', pair.mountain)).toBe(2)
   })
 
-  it('makes a Factory off the rail worth 1, and 1 more beside the rail', () => {
-    const { rail, plain } = townSpots(HOME)
-    expect(industryValue(newGame(), 'factory', plain)).toBe(1)
-    expect(industryValue(newGame(), 'factory', rail)).toBe(2)
+  it('makes a Factory worth 1', () => {
+    expect(industryValue(newGame(), 'factory', pair.open)).toBe(1)
   })
 
   it('adds 1 to a Factory touching a Mine', () => {
@@ -73,16 +71,15 @@ describe('the payout table', () => {
 })
 
 describe('a city’s vote', () => {
-  // HOME gets a second Residence, a Factory beside the rail and a Factory off it, worth 3 in
-  // all. The first Residence holds 2 pink; the second a vermillion and a pink, tied, so the
-  // vermillion on the left takes it. NEXT's Residence is in another city, as is a Factory
-  // beside it.
-  const { rail, plain, other } = townSpots(HOME)
+  // HOME gets a second Residence and two Factories, worth 2 in all. The first Residence
+  // holds 2 pink; the second a vermillion and a pink, tied, so the vermillion on the left
+  // takes it. NEXT's Residence is in another city, as is a Factory beside it.
+  const [firstFactory, secondFactory, other] = townSpots(HOME)
   const board = withTiles(newGame(), {
     [startOf(HOME)]: residence(['pink', 'pink']),
     [other]: residence(['vermillion', 'pink']),
-    [rail]: factory(),
-    [plain]: factory(),
+    [firstFactory]: factory(),
+    [secondFactory]: factory(),
     [startOf(NEXT)]: residence(['vermillion', 'vermillion']),
     [soloNeighborOf(NEXT)]: factory(),
   })
@@ -100,7 +97,7 @@ describe('a city’s vote', () => {
     // Any Factory printed beside HOME is in its city too.
     const printed = townHexes(HOME).filter(key => board.tiles[key]?.kind === 'factory')
     const printedValue = printed.reduce((total, key) => total + industryValue(board, 'factory', key), 0)
-    expect(result.cityValue).toBe(2 + 1 + printedValue)
+    expect(result.cityValue).toBe(1 + 1 + printedValue)
   })
 
   it('pays every player for each seat they hold', () => {

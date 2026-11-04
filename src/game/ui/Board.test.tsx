@@ -44,7 +44,8 @@ const otherRole = (state: VotesState) => (state.turn.playerIndex + 1) % PLAYERS.
 
 describe('board rendering', () => {
   const start = playUntil(() => true)
-  const housing = playUntil(state => state.phase.kind === 'housing')
+  const moving = playUntil(state => state.phase.kind === 'movement')
+  const arriving = playUntil(state => state.phase.kind === 'arrival')
   const afterElection = playUntil(state => state.elections.length > 0 && state.phase.kind === 'placement')
   const finished = playUntil(state => state.phase.kind === 'gameOver')
 
@@ -56,8 +57,12 @@ describe('board rendering', () => {
     expect(render(start, { role: otherRole(start) })).toContain('is placing a tile')
   })
 
-  it('lists the Stations with people to house', () => {
-    expect(render(housing, { role: activeRole(housing) })).toContain('Station of town')
+  it('lists the Residences people may move from when moves tie', () => {
+    expect(render(moving, { role: activeRole(moving) })).toContain('choose who moves next')
+  })
+
+  it('asks where a drawn person goes when Residences tie for least crowded', () => {
+    expect(render(arriving, { role: activeRole(arriving) })).toContain('tie for least crowded')
   })
 
   it('shows past elections', () => {

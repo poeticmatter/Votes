@@ -1,4 +1,4 @@
-import { BOARD, hexAt, residenceSiteKey, stationKeyOf, TOWN_IDS } from '../map/board'
+import { BOARD, hexAt, residenceSiteKey, TOWN_IDS } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import type { TownId } from '../map/mapData'
 import { citiesOnBoard } from './cities'
@@ -6,7 +6,7 @@ import { createInitialState, DEFAULT_SETTINGS } from './setup'
 import type { Tile } from './types'
 
 // Finds places on the map for rules tests to use, so a test says what it needs (a hex
-// touching only a Station, a chain of tiles joining two towns) and the map decides where.
+// touching only one tile, a chain of tiles joining two towns) and the map decides where.
 // Editing the map then doesn't break the tests, as long as it still has such places.
 // Everything here looks at the board as it starts: the towns' tiles and printed Factories.
 
@@ -15,7 +15,6 @@ const occupiedAtStart = new Set(Object.keys(startingTiles))
 const startingCities = citiesOnBoard(startingTiles)
 
 export const startOf = residenceSiteKey
-export const stationOf = stationKeyOf
 
 const neighborKeys = (key: HexKey): HexKey[] => hexAt(key).neighbors.map(neighbor => neighbor.key)
 const isOpen = (key: HexKey): boolean => hexAt(key).terrain === 'open'
@@ -26,7 +25,7 @@ export function must<T>(found: T | undefined, what: string): T {
   return found
 }
 
-/** Every tile of the town's city at the start: its Residence, Station and any printed Factory. */
+/** Every tile of the town's city at the start: its Residence and any printed Factory. */
 export function townHexes(town: TownId): HexKey[] {
   return Object.keys(startingTiles).filter(key => startingCities.byHex.get(key)?.[0] === town)
 }
@@ -74,16 +73,10 @@ export function mountainNextToTile(): HexKey {
   )
 }
 
-/**
- * Three free hexes beside only the town's tiles: one bordering the rail, one not, and a
- * third. For a test that gives the town a second Residence and two Factories.
- */
-export function townSpots(town: TownId): { rail: HexKey; plain: HexKey; other: HexKey } {
-  const neighbors = soloNeighborsOf(town)
-  const rail = must(neighbors.find(key => hexAt(key).bordersRail), `rail-side hex beside only town ${town}`)
-  const plain = must(neighbors.find(key => !hexAt(key).bordersRail), `plain hex beside only town ${town}`)
-  const other = must(neighbors.find(key => key !== rail && key !== plain), `third hex beside only town ${town}`)
-  return { rail, plain, other }
+/** Three free hexes beside only the town's tiles, for a test that gives the town more tiles. */
+export function townSpots(town: TownId): [HexKey, HexKey, HexKey] {
+  const [first, second, third] = soloNeighborsOf(town)
+  return [first, second, must(third, `three free hexes beside only town ${town}`)]
 }
 
 function shortestPath(starts: HexKey[], isGoal: (key: HexKey) => boolean, isAllowed: (key: HexKey) => boolean): HexKey[] | null {

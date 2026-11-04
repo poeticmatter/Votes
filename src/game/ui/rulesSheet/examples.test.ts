@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { hexAt, residenceSiteKey, stationKeyOf } from '../../map/board'
-import { citiesOf, cityAt, industryValue, peopleAt, stationsInCity } from '../../rules/boardQueries'
-import { beginHousing, housingMoves } from '../../rules/housing'
+import { hexAt, residenceSiteKey } from '../../map/board'
+import { citiesOf, cityAt, industryValue, peopleAt } from '../../rules/boardQueries'
+import { leastCrowdedResidences } from '../../rules/immigration'
 import { citiesTouchedBy } from '../../rules/mergers'
+import { beginMovement, isMovementOver } from '../../rules/movement'
 import { legalPlacements, terrainFor } from '../../rules/placement'
 import { DEFAULT_SETTINGS } from '../../rules/setup'
 import { withTiles } from '../../rules/testStates'
-import { RESIDENCE_CAPACITY } from '../../rules/types'
 import {
   ELECTION_EXAMPLE,
-  HOUSING_EXAMPLE,
   IMMIGRATION_EXAMPLE,
+  LEVELLING_EXAMPLE,
   MERGER_EXAMPLE,
   PLACEMENT_EXAMPLE,
   SCHOOL_EXAMPLE,
@@ -18,14 +18,16 @@ import {
   type ExamplePosition,
 } from './examples'
 
-// The rules sheet's examples must show what the game's rules actually do.
+// The rules sheet's examples must show what the game's rules actually do. The examples
+// where people move are already played out through the rules by examples.ts, which
+// throws if a move isn't allowed or movement isn't over.
 
 const POSITIONS: [string, ExamplePosition][] = [
   ['placement', PLACEMENT_EXAMPLE.position],
   ['immigration', IMMIGRATION_EXAMPLE.position],
-  ['housing', HOUSING_EXAMPLE.position],
-  ['school', SCHOOL_EXAMPLE.position],
-  ['merger', MERGER_EXAMPLE.position],
+  ['levelling', LEVELLING_EXAMPLE.before],
+  ['school', SCHOOL_EXAMPLE.before],
+  ['merger', MERGER_EXAMPLE.before],
 ]
 
 describe.each(POSITIONS)('the %s example', (name, position) => {
@@ -33,23 +35,12 @@ describe.each(POSITIONS)('the %s example', (name, position) => {
 
   it('puts Mines only on mountains, and every other tile on open hexes', () => {
     for (const [key, tile] of Object.entries(position.tiles)) {
-      const terrain = tile.kind === 'mine' ? terrainFor('mine') : 'open'
-      expect(hexAt(key).terrain).toBe(terrain)
+      expect(hexAt(key).terrain).toBe(tile.kind === 'mine' ? terrainFor('mine') : 'open')
     }
-  })
-
-  it('has Stations only where they are printed', () => {
-    for (const [key, tile] of Object.entries(position.tiles)) expect(tile.kind === 'station').toBe(hexAt(key).stationSite !== null)
   })
 
   it('connects every tile to a town, and keeps the towns apart except where the example merges them', () => {
     expect(citiesOf(state)).toHaveLength(name === 'merger' ? 4 : 5)
-  })
-
-  it('never overfills a Residence', () => {
-    for (const tile of Object.values(state.tiles)) {
-      if (tile.kind === 'residence') expect(tile.people.length).toBeLessThanOrEqual(RESIDENCE_CAPACITY)
-    }
   })
 })
 
@@ -63,95 +54,102 @@ describe('the placement example', () => {
 
 describe('the immigration example', () => {
   const state = stateOf(IMMIGRATION_EXAMPLE.position)
+  const { arrivals, placed } = IMMIGRATION_EXAMPLE
+  // The position is drawn after the arrivals; take them back out to replay them.
+  const before = withTiles(state, {
+    [residenceSiteKey('A')]: { kind: 'residence', people: ['grey', 'pink'] },
+    '7,6': { kind: 'residence', people: ['blue'] },
+  })
+  const atPlacement = { ...before, turn: { ...before.turn, placedAt: placed } }
 
-  it('builds a Factory beside the rail and touching no Mine, worth 2 as its caption says', () => {
-    expect(industryValue(state, 'factory', IMMIGRATION_EXAMPLE.placed)).toBe(2)
+  it('builds a Factory touching no Mine, worth 1 as its caption says', () => {
+    expect(industryValue(state, 'factory', placed)).toBe(1)
   })
 
-  it('brings as many people as a Factory does, to the only Station in its city', () => {
-    const stations = stationsInCity(state, cityAt(state, IMMIGRATION_EXAMPLE.placed))
-    expect(stations).toHaveLength(1)
-    expect(stations[0].tile.people).toHaveLength(DEFAULT_SETTINGS.arrivals.factory)
+  it('brings as many people as a Factory does', () => {
+    expect(arrivals).toHaveLength(DEFAULT_SETTINGS.arrivals.factory)
+  })
+
+  it('sends the first person into the only least crowded Residence', () => {
+    expect(leastCrowdedResidences(atPlacement)).toEqual([arrivals[0].at])
+  })
+
+  it('then has the two Residences tie, so the player chooses', () => {
+    const afterFirst = withTiles(atPlacement, { '7,6': { kind: 'residence', people: ['blue', 'yellow'] } })
+    expect(leastCrowdedResidences(afterFirst).sort()).toEqual([residenceSiteKey('A'), '7,6'].sort())
+  })
+
+  it('tags one cube for each person who arrived', () => {
+    expect(IMMIGRATION_EXAMPLE.bagTags.reduce((sum, tag) => sum + tag.amount, 0)).toBe(arrivals.length)
   })
 })
 
-describe('the housing example', () => {
-  const state = stateOf(HOUSING_EXAMPLE.position)
-
-  it('leaves nobody who could still be housed', () => {
-    expect(housingMoves(beginHousing(state))).toEqual([])
+describe.each([
+  ['levelling', LEVELLING_EXAMPLE],
+  ['School', SCHOOL_EXAMPLE],
+])('the %s example', (_, example) => {
+  it('ends with nobody able to move', () => {
+    expect(isMovementOver(beginMovement(stateOf(example.position)))).toBe(true)
   })
 
+  it('points each arrow at a person in its destination', () => {
+    for (const { to, home } of example.moves) expect(peopleAt(stateOf(example.position), to).length).toBeGreaterThan(home)
+  })
+
+  it('tags one cube for each person who moved', () => {
+    expect(example.bagTags.reduce((sum, tag) => sum + tag.amount, 0)).toBe(example.moves.length)
+  })
+})
+
+describe('the levelling example', () => {
   it('moves people only within their city', () => {
-    for (const { from, to } of HOUSING_EXAMPLE.moves) expect(cityAt(state, from)).toEqual(cityAt(state, to))
-  })
-
-  it('tags one cube for each person who moved in', () => {
-    expect(HOUSING_EXAMPLE.bagTags.reduce((sum, tag) => sum + tag.amount, 0)).toBe(HOUSING_EXAMPLE.moves.length)
-  })
-
-  it('fills the Residences the arrows point to', () => {
-    for (const { to, home } of HOUSING_EXAMPLE.moves) expect(peopleAt(state, to).length).toBeGreaterThan(home)
+    const state = stateOf(LEVELLING_EXAMPLE.position)
+    for (const { from, to } of LEVELLING_EXAMPLE.moves) expect(cityAt(state, from)).toEqual(cityAt(state, to))
   })
 })
 
 describe('the School example', () => {
-  const state = stateOf(SCHOOL_EXAMPLE.position)
-  // The position is drawn after housing, so put the two people back where they came from.
-  const before = withTiles(state, {
-    [residenceSiteKey('C')]: { kind: 'residence', people: ['grey'] },
-    [residenceSiteKey('B')]: { kind: 'residence', people: ['blue', 'pink', 'pink'] },
-    [stationKeyOf('B')]: { kind: 'station', people: ['blue'] },
-  })
-
   it('places the School where a School may go', () => {
-    const { [SCHOOL_EXAMPLE.placed]: placed, ...rest } = before.tiles
+    const { [SCHOOL_EXAMPLE.placed]: placed, ...rest } = SCHOOL_EXAMPLE.before.tiles
     expect(placed).toEqual({ kind: 'school' })
-    expect(legalPlacements({ ...before, tiles: rest }, 'school')).toContain(SCHOOL_EXAMPLE.placed)
+    expect(legalPlacements({ ...stateOf(SCHOOL_EXAMPLE.before), tiles: rest }, 'school')).toContain(SCHOOL_EXAMPLE.placed)
   })
 
-  it('makes each move one housing allows', () => {
-    const moves = housingMoves(beginHousing(before))
-    for (const { from, to } of SCHOOL_EXAMPLE.moves) expect(moves.some(move => move.from === from && move.to === to)).toBe(true)
-  })
-
-  it('takes people from another city, as its caption says', () => {
+  it('pulls people from another city, as its caption says', () => {
+    const state = stateOf(SCHOOL_EXAMPLE.position)
     for (const { from, to } of SCHOOL_EXAMPLE.moves) expect(cityAt(state, from)).not.toEqual(cityAt(state, to))
-  })
-
-  it('leaves nobody who could still be housed', () => {
-    expect(housingMoves(beginHousing(state))).toEqual([])
-  })
-
-  it('tags one cube for each person moved in', () => {
-    expect(SCHOOL_EXAMPLE.bagTags.reduce((sum, tag) => sum + tag.amount, 0)).toBe(SCHOOL_EXAMPLE.moves.length)
   })
 })
 
 describe('the merger example', () => {
   it('joins C to B', () => {
-    const { own, joins } = citiesTouchedBy(stateOf(MERGER_EXAMPLE.position), MERGER_EXAMPLE.placed)
+    const withoutNew = Object.fromEntries(Object.entries(MERGER_EXAMPLE.before.tiles).filter(([key]) => key !== MERGER_EXAMPLE.placed))
+    const { own, joins } = citiesTouchedBy({ ...stateOf(MERGER_EXAMPLE.before), tiles: withoutNew }, MERGER_EXAMPLE.placed)
     expect([own, ...joins.map(join => join.city)].flat().sort()).toEqual(['B', 'C'])
+  })
+
+  it('levels people into the new Residence until nobody can move', () => {
+    expect(isMovementOver(beginMovement(stateOf(MERGER_EXAMPLE.position)))).toBe(true)
+    expect(MERGER_EXAMPLE.moves.every(move => move.to === MERGER_EXAMPLE.placed)).toBe(true)
   })
 })
 
 describe('the election example', () => {
   const { result } = ELECTION_EXAMPLE
 
-  it('has 4 seats, the empty Residence belonging to nobody', () => {
+  it('has 4 seats', () => {
     expect(result.seats).toHaveLength(4)
-    expect(result.seats.filter(seat => seat.winner === null)).toHaveLength(1)
   })
 
-  it('gives the tied Residence to Saffron, the colour furthest left', () => {
-    expect(result.seats.filter(seat => seat.reason === 'leftmostOfTie').map(seat => seat.winner)).toEqual(['yellow'])
+  it('gives the three tied Residences to the colours furthest left', () => {
+    expect(result.seats.filter(seat => seat.reason === 'leftmostOfTie').map(seat => seat.winner).sort()).toEqual(['blue', 'pink', 'yellow'])
   })
 
-  it('values the city at 7 and pays 2 per seat, as its caption says', () => {
-    expect(result).toMatchObject({ cityValue: 7, pointsPerSeat: 2 })
+  it('values the city at 5 and pays 2 per seat, as its caption says', () => {
+    expect(result).toMatchObject({ cityValue: 5, pointsPerSeat: 2 })
   })
 
-  it('has Cobalt score 4 and Saffron 2', () => {
-    expect(result.scores).toEqual({ blue: 4, yellow: 2 })
+  it('has Cobalt score 4, Saffron and Orchid 2 each', () => {
+    expect(result.scores).toEqual({ blue: 4, yellow: 2, pink: 2 })
   })
 })

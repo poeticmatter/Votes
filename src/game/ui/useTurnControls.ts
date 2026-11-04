@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import type { HexKey } from '../map/hexGrid'
-import { housingMoves } from '../rules/housing'
+import { movementMoves } from '../rules/movement'
 import { legalPlacements, newTile } from '../rules/placement'
 import type { CubeColor, PersonMove, PlaceableKind, VotesMove, VotesState } from '../rules/types'
 import type { TilePreview } from './map/MapView'
 import { describeHex, TILE_NAMES } from './names'
 
 // Turns the current phase into what the active player can click on the map. Placement
-// is chosen first and confirmed second, because it can't be taken back. Housing a person
-// is picked in steps: where from, which colour when there's a choice, then where to; it
-// commits on that last click.
+// is chosen first and confirmed second, because it can't be taken back. When the rules
+// leave a choice of who moves, the person is picked in steps: where from, which colour
+// when there's a choice, then where to; it commits on that last click.
 
 export interface PlacementChoice {
   tile: PlaceableKind | null
@@ -86,7 +86,7 @@ function usePlacementControls(state: VotesState, onMove: (move: VotesMove) => vo
 }
 
 function personMovesNow(state: VotesState): PersonMove[] {
-  return state.phase.kind === 'housing' ? housingMoves(state) : []
+  return state.phase.kind === 'movement' ? movementMoves(state) : []
 }
 
 /**
@@ -122,7 +122,7 @@ function usePersonPicker(state: VotesState, onMove: (move: VotesMove) => void): 
     chooseColor: picked => setChoice({ position, from, color: picked }),
     chooseDestination: to => {
       if (!from || !color) return
-      onMove({ kind: 'house', from, color, to })
+      onMove({ kind: 'move', from, color, to })
       reset()
     },
     reset,
@@ -141,12 +141,12 @@ function placementMap(state: VotesState, placement: PlacementChoice, setAt: (at:
   }
 }
 
-function immigrationMap(state: VotesState, stations: HexKey[], onMove: (move: VotesMove) => void): MapControls {
+function arrivalMap(state: VotesState, residences: HexKey[], onMove: (move: VotesMove) => void): MapControls {
   return {
     ...IDLE_MAP,
-    targets: stations,
-    describeTarget: key => `Bring the new people to the ${describeHex(state, key)}`,
-    onTarget: station => onMove({ kind: 'arrive', station }),
+    targets: residences,
+    describeTarget: key => `The new person moves into the ${describeHex(state, key)}`,
+    onTarget: residence => onMove({ kind: 'arrive', residence }),
     emphasized: state.turn.placedAt ? [state.turn.placedAt] : [],
   }
 }
@@ -156,7 +156,7 @@ function personMap(state: VotesState, person: PersonPicker): MapControls {
     return {
       ...IDLE_MAP,
       targets: distinct(person.moves.map(move => move.from)),
-      describeTarget: key => `House a person from the ${describeHex(state, key)}`,
+      describeTarget: key => `Move a person from the ${describeHex(state, key)}`,
       onTarget: person.chooseFrom,
     }
   }
@@ -178,6 +178,6 @@ export function useTurnControls(state: VotesState, canAct: boolean, onMove: (mov
   const { phase } = state
   if (!canAct || phase.kind === 'gameOver') return { ...IDLE_MAP, ...shared }
   if (phase.kind === 'placement') return { ...placementMap(state, placementControls.placement, setAt), ...shared }
-  if (phase.kind === 'immigration') return { ...immigrationMap(state, phase.stations, onMove), ...shared }
+  if (phase.kind === 'arrival') return { ...arrivalMap(state, phase.residences, onMove), ...shared }
   return { ...personMap(state, person), ...shared }
 }

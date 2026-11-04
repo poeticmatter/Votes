@@ -1,15 +1,15 @@
 import { IllegalMoveError, type GameOutcome } from 'game-kit/turns'
 import { activePlayerState, cityAt, citiesOf, peopleOnBoard } from './boardQueries'
 import { holdElection } from './elections'
-import { house, houseWhileForced, isHousingOver } from './housing'
 import { arrive, beginImmigration } from './immigration'
 import { addMergerMarkers, citiesTouchedBy } from './mergers'
+import { isMovementOver, moveOnePerson, moveWhileForced } from './movement'
 import { hasAnyLegalPlacement, placeTile } from './placement'
 import type { Phase, PlayerColor, VotesMove, VotesState } from './types'
 
-// A turn: place a tile, then its immigration (a Factory or Mine), housing, and a merger
-// with its election if the tile joined cities (they join the
-// moment the tile is placed; see mergers.ts). Each move is one
+// A turn: place a tile, then its immigration (a Factory or Mine), movement (levelling and
+// School pulls) until nobody can move, and a merger with its election if the tile joined
+// cities (they join the moment the tile is placed; see mergers.ts). Each move is one
 // decision by the active player; everything that needs no decision runs straight on.
 
 type GameOverReason = 'lastMerger' | 'nobodyCanBuild'
@@ -94,9 +94,9 @@ function endTurn(state: VotesState): VotesState {
 
 /** Runs the turn on until the active player has a decision to make, or the turn ends. */
 function advance(state: VotesState): VotesState {
-  if (state.phase.kind === 'housing') {
-    const housed = houseWhileForced(state)
-    return isHousingOver(housed) ? endTurn(housed) : housed
+  if (state.phase.kind === 'movement') {
+    const moved = moveWhileForced(state)
+    return isMovementOver(moved) ? endTurn(moved) : moved
   }
   return state
 }
@@ -127,13 +127,13 @@ export function applyMove(state: VotesState, move: VotesMove): VotesState {
       return advance(beginImmigration(placeTile(state, move.tile, move.at)))
     case 'pass':
       requirePhase(state, 'placement')
-      // Nothing was placed, so nobody arrives, but housing still runs.
-      return advance(beginImmigration(pass(state)))
+      // Every turn ends with nobody able to move, and a pass changes nothing, so the turn just ends.
+      return endTurn(pass(state))
     case 'arrive':
-      requirePhase(state, 'immigration')
-      return advance(arrive(state, move.station))
-    case 'house':
-      requirePhase(state, 'housing')
-      return advance(house(state, move))
+      requirePhase(state, 'arrival')
+      return advance(arrive(state, move.residence))
+    case 'move':
+      requirePhase(state, 'movement')
+      return advance(moveOnePerson(state, move))
   }
 }

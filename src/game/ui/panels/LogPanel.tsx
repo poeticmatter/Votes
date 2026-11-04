@@ -1,17 +1,22 @@
 import { cityAt } from '../../rules/boardQueries'
-import type { LogEntry, PlayerColor, VotesState } from '../../rules/types'
-import { cityLabel, countOf, CubeChip, describeHex, PlayerChip, TILE_NAMES } from '../names'
+import type { LogEntry, MoveReason, PlayerColor, VotesState } from '../../rules/types'
+import { cityLabel, CubeChip, describeHex, PlayerChip, TILE_NAMES } from '../names'
 import { Panel } from './Panel'
 
 const RECENT_ENTRY_COUNT = 25
 
-/** The voter's cube that a move into a Residence adds to the bag. */
+/** The voter's cube that an arrival or a move adds to the bag. */
 function BagCube({ color }: { color: PlayerColor }) {
   return (
     <strong className="inline-flex items-center gap-1">
       +1 cube <CubeChip color={color} />
     </strong>
   )
+}
+
+const MOVE_REASONS: Record<MoveReason, string> = {
+  levelling: 'Levelling',
+  schoolPull: 'School pull',
 }
 
 function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
@@ -31,18 +36,15 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
     case 'arrived':
       return (
         <>
-          {entry.people.map((color, position) => (
-            // Two people of one colour can arrive together, so the colour alone isn't unique.
-            <CubeChip key={`${color}-${position}`} color={color} />
-          ))}{' '}
-          {countOf(entry.people.length, 'person', 'people')} drawn from the bag arrived at the {describeHex(state, entry.station)}.
+          <CubeChip color={entry.color} /> A person drawn from the bag moved into the {describeHex(state, entry.residence)}. Bag:{' '}
+          <BagCube color={entry.voter} />
         </>
       )
-    case 'housed':
+    case 'moved':
       return (
         <>
-          <CubeChip color={entry.color} /> A person moved from the {describeHex(state, entry.from)} into the{' '}
-          {describeHex(state, entry.to)}. Bag: <BagCube color={entry.voter} />
+          <CubeChip color={entry.color} /> {MOVE_REASONS[entry.reason]}: a person moved from the {describeHex(state, entry.from)} into
+          the {describeHex(state, entry.to)}. Bag: <BagCube color={entry.voter} />
         </>
       )
     case 'merger':

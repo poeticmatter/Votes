@@ -1,7 +1,6 @@
 import { hexAt } from '../../map/board'
 import { GRID } from '../../map/mapData'
 import { gridPixelSize, hexCenter, hexCorners, midpoint, sideCorners, type EdgeRef, type HexKey, type Point } from '../../map/hexGrid'
-import { RESIDENCE_CAPACITY } from '../../rules/types'
 import { TILE_STYLE } from '../theme'
 
 // Everything on the map is drawn at this hex size, in grid pixel space (origin at the
@@ -18,11 +17,8 @@ export const TILE_LAYOUT = {
   // A Residence's people sit in a row over the bottom of its house, clear of a starting
   // Residence's letter.
   homesY: 0.42 * TILE_RADIUS,
-  // People waiting at a Station sit over the bottom of its glyph.
-  waitingY: 0.42 * TILE_RADIUS,
   cubeSize: 0.32 * TILE_RADIUS,
   residenceSize: 0.84 * TILE_RADIUS,
-  stationSize: 0.92 * TILE_RADIUS,
   factorySize: 0.84 * TILE_RADIUS,
   mineSize: 0.84 * TILE_RADIUS,
   schoolSize: 0.86 * TILE_RADIUS,
@@ -66,12 +62,11 @@ function cubeRows(tileCenter: Point, { firstRowY, rowStep, count }: CubeRows): P
   })
 }
 
-/** Where the `count` people on a Residence sit: its homes, filled left to right. */
+/**
+ * Where the `count` people on a Residence sit: rows of 3 over the bottom of its house,
+ * filled left to right, with each new row above the last. A Residence has no capacity.
+ */
 export function residentCenters(tileCenter: Point, count: number): Point[] {
-  return cubeRows(tileCenter, { firstRowY: TILE_LAYOUT.homesY, rowStep: 0, count: Math.min(count, RESIDENCE_CAPACITY) })
+  return cubeRows(tileCenter, { firstRowY: TILE_LAYOUT.homesY, rowStep: -TILE_LAYOUT.cubePitch, count })
 }
 
-/** Where `count` people waiting at a Station sit. */
-export function waitingCenters(tileCenter: Point, count: number): Point[] {
-  return cubeRows(tileCenter, { firstRowY: TILE_LAYOUT.waitingY, rowStep: -TILE_LAYOUT.cubePitch, count })
-}

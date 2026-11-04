@@ -1,17 +1,18 @@
 import { Button } from 'game-kit/turns'
 import type { HexKey } from '../../map/hexGrid'
 import { peopleAt } from '../../rules/boardQueries'
-import { RESIDENCE_CAPACITY, type VotesState } from '../../rules/types'
-import { CubeChip, describeHex, useColorNameOf } from '../names'
+import type { VotesState } from '../../rules/types'
+import { countOf, CubeChip, describeHex, useColorNameOf } from '../names'
 import type { PersonPicker } from '../useTurnControls'
 import { useByLook } from '../viewer'
 
-// Housing one person: the active player picks where from (on the map, or from a list),
-// which colour when there's a choice, then where to. The map highlights the same choices.
+// Moving one person, when the rules leave a choice: the active player picks where from
+// (on the map, or from a list), which colour when there's a choice, then where to. The map
+// highlights the same choices.
 
-const VOTE_NOTE = 'You add 1 of your cubes to the bag for each person who moves into a Residence.'
+const VOTE_NOTE = 'You add 1 of your cubes to the bag for each person who moves.'
 
-const HOUSING_INTRO = `People waiting at Stations move into Residences with space in the same city. A city with a School may also take people waiting at any Station, or living in a city with no School. Everyone who can move in must. ${VOTE_NOTE} Choose who moves in next.`
+const MOVEMENT_INTRO = `People move until nobody can: within a city into a Residence with at least 2 fewer people, and into a School city from a Residence elsewhere with more people. The most crowded Residence goes first, into the least crowded. ${VOTE_NOTE} These moves tie: choose who moves next.`
 
 function ChoiceList({ keys, describe, onChoose }: { keys: HexKey[]; describe: (key: HexKey) => string; onChoose: (key: HexKey) => void }) {
   return (
@@ -45,15 +46,14 @@ export function PersonChoices({ state, picker }: { state: VotesState; picker: Pe
   const colorNameOf = useColorNameOf()
 
   const describeDestination = (to: HexKey) => {
-    const people = `${peopleAt(state, to).length}/${RESIDENCE_CAPACITY}`
-    return `${describe(to)} · ${people} · +1 cube`
+    return `${describe(to)} · ${countOf(peopleAt(state, to).length, 'person', 'people')} · +1 cube`
   }
 
   if (!picker.from) {
     const sources = [...new Set(picker.moves.map(move => move.from))]
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-sm text-ink-soft">{HOUSING_INTRO}</p>
+        <p className="text-sm text-ink-soft">{MOVEMENT_INTRO}</p>
         <ChoiceList keys={sources} describe={describe} onChoose={picker.chooseFrom} />
       </div>
     )

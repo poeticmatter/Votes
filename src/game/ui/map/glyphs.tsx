@@ -43,18 +43,6 @@ export const LetteredHouseGlyph = ({
   </Glyph>
 )
 
-const STATION_BODY = 'M18 5 H30 A6 6 0 0 1 36 11 V29 A6 6 0 0 1 30 35 H18 A6 6 0 0 1 12 29 V11 A6 6 0 0 1 18 5 Z'
-const STATION_WINDOW = 'M18 10 H30 A2 2 0 0 1 32 12 V19 A2 2 0 0 1 30 21 H18 A2 2 0 0 1 16 19 V12 A2 2 0 0 1 18 10 Z'
-const STATION_LIGHTS = 'M15 28.5 a2.5 2.5 0 1 0 5 0 a2.5 2.5 0 1 0 -5 0 Z M28 28.5 a2.5 2.5 0 1 0 5 0 a2.5 2.5 0 1 0 -5 0 Z'
-const STATION_LEGS = 'M14.5 35 L10.5 43.5 H15 L19 35 Z M29 35 L33 43.5 H37.5 L33.5 35 Z'
-
-export const StationGlyph = ({ size, color }: GlyphProps) => (
-  <Glyph size={size}>
-    <path d={`${STATION_BODY} ${STATION_WINDOW} ${STATION_LIGHTS}`} fill={color} fillRule="evenodd" />
-    <path d={STATION_LEGS} fill={color} />
-  </Glyph>
-)
-
 const FACTORY_OUTLINE = 'M4 43 V24 L14 17 V24 L24 17 V24 L34 17 V7 H41 V43 Z'
 const FACTORY_WINDOWS = 'M9 30 H14 V35 H9 Z M19 30 H24 V35 H19 Z M29 30 H34 V35 H29 Z'
 

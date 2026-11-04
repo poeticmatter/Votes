@@ -4,8 +4,8 @@ import { activePlayerState, industryValue, peopleAt } from '../../rules/boardQue
 import { arrivalCount } from '../../rules/immigration'
 import { citiesTouchedBy } from '../../rules/mergers'
 import { hasAnyLegalPlacement, legalPlacements, newTile, PLACEABLE_KINDS, placeableKinds } from '../../rules/placement'
-import { RESIDENCE_CAPACITY, type IndustryKind, type PlaceableKind, type VotesMove, type VotesState } from '../../rules/types'
-import { cityLabel, countOf, describeHex, PlayerChip, TILE_NAMES, TileIcon } from '../names'
+import type { CubeColor, IndustryKind, PlaceableKind, VotesMove, VotesState } from '../../rules/types'
+import { cityLabel, countOf, CubeChip, describeHex, PlayerChip, TILE_NAMES, TileIcon, useColorNameOf } from '../names'
 import type { TurnControls } from '../useTurnControls'
 import { Panel } from './Panel'
 import { PersonChoices } from './PersonChoices'
@@ -51,13 +51,16 @@ function TilePicker({ state, controls }: { state: VotesState; controls: TurnCont
   )
 }
 
+const RESIDENCE_EFFECT =
+  'A seat. People from Residences in this city with at least 2 more people move in, the most crowded first.'
+
 const SCHOOL_EFFECT =
-  'Housing in this city may also take people waiting at any Station, or living in a Residence in a city with no School. Only one School per city.'
+  'This city pulls people from cities with no School: from a Residence there into one here with fewer people, the most crowded first. Only one School per city.'
 
 /** What the tile would add to its city's value at elections, as the board stands. */
 function valueEffect(state: VotesState, kind: IndustryKind, at: HexKey): string {
   const value = industryValue(state, kind, at)
-  const why = kind === 'factory' ? ' (1, +1 if it borders the rail, +1 if it touches a Mine)' : ''
+  const why = kind === 'factory' ? ' (1, +1 if it touches a Mine)' : ''
   return `Worth ${value} at elections${why}.`
 }
 
@@ -66,10 +69,10 @@ function placementEffects(state: VotesState, kind: PlaceableKind, at: HexKey): s
   const { own, joins } = citiesTouchedBy(state, at)
   const towns = [...own, ...joins.flatMap(join => join.city)]
   const effects: string[] = []
-  if (kind === 'residence') effects.push(`A seat, with space for ${countOf(RESIDENCE_CAPACITY, 'person', 'people')}.`)
+  if (kind === 'residence') effects.push(RESIDENCE_EFFECT)
   if (kind === 'factory' || kind === 'mine') {
-    const where = towns.length === 1 ? 'the Station' : 'a Station of your choice'
-    effects.push(`Immigration: draws ${countOf(state.arrivals[kind], 'person', 'people')} from the bag onto ${where} of city ${cityLabel(towns)}.`)
+    const count = countOf(state.arrivals[kind], 'person', 'people')
+    effects.push(`Immigration: draws ${count} from the bag, one at a time, each into the least crowded Residence of city ${cityLabel(towns)}.`)
     effects.push(valueEffect(state, kind, at))
   }
   if (kind === 'school') effects.push(SCHOOL_EFFECT)
@@ -116,7 +119,7 @@ function PlacementChoices({ state, controls, onMove }: { state: VotesState; cont
       <p className="text-sm text-ink-soft">
         {controls.placement.tile
           ? 'Choose a highlighted hex on the map.'
-          : 'Choose a tile to place. It goes on an empty hex touching a tile or Station; only Mines go on mountains.'}
+          : 'Choose a tile to place. It goes on an empty hex touching a tile; only Mines go on mountains.'}
       </p>
       <TilePicker state={state} controls={controls} />
       <ChosenPlacement state={state} controls={controls} />
@@ -124,23 +127,40 @@ function PlacementChoices({ state, controls, onMove }: { state: VotesState; cont
   )
 }
 
-/** Where a Factory's people arrive, when its city has more than one Station. */
-function StationChoices({ state, stations, onMove }: { state: VotesState; stations: HexKey[]; onMove: (move: VotesMove) => void }) {
+/** Where the person a Factory or Mine just drew goes, when Residences tie for least crowded. */
+function ArrivalChoices({
+  state,
+  person,
+  residences,
+  onMove,
+}: {
+  state: VotesState
+  person: CubeColor
+  residences: HexKey[]
+  onMove: (move: VotesMove) => void
+}) {
+  const colorNameOf = useColorNameOf()
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-ink-soft">
-        Your {placedName(state)} brings {countOf(arrivalCount(state), 'person', 'people')} from the bag to one Station in its city.
-        Choose a highlighted Station on the map, or here.
+        Your {placedName(state)} brings {countOf(arrivalCount(state), 'person', 'people')} from the bag, one at a time, each into the
+        least crowded Residence of its city.
+      </p>
+      <p className="flex items-center gap-2 text-sm">
+        <CubeChip color={person} size={18} />
+        <span>
+          A <strong>{colorNameOf(person)}</strong> person arrived. These Residences tie for least crowded: choose one on the map, or here.
+        </span>
       </p>
       <div className="flex flex-col gap-1.5">
-        {stations.map(station => (
+        {residences.map(residence => (
           <Button
-            key={station}
+            key={residence}
             tone="secondary"
-            onClick={() => onMove({ kind: 'arrive', station })}
+            onClick={() => onMove({ kind: 'arrive', residence })}
             className="px-3 py-2 text-left text-sm"
           >
-            {describeHex(state, station)} · {peopleAt(state, station).length} waiting
+            {describeHex(state, residence)} · {countOf(peopleAt(state, residence).length, 'person', 'people')}
           </Button>
         ))}
       </div>
@@ -158,8 +178,8 @@ function placedName(state: VotesState): string {
 function waitingText(state: VotesState): string {
   const { phase } = state
   if (phase.kind === 'placement') return 'is placing a tile'
-  if (phase.kind === 'immigration') return `is choosing where their ${placedName(state)}’s people arrive`
-  if (phase.kind === 'housing') return 'is housing people'
+  if (phase.kind === 'arrival') return `is choosing where their ${placedName(state)}’s new person lives`
+  if (phase.kind === 'movement') return 'is choosing who moves'
   return ''
 }
 
@@ -191,15 +211,15 @@ export function ActionPanel({
       </Panel>
     )
   }
-  if (phase.kind === 'immigration') {
+  if (phase.kind === 'arrival') {
     return (
       <Panel title="Immigration">
-        <StationChoices state={state} stations={phase.stations} onMove={onMove} />
+        <ArrivalChoices state={state} person={phase.person} residences={phase.residences} onMove={onMove} />
       </Panel>
     )
   }
   return (
-    <Panel title="Housing">
+    <Panel title="Movement">
       <PersonChoices state={state} picker={controls.person} />
     </Panel>
   )

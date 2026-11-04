@@ -13,7 +13,6 @@ import {
   soloNeighborOf,
   soloNeighborsOf,
   startOf,
-  stationOf,
 } from './testMap'
 import type { VotesState } from './types'
 
@@ -27,8 +26,8 @@ describe('legal placements', () => {
     expect(legalPlacements(newGame(), 'residence')).toContain(soloNeighborOf(HOME))
   })
 
-  it('allows a hex touching only a Station', () => {
-    expect(legalPlacements(newGame(), 'factory')).toContain(hexTouchingOnly(stationOf(HOME)))
+  it('allows a hex touching only a town’s starting Residence', () => {
+    expect(legalPlacements(newGame(), 'factory')).toContain(hexTouchingOnly(startOf(HOME)))
   })
 
   it('allows a hex touching a tile that was placed', () => {
@@ -58,7 +57,6 @@ describe('legal placements', () => {
 
   it('refuses a hex that is taken', () => {
     expect(legalPlacements(newGame(), 'residence')).not.toContain(startOf(HOME))
-    expect(legalPlacements(newGame(), 'residence')).not.toContain(stationOf(HOME))
   })
 
   it('has no placement of a kind once the supply has none left', () => {

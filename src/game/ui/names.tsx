@@ -12,7 +12,6 @@ import { seatOfColor, usePieceColorOf, useViewer } from './viewer'
 
 export const TILE_NAMES: Record<TileKind, string> = {
   residence: 'Residence',
-  station: 'Station',
   factory: 'Factory',
   mine: 'Mine',
   school: 'School',
@@ -23,11 +22,10 @@ export function cityLabel(city: TownId[]): string {
   return city.join(' + ')
 }
 
-/** "Station of town B", "Starting Residence A", "Residence in city B + C", "School in city A". */
+/** "Starting Residence A", "Residence in city B + C", "School in city A". */
 export function describeHex(state: VotesState, key: HexKey): string {
   const tile = state.tiles[key]
-  const { stationSite, residenceSite } = hexAt(key)
-  if (tile?.kind === 'station') return `Station of town ${stationSite}`
+  const { residenceSite } = hexAt(key)
   if (tile?.kind === 'residence' && residenceSite) return `Starting Residence ${residenceSite}`
   return `${tile ? TILE_NAMES[tile.kind] : 'Hex'} in city ${cityLabel(cityAt(state, key))}`
 }

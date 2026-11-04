@@ -1,16 +1,16 @@
 import type { ReactNode } from 'react'
-import { BOARD, hexAt, stationKeyOf } from '../../map/board'
+import { BOARD, hexAt } from '../../map/board'
 import { apothemOf, hexCenter, type HexKey, type Point } from '../../map/hexGrid'
 import { peopleAt } from '../../rules/boardQueries'
 import { newTile } from '../../rules/placement'
-import { centerOfHex, HEX_RADIUS, residentCenters, waitingCenters } from '../map/geometry'
+import { centerOfHex, HEX_RADIUS, residentCenters } from '../map/geometry'
 import { MapSurface } from '../map/MapSurface'
 import { TilePiece } from '../map/Pieces'
 import { COLORS } from '../theme'
 import { CubeRing, CubeTag, GhostTile, GutterArrow, JustPlacedOutline, NumberBadge } from './annotations'
 import {
-  HOUSING_EXAMPLE,
   IMMIGRATION_EXAMPLE,
+  LEVELLING_EXAMPLE,
   MERGER_EXAMPLE,
   PLACEMENT_EXAMPLE,
   SCHOOL_EXAMPLE,
@@ -96,14 +96,14 @@ const BagTags = ({ tags }: { tags: BagTag[] }) => (
 )
 
 export const ImmigrationFigure = () => {
-  const { position, placed } = IMMIGRATION_EXAMPLE
-  const station = stationKeyOf('A')
+  const { position, placed, arrivals, bagTags } = IMMIGRATION_EXAMPLE
   return (
-    <MapExcerpt position={position} label="Town A after a Factory brings people to its Station">
+    <MapExcerpt position={position} label="Town A after a Factory brings 3 people into its Residences">
       <JustPlacedOutline center={centerOfHex(placed)} />
-      {waitingCenters(centerOfHex(station), peopleAt(stateOf(position), station).length).map(center => (
-        <CubeRing key={`${center.x},${center.y}`} center={center} />
+      {arrivals.map(({ at, home }) => (
+        <CubeRing key={`${at}-${home}`} center={residentCenter(position, at, home)} />
       ))}
+      <BagTags tags={bagTags} />
     </MapExcerpt>
   )
 }
@@ -111,7 +111,7 @@ export const ImmigrationFigure = () => {
 const Moves = ({ position, moves }: { position: ExamplePosition; moves: PersonArrow[] }) => (
   <>
     {moves.map(({ from, to, home }) => (
-      <g key={`${from}-${to}`}>
+      <g key={`${from}-${to}-${home}`}>
         <GutterArrow from={centerOfHex(from)} to={centerOfHex(to)} />
         <CubeRing center={residentCenter(position, to, home)} />
       </g>
@@ -119,15 +119,16 @@ const Moves = ({ position, moves }: { position: ExamplePosition; moves: PersonAr
   </>
 )
 
-export const HousingFigure = () => (
-  <MapExcerpt position={HOUSING_EXAMPLE.position} label="Town A after housing, with arrows from its Station">
-    <Moves position={HOUSING_EXAMPLE.position} moves={HOUSING_EXAMPLE.moves} />
-    <BagTags tags={HOUSING_EXAMPLE.bagTags} />
+export const LevellingFigure = () => (
+  <MapExcerpt position={LEVELLING_EXAMPLE.position} label="Town A after levelling into a new Residence">
+    <JustPlacedOutline center={centerOfHex(LEVELLING_EXAMPLE.placed)} />
+    <Moves position={LEVELLING_EXAMPLE.position} moves={LEVELLING_EXAMPLE.moves} />
+    <BagTags tags={LEVELLING_EXAMPLE.bagTags} />
   </MapExcerpt>
 )
 
 export const SchoolFigure = () => (
-  <MapExcerpt position={SCHOOL_EXAMPLE.position} label="Town C after its School brings in people from B">
+  <MapExcerpt position={SCHOOL_EXAMPLE.position} label="Town C after its School pulls people from B">
     <JustPlacedOutline center={centerOfHex(SCHOOL_EXAMPLE.placed)} />
     <Moves position={SCHOOL_EXAMPLE.position} moves={SCHOOL_EXAMPLE.moves} />
     <BagTags tags={SCHOOL_EXAMPLE.bagTags} />
@@ -135,7 +136,8 @@ export const SchoolFigure = () => (
 )
 
 export const MergerFigure = () => (
-  <MapExcerpt position={MERGER_EXAMPLE.position} label="A new Residence joining B and C">
+  <MapExcerpt position={MERGER_EXAMPLE.position} label="A new Residence joining B and C, and the people who level into it">
     <JustPlacedOutline center={centerOfHex(MERGER_EXAMPLE.placed)} />
+    <Moves position={MERGER_EXAMPLE.position} moves={MERGER_EXAMPLE.moves} />
   </MapExcerpt>
 )

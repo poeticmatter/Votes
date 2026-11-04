@@ -1,5 +1,5 @@
 import { nextIndex } from 'game-kit/turns'
-import { residenceSiteKey, stationKeyOf, TOWN_IDS } from '../map/board'
+import { residenceSiteKey, TOWN_IDS } from '../map/board'
 import { hexKey, type HexKey } from '../map/hexGrid'
 import { STARTING_FACTORIES } from '../map/mapData'
 import {
@@ -69,11 +69,11 @@ function seedPeople(playerCount: PlayerCount, randomState: number): SeededPeople
   return { peopleByTown, randomState: state }
 }
 
-/** Each town's starting Residence, with its two people, and its Station, and the printed Factories. */
+/** Each town's starting Residence, with its two people, and the printed Factories. */
 function startingTiles(peopleByTown: CubeColor[][]): Record<HexKey, Tile> {
-  const towns = TOWN_IDS.flatMap((town, position): [HexKey, Tile][] => [
-    [residenceSiteKey(town), { kind: 'residence', people: peopleByTown[position] }],
-    [stationKeyOf(town), { kind: 'station', people: [] }],
+  const towns = TOWN_IDS.map((town, position): [HexKey, Tile] => [
+    residenceSiteKey(town),
+    { kind: 'residence', people: peopleByTown[position] },
   ])
   const factories = STARTING_FACTORIES.map(([col, row]): [HexKey, Tile] => [hexKey(col, row), { kind: 'factory' }])
   return Object.fromEntries([...towns, ...factories])

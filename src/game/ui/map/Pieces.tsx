@@ -3,8 +3,8 @@ import type { TownId } from '../../map/mapData'
 import type { CubeColor, Tile } from '../../rules/types'
 import { COLORS, FONT_FAMILY, TILE_STYLE } from '../theme'
 import { usePieceColorOf } from '../viewer'
-import { residentCenters, TILE_LAYOUT, TILE_RADIUS, waitingCenters } from './geometry'
-import { FactoryGlyph, HouseGlyph, LetteredHouseGlyph, MineGlyph, PlaceGlyph, SchoolGlyph, StationGlyph } from './glyphs'
+import { residentCenters, TILE_LAYOUT, TILE_RADIUS } from './geometry'
+import { FactoryGlyph, HouseGlyph, LetteredHouseGlyph, MineGlyph, PlaceGlyph, SchoolGlyph } from './glyphs'
 
 // Pieces on the map, ported from the asset generator's src/pieces/Tile.jsx and
 // Tokens.jsx. Every piece is drawn around a centre point at map scale.
@@ -63,19 +63,6 @@ const ResidenceTile = ({ center, fill, people, townLetter }: { center: Point; fi
   )
 }
 
-const StationTile = ({ center, fill, people }: { center: Point; fill: string; people: CubeColor[] }) => {
-  const { stationSize } = TILE_LAYOUT
-  return (
-    <g>
-      <TileBase center={center} fill={fill} />
-      <PlaceGlyph center={center} size={stationSize}>
-        <StationGlyph size={stationSize} color={TILE_STYLE.ink} />
-      </PlaceGlyph>
-      <Cubes colors={people} positions={waitingCenters(center, people.length)} />
-    </g>
-  )
-}
-
 const BUILDING_GLYPHS = {
   factory: { size: TILE_LAYOUT.factorySize, Glyph: FactoryGlyph },
   mine: { size: TILE_LAYOUT.mineSize, Glyph: MineGlyph },
@@ -100,8 +87,6 @@ export function TilePiece({ tile, center, townLetter }: { tile: Tile; center: Po
   switch (tile.kind) {
     case 'residence':
       return <ResidenceTile center={center} fill={fill} people={tile.people} townLetter={townLetter} />
-    case 'station':
-      return <StationTile center={center} fill={fill} people={tile.people} />
     case 'factory':
     case 'mine':
     case 'school':

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { residenceSiteKey, stationKeyOf, TOWN_IDS } from '../map/board'
+import { residenceSiteKey, TOWN_IDS } from '../map/board'
 import { STARTING_FACTORIES } from '../map/mapData'
 import { countByColor } from './elections'
-import { citiesOf, peopleOnBoard, residences, stations, tilesInBoardOrder } from './boardQueries'
+import { citiesOf, peopleOnBoard, residences, tilesInBoardOrder } from './boardQueries'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
 import { INDEPENDENT, type VotesSettings } from './types'
 
@@ -10,8 +10,8 @@ const game = (playerCount: number, seed = 3) => createInitialState({ settings: D
 const threePlayers = (seed = 3) => game(3, seed)
 
 describe('setup', () => {
-  it('puts a starting Residence and a Station in every town, and the printed Factories, and nothing else', () => {
-    const towns = TOWN_IDS.flatMap(town => [residenceSiteKey(town), stationKeyOf(town)])
+  it('puts a starting Residence in every town, and the printed Factories, and nothing else', () => {
+    const towns = TOWN_IDS.map(residenceSiteKey)
     const factories = STARTING_FACTORIES.map(([col, row]) => `${col},${row}`)
     expect(tilesInBoardOrder(threePlayers()).map(({ key }) => key).sort()).toEqual([...towns, ...factories].sort())
   })
@@ -26,10 +26,8 @@ describe('setup', () => {
     expect(citiesOf(threePlayers())).toEqual(TOWN_IDS.map(town => [town]))
   })
 
-  it('seeds two people on every starting Residence and nobody at the Stations', () => {
-    const state = threePlayers()
-    expect(residences(state).map(({ tile }) => tile.people.length)).toEqual([2, 2, 2, 2, 2])
-    expect(stations(state).every(({ tile }) => tile.people.length === 0)).toBe(true)
+  it('seeds two people on every starting Residence', () => {
+    expect(residences(threePlayers()).map(({ tile }) => tile.people.length)).toEqual([2, 2, 2, 2, 2])
   })
 
   it('seeds two of each player colour, topped up with grey to ten', () => {
