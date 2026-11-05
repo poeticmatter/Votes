@@ -46,15 +46,15 @@ describe('board rendering', () => {
   const start = playUntil(() => true)
   const moving = playUntil(state => state.phase.kind === 'movement')
   const arriving = playUntil(state => state.phase.kind === 'arrival')
-  const afterElection = playUntil(state => state.elections.length > 0 && state.phase.kind === 'placement')
+  const afterElection = playUntil(state => state.elections.length > 0 && state.phase.kind === 'action')
   const finished = playUntil(state => state.phase.kind === 'gameOver')
 
   it('offers the tile picker to the active player', () => {
-    expect(render(start, { role: activeRole(start) })).toContain('Choose a tile to place')
+    expect(render(start, { role: activeRole(start) })).toContain('Take a tile into your supply')
   })
 
   it('tells everyone else whose turn it is', () => {
-    expect(render(start, { role: otherRole(start) })).toContain('is placing a tile')
+    expect(render(start, { role: otherRole(start) })).toContain('is choosing an action')
   })
 
   it('lists the Residences people may move from when moves tie', () => {

@@ -1,7 +1,15 @@
 import type { ReactNode } from 'react'
 import { ElectionFigure } from './ElectionFigure'
-import { LevellingFigure, ImmigrationFigure, MergerFigure, PlacementFigure, SchoolFigure } from './ExampleFigures'
-import { ELECTION_EXAMPLE, LEVELLING_EXAMPLE, IMMIGRATION_EXAMPLE, MERGER_EXAMPLE, PLACEMENT_EXAMPLE, SCHOOL_EXAMPLE } from './examples'
+import { ImmigrationFigure, LevellingFigure, MergerFigure, PlacementFigure, PromiseFigure, SchoolFigure } from './ExampleFigures'
+import {
+  ELECTION_EXAMPLE,
+  IMMIGRATION_EXAMPLE,
+  LEVELLING_EXAMPLE,
+  MERGER_EXAMPLE,
+  PLACEMENT_EXAMPLE,
+  PROMISE_EXAMPLE,
+  SCHOOL_EXAMPLE,
+} from './examples'
 import { SectionHeading } from './MetroSteps'
 
 // The examples column of the rules sheet: a figure beside its caption, or above it on a
@@ -51,11 +59,14 @@ export function RulesExamples() {
           </p>
         ))}
       </Example>
-      <Example title="Example: immigration" figure={<ImmigrationFigure />}>
-        <CaptionLines lines={IMMIGRATION_EXAMPLE.caption} />
+      <Example title="Example: a promise" figure={<PromiseFigure />}>
+        <CaptionLines lines={PROMISE_EXAMPLE.caption} />
       </Example>
-      <Example title="Example: levelling" figure={<LevellingFigure />}>
+      <Example title="Example: flipping a Residence" figure={<LevellingFigure />}>
         <CaptionLines lines={LEVELLING_EXAMPLE.caption} />
+      </Example>
+      <Example title="Example: flipping a Factory" figure={<ImmigrationFigure />}>
+        <CaptionLines lines={IMMIGRATION_EXAMPLE.caption} />
       </Example>
       <Example title="Example: a School pull" figure={<SchoolFigure />}>
         <CaptionLines lines={SCHOOL_EXAMPLE.caption} />

@@ -4,7 +4,7 @@ import type { CubeColor, Tile } from '../../rules/types'
 import { COLORS, FONT_FAMILY, TILE_STYLE } from '../theme'
 import { usePieceColorOf } from '../viewer'
 import { residentCenters, TILE_LAYOUT, TILE_RADIUS } from './geometry'
-import { FactoryGlyph, HouseGlyph, LetteredHouseGlyph, MineGlyph, PlaceGlyph, SchoolGlyph } from './glyphs'
+import { FactoryGlyph, HouseGlyph, LetteredHouseGlyph, PlaceGlyph, SchoolGlyph, UniversityGlyph } from './glyphs'
 
 // Pieces on the map, ported from the asset generator's src/pieces/Tile.jsx and
 // Tokens.jsx. Every piece is drawn around a centre point at map scale.
@@ -65,8 +65,8 @@ const ResidenceTile = ({ center, fill, people, townLetter }: { center: Point; fi
 
 const BUILDING_GLYPHS = {
   factory: { size: TILE_LAYOUT.factorySize, Glyph: FactoryGlyph },
-  mine: { size: TILE_LAYOUT.mineSize, Glyph: MineGlyph },
   school: { size: TILE_LAYOUT.schoolSize, Glyph: SchoolGlyph },
+  university: { size: TILE_LAYOUT.universitySize, Glyph: UniversityGlyph },
 } as const
 
 const BuildingTile = ({ center, fill, kind }: { center: Point; fill: string; kind: keyof typeof BUILDING_GLYPHS }) => {
@@ -81,16 +81,41 @@ const BuildingTile = ({ center, fill, kind }: { center: Point; fill: string; kin
   )
 }
 
+const FACE_DOWN_GLYPH_SCALE = 0.7
+
+/** A face-down Residence or Factory: a promise, pale and dashed, its kind shown faintly. */
+const FaceDownTile = ({ center, kind }: { center: Point; kind: 'residence' | 'factory' }) => {
+  const { faceDown, cornerRadius, outline } = TILE_STYLE
+  const size = (kind === 'residence' ? TILE_LAYOUT.residenceSize : TILE_LAYOUT.factorySize) * FACE_DOWN_GLYPH_SCALE
+  const Glyph = kind === 'residence' ? HouseGlyph : FactoryGlyph
+  return (
+    <g>
+      <path
+        d={roundedPolygonPath(hexCorners(center, TILE_RADIUS), cornerRadius)}
+        fill={faceDown.fill}
+        stroke={COLORS.ink}
+        strokeWidth={outline.width}
+        strokeDasharray={faceDown.dash}
+      />
+      <PlaceGlyph center={center} size={size}>
+        <Glyph size={size} color={faceDown.ink} />
+      </PlaceGlyph>
+    </g>
+  )
+}
+
 /** `townLetter` names a town's starting Residence; other tiles ignore it. */
 export function TilePiece({ tile, center, townLetter }: { tile: Tile; center: Point; townLetter: TownId | null }) {
   const { fill } = TILE_STYLE
   switch (tile.kind) {
     case 'residence':
+      if (tile.isFaceDown) return <FaceDownTile center={center} kind="residence" />
       return <ResidenceTile center={center} fill={fill} people={tile.people} townLetter={townLetter} />
     case 'factory':
-    case 'mine':
+      if (tile.isFaceDown) return <FaceDownTile center={center} kind="factory" />
+      return <BuildingTile center={center} fill={fill} kind="factory" />
     case 'school':
-      return <BuildingTile center={center} fill={fill} kind={tile.kind} />
+      return <BuildingTile center={center} fill={fill} kind={tile.isUniversity ? 'university' : 'school'} />
   }
 }
 

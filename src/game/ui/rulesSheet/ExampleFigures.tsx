@@ -13,6 +13,7 @@ import {
   LEVELLING_EXAMPLE,
   MERGER_EXAMPLE,
   PLACEMENT_EXAMPLE,
+  PROMISE_EXAMPLE,
   SCHOOL_EXAMPLE,
   stateOf,
   type BagTag,
@@ -95,10 +96,17 @@ const BagTags = ({ tags }: { tags: BagTag[] }) => (
   </>
 )
 
+export const PromiseFigure = () => (
+  <MapExcerpt position={PROMISE_EXAMPLE.position} label="Town A with a face-down Residence placed beside it">
+    <JustPlacedOutline center={centerOfHex(PROMISE_EXAMPLE.placed)} />
+    <BagTags tags={PROMISE_EXAMPLE.bagTags} />
+  </MapExcerpt>
+)
+
 export const ImmigrationFigure = () => {
   const { position, placed, arrivals, bagTags } = IMMIGRATION_EXAMPLE
   return (
-    <MapExcerpt position={position} label="Town A after a Factory brings 3 people into its Residences">
+    <MapExcerpt position={position} label="Town A after a flipped Factory brings it a person">
       <JustPlacedOutline center={centerOfHex(placed)} />
       {arrivals.map(({ at, home }) => (
         <CubeRing key={`${at}-${home}`} center={residentCenter(position, at, home)} />
@@ -120,10 +128,9 @@ const Moves = ({ position, moves }: { position: ExamplePosition; moves: PersonAr
 )
 
 export const LevellingFigure = () => (
-  <MapExcerpt position={LEVELLING_EXAMPLE.position} label="Town A after levelling into a new Residence">
+  <MapExcerpt position={LEVELLING_EXAMPLE.position} label="Town A after levelling into a flipped Residence">
     <JustPlacedOutline center={centerOfHex(LEVELLING_EXAMPLE.placed)} />
     <Moves position={LEVELLING_EXAMPLE.position} moves={LEVELLING_EXAMPLE.moves} />
-    <BagTags tags={LEVELLING_EXAMPLE.bagTags} />
   </MapExcerpt>
 )
 
@@ -131,13 +138,11 @@ export const SchoolFigure = () => (
   <MapExcerpt position={SCHOOL_EXAMPLE.position} label="Town C after its School pulls people from B">
     <JustPlacedOutline center={centerOfHex(SCHOOL_EXAMPLE.placed)} />
     <Moves position={SCHOOL_EXAMPLE.position} moves={SCHOOL_EXAMPLE.moves} />
-    <BagTags tags={SCHOOL_EXAMPLE.bagTags} />
   </MapExcerpt>
 )
 
 export const MergerFigure = () => (
-  <MapExcerpt position={MERGER_EXAMPLE.position} label="A new Residence joining B and C, and the people who level into it">
+  <MapExcerpt position={MERGER_EXAMPLE.position} label="A face-down Residence joining B and C">
     <JustPlacedOutline center={centerOfHex(MERGER_EXAMPLE.placed)} />
-    <Moves position={MERGER_EXAMPLE.position} moves={MERGER_EXAMPLE.moves} />
   </MapExcerpt>
 )

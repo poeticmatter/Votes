@@ -8,9 +8,11 @@ import {
   MIN_PLAYERS,
   PLAYER_COLORS,
   RULES_VERSION,
+  STARTING_RESIDENCES_PER_PLAYER,
   STARTING_PEOPLE_PER_PLAYER,
   STARTING_PEOPLE_PER_RESIDENCE,
   type CubeColor,
+  type PlaceableKind,
   type PlayerCount,
   type Tile,
   type VotesSettings,
@@ -21,8 +23,7 @@ import {
 export const DEFAULT_SETTINGS: VotesSettings = {
   startingCubesPerPlayer: 2,
   greyCubes: 10,
-  arrivals: { factory: 3, mine: 3 },
-  tileCounts: { residence: 15, factory: 10, mine: 5, school: 5 },
+  tileCounts: { residence: 15, factory: 10, school: 5 },
 }
 
 const STARTING_PEOPLE = TOWN_IDS.length * STARTING_PEOPLE_PER_RESIDENCE
@@ -73,10 +74,21 @@ function seedPeople(playerCount: PlayerCount, randomState: number): SeededPeople
 function startingTiles(peopleByTown: CubeColor[][]): Record<HexKey, Tile> {
   const towns = TOWN_IDS.map((town, position): [HexKey, Tile] => [
     residenceSiteKey(town),
-    { kind: 'residence', people: peopleByTown[position] },
+    { kind: 'residence', isFaceDown: false, people: peopleByTown[position] },
   ])
-  const factories = STARTING_FACTORIES.map(([col, row]): [HexKey, Tile] => [hexKey(col, row), { kind: 'factory' }])
+  const factories = STARTING_FACTORIES.map(([col, row]): [HexKey, Tile] => [hexKey(col, row), { kind: 'factory', isFaceDown: false }])
   return Object.fromEntries([...towns, ...factories])
+}
+
+interface StartingSupplies {
+  shared: Record<PlaceableKind, number>
+  perPlayer: number
+}
+
+/** Each player takes their starting Residences from the shared supply, as many as it can spare evenly. */
+function dealStartingResidences(tileCounts: Record<PlaceableKind, number>, playerCount: PlayerCount): StartingSupplies {
+  const perPlayer = Math.min(STARTING_RESIDENCES_PER_PLAYER, Math.floor(tileCounts.residence / playerCount))
+  return { shared: { ...tileCounts, residence: tileCounts.residence - perPlayer * playerCount }, perPlayer }
 }
 
 export interface VotesSetup {
@@ -88,26 +100,26 @@ export interface VotesSetup {
 export function createInitialState({ settings, playerCount, seed }: VotesSetup): VotesState {
   if (!isPlayerCount(playerCount)) throw new Error(`Votes is for ${MIN_PLAYERS}–${MAX_PLAYERS} players, not ${playerCount}`)
   // A lobby running an older deploy sends its own set of dials.
-  if (typeof settings.greyCubes !== 'number' || !settings.arrivals || !settings.tileCounts) {
+  if (typeof settings.greyCubes !== 'number' || !settings.tileCounts || 'arrivals' in settings) {
     throw new Error('These settings come from an older version of Votes; reload the page and start again')
   }
 
   const colors = PLAYER_COLORS.slice(0, playerCount)
+  const { shared, perPlayer } = dealStartingResidences(settings.tileCounts, playerCount)
   const { index: firstPlayerIndex, nextState: afterFirstPlayer } = nextIndex(seed >>> 0, playerCount)
   const { peopleByTown, randomState } = seedPeople(playerCount, afterFirstPlayer)
 
   return {
     rulesVersion: RULES_VERSION,
-    players: colors.map(color => ({ color, score: 0 })),
+    players: colors.map(color => ({ color, score: 0, supply: { residence: perPlayer, factory: 0, school: 0 } })),
     firstPlayerIndex,
     turn: { number: 1, playerIndex: firstPlayerIndex, placedAt: null },
-    phase: { kind: 'placement' },
+    phase: { kind: 'action' },
     tiles: startingTiles(peopleByTown),
     mergers: [],
     bag: startingBag(settings, playerCount),
     randomState,
-    arrivals: { ...settings.arrivals },
-    supply: { ...settings.tileCounts },
+    supply: shared,
     consecutivePasses: 0,
     elections: [],
     log: [],

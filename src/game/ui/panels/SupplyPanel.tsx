@@ -1,9 +1,9 @@
 import { TOWN_IDS } from '../../map/board'
 import { bagSize } from '../../rules/boardQueries'
-import { newTile, PLACEABLE_KINDS } from '../../rules/placement'
+import { PLACEABLE_KINDS } from '../../rules/placement'
 import { INDEPENDENT, type CubeColor, type VotesState } from '../../rules/types'
 import { BagGlyph } from '../map/glyphs'
-import { CubeChip, TILE_NAMES, TileIcon, useColorNameOf } from '../names'
+import { CubeChip, faceUpTile, PLURAL_TILE_NAMES, TileIcon, useColorNameOf } from '../names'
 import { COLORS } from '../theme'
 import { useByLook } from '../viewer'
 import { Panel } from './Panel'
@@ -21,8 +21,8 @@ function TilesLeft({ state }: { state: VotesState }) {
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
       {PLACEABLE_KINDS.map(kind => (
-        <span key={kind} className="inline-flex items-center gap-1.5 tabular-nums" title={`${TILE_NAMES[kind]}s left`}>
-          <TileIcon tile={newTile(kind)} width={TILE_ICON_WIDTH} /> {state.supply[kind]}
+        <span key={kind} className="inline-flex items-center gap-1.5 tabular-nums" title={`${PLURAL_TILE_NAMES[kind]} in the shared supply`}>
+          <TileIcon tile={faceUpTile(kind)} width={TILE_ICON_WIDTH} /> {state.supply[kind]}
         </span>
       ))}
     </div>
@@ -34,7 +34,7 @@ export function SupplyPanel({ state }: { state: VotesState }) {
   const colorNameOf = useColorNameOf()
 
   return (
-    <Panel title="Supply, bag and mergers">
+    <Panel title="Shared supply, bag and mergers">
       <TilesLeft state={state} />
       <div className="flex items-center gap-3">
         <BagGlyph size={28} color={COLORS.ink} />

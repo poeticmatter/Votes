@@ -221,7 +221,7 @@ export function splitColumn(): { column: number; joining: HexKey } {
   if (split) return split
   for (let column = 1; column < BOARD.grid.columns - 1; column += 1) {
     const tiles: Record<HexKey, Tile> = { ...startingTiles }
-    for (const hex of BOARD.hexes) if (hex.terrain === 'open' && hex.col !== column && !tiles[hex.key]) tiles[hex.key] = { kind: 'factory' }
+    for (const hex of BOARD.hexes) if (hex.terrain === 'open' && hex.col !== column && !tiles[hex.key]) tiles[hex.key] = { kind: 'factory', isFaceDown: false }
     const { list, byHex } = citiesOnBoard(tiles)
     if (list.length !== 2) continue
     const joining = BOARD.hexes.find(

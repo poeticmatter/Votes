@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { nextIndex } from 'game-kit/turns'
 import { BOARD } from '../map/board'
 import { bagSize, citiesOf, peopleOnBoard } from './boardQueries'
-import { beginMovement, movementMoves } from './movement'
 import { citiesTouchedBy } from './mergers'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
 import { legalMoves } from './testStates'
@@ -10,8 +9,8 @@ import { applyMove } from './turnFlow'
 import type { VotesMove, VotesState } from './types'
 
 // Whole games played by seeded random agents, checking the rules' invariants after
-// every move. A cautious agent avoids merging while it can, which drives games on until
-// the tiles run out.
+// every move. A cautious agent avoids placing tiles that merge cities while it can, which
+// drives games on until the tiles run out.
 
 type Agent = 'random' | 'cautious'
 
@@ -19,8 +18,8 @@ const MOVE_LIMIT = 5000
 
 function agentMoves(state: VotesState, agent: Agent): VotesMove[] {
   const moves = legalMoves(state)
-  if (agent === 'random' || state.phase.kind !== 'placement') return moves
-  const quiet = moves.filter(move => move.kind === 'place' && citiesTouchedBy(state, move.at).joins.length === 0)
+  if (agent === 'random' || state.phase.kind !== 'action') return moves
+  const quiet = moves.filter(move => move.kind !== 'place' || citiesTouchedBy(state, move.at).joins.length === 0)
   return quiet.length ? quiet : moves
 }
 
@@ -31,14 +30,25 @@ function expectInvariants(state: VotesState, peopleBefore: number): void {
   expect(peopleOnBoard(state).length).toBeGreaterThanOrEqual(peopleBefore)
   expect(citiesOf(state).flat().sort()).toEqual(['A', 'B', 'C', 'D', 'E'])
   expect(Object.values(state.bag).every(count => (count ?? 0) >= 0)).toBe(true)
-  // Mines sit on mountains, and every other tile on open hexes.
+  // Tiles sit only on open hexes, and face-down Residences hold nobody.
   for (const [key, tile] of Object.entries(state.tiles)) {
-    expect(BOARD.hexByKey.get(key)?.terrain).toBe(tile.kind === 'mine' ? 'mountain' : 'open')
+    expect(BOARD.hexByKey.get(key)?.terrain).toBe('open')
+    if (tile.kind === 'residence' && tile.isFaceDown) expect(tile.people).toEqual([])
   }
+  // Tiles are never made or lost: the shared supply, players' supplies and the board add up.
   expect(Object.values(state.supply).every(count => count >= 0)).toBe(true)
-  // A new turn starts with nobody able to move.
-  if (state.phase.kind === 'placement') expect(movementMoves(beginMovement(state))).toEqual([])
+  for (const player of state.players) expect(Object.values(player.supply).every(count => count >= 0)).toBe(true)
+  expect(tileTotal(state)).toBe(TILES_IN_GAME)
 }
+
+/** Every tile in the shared supply, in players' supplies and placed, the printed ones aside. */
+function tileTotal(state: VotesState): number {
+  const inSupplies = [state.supply, ...state.players.map(player => player.supply)].flatMap(Object.values)
+  const placed = Object.keys(state.tiles).filter(key => !BOARD.hexByKey.get(key)?.residenceSite && !BOARD.hexByKey.get(key)?.hasStartingFactory)
+  return inSupplies.reduce((sum, count) => sum + count, 0) + placed.length
+}
+
+const TILES_IN_GAME = Object.values(DEFAULT_SETTINGS.tileCounts).reduce((sum, count) => sum + count, 0)
 
 function playOut(playerCount: number, seed: number, agent: Agent): { final: VotesState; moves: VotesMove[] } {
   let state = createInitialState({ settings: DEFAULT_SETTINGS, playerCount, seed })
@@ -56,7 +66,7 @@ function playOut(playerCount: number, seed: number, agent: Agent): { final: Vote
   return { final: state, moves }
 }
 
-/** How the game ended: the last merger, or everyone passing once the tiles ran out. */
+/** How the game ended: the last merger, or everyone passing once nobody could act. */
 const endReason = (state: VotesState) => state.log.find(entry => entry.kind === 'gameOver')
 
 describe.each([3, 4, 5])('%i-player games', playerCount => {
@@ -90,12 +100,17 @@ describe('seeded games', () => {
     expect(movesPlayed.some(move => move.kind === 'move')).toBe(true)
   })
 
-  it('let the player choose between tied Residences for a Factory’s or Mine’s people', () => {
+  it('let the player choose between tied Residences for a Factory’s people', () => {
     expect(movesPlayed.some(move => move.kind === 'arrive')).toBe(true)
   })
 
-  it('place Mines', () => {
-    expect(movesPlayed.some(move => move.kind === 'place' && move.tile === 'mine')).toBe(true)
+  it('take, place and flip tiles', () => {
+    for (const kind of ['take', 'place', 'flip'] as const) expect(movesPlayed.some(move => move.kind === kind)).toBe(true)
+  })
+
+  it('flip Schools into Universities', () => {
+    const flips = games.flatMap(({ final }) => final.log.filter(entry => entry.kind === 'flipped'))
+    expect(flips.some(entry => entry.into === 'university')).toBe(true)
   })
 })
 

@@ -1,7 +1,8 @@
 import type { PlayerIndex, PlayerProfile } from 'game-kit/turns'
 import { peopleOnBoard } from '../../rules/boardQueries'
-import type { VotesState } from '../../rules/types'
-import { countOf, PlayerChip, useIsViewer } from '../names'
+import { PLACEABLE_KINDS } from '../../rules/placement'
+import type { PlaceableKind, VotesState } from '../../rules/types'
+import { countOf, PlayerChip, PLURAL_TILE_NAMES, TILE_NAMES, useIsViewer } from '../names'
 import { useViewer } from '../viewer'
 import { Panel } from './Panel'
 
@@ -14,6 +15,13 @@ function useSeatsFromViewer(state: VotesState): PlayerIndex[] {
   const count = state.players.length
   const start = role === 'spectator' ? state.firstPlayerIndex : role
   return state.players.map((_, offset) => (start + offset) % count)
+}
+
+/** "2 Residences, 1 School", or "none": the tiles in a player's own supply. */
+function handText(supply: Record<PlaceableKind, number>): string {
+  const held = PLACEABLE_KINDS.filter(kind => supply[kind] > 0)
+  if (held.length === 0) return 'none'
+  return held.map(kind => countOf(supply[kind], TILE_NAMES[kind], PLURAL_TILE_NAMES[kind])).join(', ')
 }
 
 export function PlayersPanel({ state, players }: { state: VotesState; players: PlayerProfile[] }) {
@@ -42,7 +50,7 @@ export function PlayersPanel({ state, players }: { state: VotesState; players: P
                   {isOffline && <span className="ml-1 text-xs font-normal text-alert">offline</span>}
                 </span>
                 <span className="text-xs font-normal text-ink-soft">
-                  {countOf(people.filter(color => color === player.color).length, 'cube')} on the board
+                  {countOf(people.filter(color => color === player.color).length, 'cube')} on the board · tiles: {handText(player.supply)}
                 </span>
               </div>
               <span className="text-2xl font-bold tabular-nums" aria-label={`${player.score} points`}>

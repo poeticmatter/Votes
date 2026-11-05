@@ -28,13 +28,22 @@ export const STARTING_PEOPLE_PER_RESIDENCE = 2
 /** Cubes of each player's colour among the people seeded at setup. */
 export const STARTING_PEOPLE_PER_PLAYER = 2
 
-export type TileKind = 'residence' | 'factory' | 'mine' | 'school'
+/** A Residence with this many people or more is overcrowded. */
+export const OVERCROWDED_AT = 4
+/** Residence tiles each player starts the game with in their own supply. */
+export const STARTING_RESIDENCES_PER_PLAYER = 2
+/** Residence tiles a player takes into their supply for placing a Factory. */
+export const RESIDENCES_PER_FACTORY = 2
+
+export type TileKind = 'residence' | 'factory' | 'school'
 
 /** Players place every kind of tile; the starting Residences and printed Factories are on the map from the start. */
 export type PlaceableKind = TileKind
 
-/** Tiles that bring people from the bag and are worth points at elections. */
-export type IndustryKind = 'factory' | 'mine'
+/** Tiles a player may take from the shared supply as their action. Residences come only with Factories and at setup. */
+export type TakeableKind = 'factory' | 'school'
+
+export const TAKEABLE_KINDS: readonly TakeableKind[] = ['factory', 'school']
 
 /** The [bracketed] playtest dials from the rules. */
 export interface VotesSettings {
@@ -42,39 +51,53 @@ export interface VotesSettings {
   startingCubesPerPlayer: number
   /** Grey cubes in the game: the ones not seeded on the starting Residences go in the bag. */
   greyCubes: number
-  /** People a new Factory or Mine draws from the bag into its city. */
-  arrivals: Record<IndustryKind, number>
-  /** Tiles of each kind in the supply at setup. */
+  /** Tiles of each kind in the shared supply at setup, before players take their starting Residences. */
   tileCounts: Record<PlaceableKind, number>
 }
 
-/** A Residence has no capacity: people keep moving in while the rules send them. */
+/**
+ * A Residence has no capacity: people keep moving in while the rules send them. A
+ * face-down one is a promise: it joins its city but is no seat and holds nobody until
+ * someone flips it.
+ */
 export interface ResidenceTile {
   kind: 'residence'
+  isFaceDown: boolean
   /** People living here, in the order they moved in. */
   people: CubeColor[]
 }
 
-export interface BuildingTile {
-  kind: 'factory' | 'mine' | 'school'
+/** A face-down Factory is a promise: it joins its city but brings nobody and scores nothing until flipped. */
+export interface FactoryTile {
+  kind: 'factory'
+  isFaceDown: boolean
 }
 
-/** Tiles belong to nobody. */
-export type Tile = ResidenceTile | BuildingTile
+/** Schools are placed face up; one flipped over is a University. */
+export interface SchoolTile {
+  kind: 'school'
+  isUniversity: boolean
+}
+
+/** Tiles belong to nobody, once placed. */
+export type Tile = ResidenceTile | FactoryTile | SchoolTile
 
 export interface PlayerState {
   color: PlayerColor
   score: number
+  /** Tiles in the player's own supply, waiting to be placed. */
+  supply: Record<PlaceableKind, number>
 }
 
 export type Phase =
-  | { kind: 'placement' }
+  | { kind: 'action' }
   /**
-   * A new Factory or Mine drew `person` from the bag, and these Residences of its city
-   * tie for least crowded: the player picks one. `remaining` more are drawn afterwards.
+   * A flipped Factory drew `person` from the bag for one city, and these of its
+   * Residences tie for least crowded: the player picks one. Then one more person is
+   * drawn for each city in `remainingCities`, named by their first town.
    */
-  | { kind: 'arrival'; person: CubeColor; residences: HexKey[]; remaining: number }
-  /** Levelling and School pulls, until nobody can move; the player breaks ties. */
+  | { kind: 'arrival'; person: CubeColor; residences: HexKey[]; remainingCities: TownId[] }
+  /** Levelling, then School pulls, until nobody can move; the player breaks ties. */
   | { kind: 'movement' }
   | { kind: 'gameOver'; winners: PlayerColor[] }
 
@@ -82,7 +105,7 @@ export interface TurnState {
   number: number
   /** Index into {@link VotesState.players}. */
   playerIndex: number
-  /** Where this turn's tile went; null before placing, or after a pass. */
+  /** Where this turn's tile went; null if the turn's action wasn't a placement. */
   placedAt: HexKey | null
 }
 
@@ -92,7 +115,7 @@ export interface MergerMarker {
   between: [HexKey, HexKey]
 }
 
-/** Levelling within a city, or a School city pulling from a city without one. */
+/** Levelling within a city, or a School or University city pulling from a city that ranks below it. */
 export type MoveReason = 'levelling' | 'schoolPull'
 
 /** Why a Residence's seat went where it did: the most voters, the leftmost of a tie, or nobody's when nobody there votes. */
@@ -116,23 +139,30 @@ export interface ElectionResult {
   city: TownId[]
   seats: SeatResult[]
   seatsByColor: Partial<Record<CubeColor, number>>
-  /** The city's Factories and Mines added up. */
-  cityValue: number
-  /** From the payout table, by the city's value and its number of seats. */
+  /** Each seat scores its holder 1 point per face-up Factory in the city. */
   pointsPerSeat: number
   /** Points for each player holding a seat: the points per seat for every one. */
   scores: Partial<Record<PlayerColor, number>>
 }
 
+/** What a flip turned a tile into. */
+export type FlippedInto = 'residence' | 'factory' | 'university'
+
 export type LogEntry =
+  | { kind: 'took'; turn: number; player: PlayerColor; tile: TakeableKind }
   | { kind: 'placed'; turn: number; player: PlayerColor; tile: PlaceableKind; at: HexKey }
+  /** A face-down Residence's promise: `votes` of the player's cubes went into the bag, one per overcrowded Residence in its city. */
+  | { kind: 'promised'; turn: number; player: PlayerColor; votes: number }
+  /** A Factory placed face down earned the player `count` Residence tiles from the shared supply. */
+  | { kind: 'gotResidences'; turn: number; player: PlayerColor; count: number }
+  | { kind: 'flipped'; turn: number; player: PlayerColor; at: HexKey; into: FlippedInto }
   | { kind: 'passed'; turn: number; player: PlayerColor }
   /** A person drawn from the bag into a Residence; the voter added 1 cube to the bag. */
   | { kind: 'arrived'; turn: number; color: CubeColor; residence: HexKey; voter: PlayerColor }
-  /** A person moved between Residences; the voter added 1 cube to the bag. */
-  | { kind: 'moved'; turn: number; color: CubeColor; from: HexKey; to: HexKey; voter: PlayerColor; reason: MoveReason }
+  /** A person moved between Residences. Moving adds nothing to the bag. */
+  | { kind: 'moved'; turn: number; color: CubeColor; from: HexKey; to: HexKey; reason: MoveReason }
   | { kind: 'merger'; turn: number; city: TownId[]; electionNumber: number }
-  | { kind: 'gameOver'; turn: number; winners: PlayerColor[]; reason: 'lastMerger' | 'nobodyCanBuild' }
+  | { kind: 'gameOver'; turn: number; winners: PlayerColor[]; reason: 'lastMerger' | 'nobodyCanAct' }
 
 /**
  * Bump this whenever the rules or the saved state's shape change, so a game saved by
@@ -144,9 +174,11 @@ export type LogEntry =
  * Residences beside the rail, 10 Schools filling every Residence they touch, 11 Draft
  * 5.11 (no relocation; a School widens its city's housing, one School per city), 12
  * the 7-row map, 13 Draft 5.12 (no rail or Stations; arrivals into the least crowded
- * Residence, levelling and School pulls), 14 grey people not voting.
+ * Residence, levelling and School pulls), 14 grey people not voting, 15 Draft 5.13 (one
+ * action a turn, face-down promises, players' own supplies, Universities, no Mines or
+ * payout table).
  */
-export const RULES_VERSION = 14
+export const RULES_VERSION = 15
 
 export interface VotesState {
   /** {@link RULES_VERSION} when the game was created; missing in games from before it existed. */
@@ -162,10 +194,9 @@ export interface VotesState {
   bag: Partial<Record<CubeColor, number>>
   /** Seeded generator state, so every client draws the same cubes. */
   randomState: number
-  arrivals: Record<IndustryKind, number>
-  /** Tiles left to place, by kind. */
+  /** The shared supply: tiles nobody has taken yet, by kind. */
   supply: Record<PlaceableKind, number>
-  /** Turns in a row that ended without a tile being placed. */
+  /** Turns in a row that ended in a pass. */
   consecutivePasses: number
   elections: ElectionResult[]
   log: LogEntry[]
@@ -179,10 +210,15 @@ export interface PersonMove {
 }
 
 export type VotesMove =
+  /** Action: take a tile from the shared supply into your own. */
+  | { kind: 'take'; tile: TakeableKind }
+  /** Action: place a tile from your own supply. */
   | { kind: 'place'; tile: PlaceableKind; at: HexKey }
-  /** Only legal when no tile can be placed anywhere. */
+  /** Action: flip a face-down tile, or a School into a University. */
+  | { kind: 'flip'; at: HexKey }
+  /** Only legal when no action is possible. */
   | { kind: 'pass' }
-  /** The person a Factory or Mine just drew goes into this Residence, one of those tied for least crowded. */
+  /** The person a flipped Factory just drew goes into this Residence, one of those tied for least crowded. */
   | { kind: 'arrive'; residence: HexKey }
   /** Levelling or a School pull: `to` is one of the moves the rules allow now. */
   | ({ kind: 'move' } & PersonMove)

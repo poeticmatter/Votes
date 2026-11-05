@@ -1,17 +1,23 @@
 import { cityAt } from '../../rules/boardQueries'
-import type { LogEntry, MoveReason, PlayerColor, VotesState } from '../../rules/types'
-import { cityLabel, CubeChip, describeHex, PlayerChip, TILE_NAMES } from '../names'
+import type { FlippedInto, LogEntry, MoveReason, PlayerColor, VotesState } from '../../rules/types'
+import { cityLabel, countOf, CubeChip, describeHex, PlayerChip, TILE_NAMES } from '../names'
 import { Panel } from './Panel'
 
 const RECENT_ENTRY_COUNT = 25
 
-/** The voter's cube that an arrival or a move adds to the bag. */
-function BagCube({ color }: { color: PlayerColor }) {
+/** The voter's cubes that an arrival or a promise adds to the bag. */
+function BagCube({ color, amount = 1 }: { color: PlayerColor; amount?: number }) {
   return (
     <strong className="inline-flex items-center gap-1">
-      +1 cube <CubeChip color={color} />
+      +{countOf(amount, 'cube')} <CubeChip color={color} />
     </strong>
   )
+}
+
+const FLIPPED_INTO: Record<FlippedInto, string> = {
+  residence: 'a new seat.',
+  factory: 'a Factory, bringing people from the bag.',
+  university: 'a University.',
 }
 
 const MOVE_REASONS: Record<MoveReason, string> = {
@@ -21,16 +27,42 @@ const MOVE_REASONS: Record<MoveReason, string> = {
 
 function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
   switch (entry.kind) {
+    case 'took':
+      return (
+        <>
+          <PlayerChip color={entry.player} /> took a {TILE_NAMES[entry.tile]} into their supply.
+        </>
+      )
     case 'placed':
       return (
         <>
-          <PlayerChip color={entry.player} /> placed a {TILE_NAMES[entry.tile]} in city {cityLabel(cityAt(state, entry.at))}.
+          <PlayerChip color={entry.player} /> placed a {TILE_NAMES[entry.tile]}
+          {entry.tile === 'school' ? '' : ' face down'} in city {cityLabel(cityAt(state, entry.at))}.
+        </>
+      )
+    case 'promised':
+      return (
+        <>
+          <PlayerChip color={entry.player} />’s promise: {countOf(entry.votes, 'overcrowded Residence')} in the city. Bag:{' '}
+          {entry.votes === 0 ? <strong>no cube</strong> : <BagCube color={entry.player} amount={entry.votes} />}
+        </>
+      )
+    case 'gotResidences':
+      return (
+        <>
+          <PlayerChip color={entry.player} /> took {countOf(entry.count, 'Residence tile')} into their supply.
+        </>
+      )
+    case 'flipped':
+      return (
+        <>
+          <PlayerChip color={entry.player} /> flipped the tile at the {describeHex(state, entry.at)}: {FLIPPED_INTO[entry.into]}
         </>
       )
     case 'passed':
       return (
         <>
-          <PlayerChip color={entry.player} /> couldn’t place a tile and passed.
+          <PlayerChip color={entry.player} /> had no action and passed.
         </>
       )
     case 'arrived':
@@ -44,7 +76,7 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
       return (
         <>
           <CubeChip color={entry.color} /> {MOVE_REASONS[entry.reason]}: a person moved from the {describeHex(state, entry.from)} into
-          the {describeHex(state, entry.to)}. Bag: <BagCube color={entry.voter} />
+          the {describeHex(state, entry.to)}.
         </>
       )
     case 'merger':
@@ -57,7 +89,7 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
       return (
         <>
           <strong>Game over</strong>
-          {entry.reason === 'nobodyCanBuild' && ' (nobody could build any more)'}.
+          {entry.reason === 'nobodyCanAct' && ' (nobody could act any more)'}.
         </>
       )
   }

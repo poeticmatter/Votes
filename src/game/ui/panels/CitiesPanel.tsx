@@ -32,13 +32,12 @@ export function ColorTally({ counts, emptyText }: { counts: ColorCounts; emptyTe
 
 function Payout({ result }: { result: ElectionResult }) {
   const byLook = useByLook()
-  const seatCount = countOf(result.seats.length, 'seat')
-  if (result.pointsPerSeat === 0) return <span className="text-ink-soft">No Factories or Mines: nobody scores</span>
+  if (result.pointsPerSeat === 0) return <span className="text-ink-soft">No face-up Factory: nobody scores</span>
   const scorers = byLook(PLAYER_COLORS.filter(color => (result.scores[color] ?? 0) > 0))
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-ink-soft">
-        Worth {result.cityValue}, {seatCount}: {countOf(result.pointsPerSeat, 'point')} per seat
+        {countOf(result.pointsPerSeat, 'face-up Factory', 'face-up Factories')}: {countOf(result.pointsPerSeat, 'point')} per seat
       </span>
       <span className="inline-flex flex-wrap items-center gap-x-3">
         {scorers.length === 0 && <span className="text-ink-soft">No player holds a seat</span>}

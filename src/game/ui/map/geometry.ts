@@ -20,7 +20,7 @@ export const TILE_LAYOUT = {
   cubeSize: 0.32 * TILE_RADIUS,
   residenceSize: 0.84 * TILE_RADIUS,
   factorySize: 0.84 * TILE_RADIUS,
-  mineSize: 0.84 * TILE_RADIUS,
+  universitySize: 0.86 * TILE_RADIUS,
   schoolSize: 0.86 * TILE_RADIUS,
 } as const
 

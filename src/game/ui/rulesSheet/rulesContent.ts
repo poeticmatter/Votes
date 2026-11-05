@@ -1,9 +1,8 @@
 import { DEFAULT_SETTINGS } from '../../rules/setup'
-import type { Tile } from '../../rules/types'
+import { OVERCROWDED_AT, RESIDENCES_PER_FACTORY, STARTING_RESIDENCES_PER_PLAYER, type Tile } from '../../rules/types'
 
-// The one-page rules: Draft 5.12 (docs/rules-draft-5.12.md until it replaces
-// Rules/Votes.md in the asset generator), condensed. The payout table itself comes from
-// rules/payout.ts.
+// The one-page rules: Draft 5.13 (docs/rules-draft-5.13.md until it replaces
+// Rules/Votes.md in the asset generator), condensed.
 // Player colours go by the names the game shows: Cobalt, Saffron, Orchid, Jade.
 
 export interface LeadText {
@@ -17,7 +16,7 @@ export interface TitledText {
   note?: string
 }
 
-const { arrivals, startingCubesPerPlayer, greyCubes, tileCounts } = DEFAULT_SETTINGS
+const { startingCubesPerPlayer, greyCubes, tileCounts } = DEFAULT_SETTINGS
 
 /** One paragraph per entry. */
 export const LEDE = [
@@ -28,31 +27,32 @@ export const LEDE = [
 export const COMPONENTS: LeadText[] = [
   {
     lead: 'Board',
-    text: 'The map, with mountains and 5 town sites, each with a starting Residence.',
+    text: 'The map, with mountains and 5 town sites, each with a starting Residence. Nothing is placed on mountains.',
   },
   {
     lead: 'Tiles',
-    text: `${tileCounts.residence} Residences, ${tileCounts.factory} Factories, ${tileCounts.mine} Mines and ${tileCounts.school} Schools. Tiles belong to nobody.`,
+    text: `${tileCounts.residence} Residences, ${tileCounts.factory} Factories and ${tileCounts.school} Schools, in a shared supply. Once placed, tiles belong to nobody.`,
   },
   { lead: 'Pieces', text: `Cubes (people) in each player’s colour, ${greyCubes} grey cubes (independents, who never vote) and a bag.` },
-  { lead: 'Payout table', text: 'For elections; it is printed below.' },
 ]
 
 export const SETUP = [
   'Take 2 cubes of each player’s colour, then add grey cubes until there are 10. Mix them and place 2 at random on each starting Residence.',
   `Put the remaining grey cubes and ${startingCubesPerPlayer} more cubes of each player’s colour in the bag.`,
+  `Each player takes ${STARTING_RESIDENCES_PER_PLAYER} Residence tiles from the shared supply into their own supply.`,
   'Choose a first player.',
 ]
 
 export const CITIES =
-  'A city is a group of connected tiles. Each city starts as a single town, its starting Residence; the letter on the Residence names it.'
+  'A city is a group of connected tiles, face down or face up. Each city starts as a single town, its starting Residence; the letter on the Residence names it.'
 
 export const CORE_CONCEPTS: { intro: string; items: LeadText[] } = {
-  intro: 'Cubes are people. After every tile you place, people arrive and move, one person at a time, until nobody can move:',
+  intro: 'Cubes are people. They live in face-up Residences, which have no limit.',
   items: [
+    { lead: 'Overcrowded', text: `A Residence with ${OVERCROWDED_AT} or more people.` },
     {
       lead: 'Immigration',
-      text: `A Factory or Mine draws ${arrivals.factory} people from the bag one at a time. Each moves into the least crowded Residence in its city, checked again after each one. If the bag is empty, nobody arrives.`,
+      text: 'Flipping a Factory draws 1 person from the bag for each city on the board. Each goes into the least crowded Residence of its city; ties, you choose. If the bag is empty, nobody arrives.',
     },
     {
       lead: 'Levelling',
@@ -60,15 +60,15 @@ export const CORE_CONCEPTS: { intro: string; items: LeadText[] } = {
     },
     {
       lead: 'School pull',
-      text: 'A city with a School pulls people from cities without one: a person moves from a Residence there into one in the School city with fewer people. A city with a School is never pulled from.',
+      text: 'A city with a School pulls people from cities without one: a person moves from a Residence there into one in the School city with fewer people. A city with a University also pulls from cities that have a School but no University.',
     },
     {
-      lead: 'Order',
-      text: 'The most crowded Residence goes first, into the least crowded. You break ties and choose which person moves.',
+      lead: 'Movement',
+      text: 'After a flip or a School placement, people move until nobody can: levelling first, then School pulls. The most crowded Residence goes first, into the least crowded. You break ties and choose which person moves.',
     },
     {
       lead: 'Votes',
-      text: 'For each person who arrives or moves on your turn, add 1 of your cubes to the bag.',
+      text: 'Each person who arrives adds 1 of your cubes to the bag, and so does each overcrowded Residence when you promise a new one. Moving adds nothing.',
     },
   ],
 }
@@ -77,12 +77,14 @@ export const CORE_CONCEPTS: { intro: string; items: LeadText[] } = {
 export const MERGER_STEP_TITLE = 'Merger'
 
 export const TURN: TitledText[] = [
-  { title: 'Place a tile', text: 'On an empty hex touching a tile. Only Mines go on mountains.' },
-  { title: 'Immigration', text: 'If the tile is a Factory or Mine.' },
-  { title: 'Movement', text: 'Levelling and School pulls, until nobody can move.' },
+  {
+    title: 'Take, place or flip',
+    text: 'Do one: take a Factory or School from the shared supply into yours; place a tile from your supply on an empty hex touching a tile (Residences and Factories face down, Schools face up); or flip any face-down tile, anyone’s.',
+  },
+  { title: 'Movement', text: 'After a flip or a School placement: levelling, then School pulls, until nobody can move.' },
   {
     title: MERGER_STEP_TITLE,
-    text: 'If the tile touches two or more cities, they become one city. Hold an election.',
+    text: 'If the tile you placed touches two or more cities, they become one city. Hold an election.',
   },
 ]
 
@@ -94,24 +96,24 @@ export interface BuildingEntry {
 
 export const BUILDINGS: BuildingEntry[] = [
   {
-    tile: { kind: 'residence', people: [] },
+    tile: { kind: 'residence', isFaceDown: false, people: [] },
     name: 'Residence',
-    text: 'A seat, with room for anyone. People sit in a row: newcomers join on the right, and when someone leaves, the rest slide left.',
+    text: 'Placed face down: a promise. Add 1 of your cubes to the bag for each overcrowded Residence in its city. Flipped: a seat, and people level into it.',
   },
   {
-    tile: { kind: 'factory' },
+    tile: { kind: 'factory', isFaceDown: false },
     name: 'Factory',
-    text: `Immigration: ${arrivals.factory} people from the bag. At elections, worth 1, +1 if it touches a Mine.`,
+    text: `Placed face down: take ${RESIDENCES_PER_FACTORY} Residence tiles into your supply. Flipped: 1 person from the bag for each city. Each face-up Factory scores at elections.`,
   },
   {
-    tile: { kind: 'mine' },
-    name: 'Mine',
-    text: `Placed only on mountains. Immigration: ${arrivals.mine} people from the bag. At elections, worth 2.`,
-  },
-  {
-    tile: { kind: 'school' },
+    tile: { kind: 'school', isUniversity: false },
     name: 'School',
-    text: 'Its city pulls people from cities with no School. You may not place a School in a city that already has one.',
+    text: 'Placed face up: its city pulls people from cities with no School. Only one per city.',
+  },
+  {
+    tile: { kind: 'school', isUniversity: true },
+    name: 'University',
+    text: 'A School flipped over, only in a city with two (a merger makes those). Its city also pulls from cities with a School but no University.',
   },
 ]
 
@@ -120,13 +122,13 @@ export const ELECTIONS_INTRO = 'Only the newly merged city votes.'
 export const ELECTIONS: TitledText[] = [
   {
     title: 'Seats',
-    text: 'Each Residence is a seat. Grey people don’t vote: the player colour with the most cubes on it wins the seat.',
+    text: 'Each face-up Residence is a seat. Grey people don’t vote: the player colour with the most cubes on it wins the seat.',
     note: 'Ties go to the tied player colour furthest left. A seat where nobody votes, empty or all grey, belongs to nobody.',
   },
   {
     title: 'Payout',
-    text: 'Add up the value of the city’s Factories and Mines. Find the points per seat on the payout table, from the city’s value and its number of seats. Each player scores that many points for each seat they hold.',
-    note: 'Seats nobody holds count toward the city’s seats but score for nobody. A city with no Factories or Mines pays nothing.',
+    text: 'Each seat scores its holder 1 point per face-up Factory in the city.',
+    note: 'Grey and empty seats score for nobody. Face-down Factories count for nothing.',
   },
 ]
 

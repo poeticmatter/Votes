@@ -13,8 +13,26 @@ import { seatOfColor, usePieceColorOf, useViewer } from './viewer'
 export const TILE_NAMES: Record<TileKind, string> = {
   residence: 'Residence',
   factory: 'Factory',
-  mine: 'Mine',
   school: 'School',
+}
+
+export const PLURAL_TILE_NAMES: Record<TileKind, string> = {
+  residence: 'Residences',
+  factory: 'Factories',
+  school: 'Schools',
+}
+
+/** A tile of `kind` face up, for drawing the kind itself rather than a placed promise. */
+export function faceUpTile(kind: TileKind): Tile {
+  if (kind === 'residence') return { kind, isFaceDown: false, people: [] }
+  if (kind === 'factory') return { kind, isFaceDown: false }
+  return { kind, isUniversity: false }
+}
+
+/** "Residence", "face-down Factory", "University": a placed tile as the board shows it. */
+export function tileName(tile: Tile): string {
+  if (tile.kind === 'school') return tile.isUniversity ? 'University' : 'School'
+  return tile.isFaceDown ? `face-down ${TILE_NAMES[tile.kind]}` : TILE_NAMES[tile.kind]
 }
 
 /** "A", or "B + C" for a city of two towns. */
@@ -27,7 +45,8 @@ export function describeHex(state: VotesState, key: HexKey): string {
   const tile = state.tiles[key]
   const { residenceSite } = hexAt(key)
   if (tile?.kind === 'residence' && residenceSite) return `Starting Residence ${residenceSite}`
-  return `${tile ? TILE_NAMES[tile.kind] : 'Hex'} in city ${cityLabel(cityAt(state, key))}`
+  const name = tile ? tileName(tile) : 'Hex'
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} in city ${cityLabel(cityAt(state, key))}`
 }
 
 /** "1 cube", "3 cubes"; "2 people" with an irregular `plural`. */

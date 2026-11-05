@@ -25,8 +25,11 @@ export const TILE_STYLE = {
   // Tiles cover 74% of their hex, leaving a ring of the cell showing round each one.
   sizeRatio: 0.74,
   cornerRadius: 12,
-  // One colour for every tile: Residences, Factories, Mines and Schools differ by glyph. The outline keeps the pale fill clear of the white cells.
+  // One colour for every face-up tile: Residences, Factories and Schools differ by glyph.
+  // The outline keeps the pale fill clear of the white cells.
   fill: '#f1e1b8',
   ink: COLORS.ink,
+  // A face-down tile is a promise: paler, with a dashed edge and a faint glyph.
+  faceDown: { fill: COLORS.paper, ink: COLORS.inkFaint, dash: '8 6' },
   outline: { color: 'rgba(38, 42, 49, 0.4)', width: 2 },
 } as const

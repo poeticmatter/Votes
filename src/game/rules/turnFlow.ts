@@ -1,18 +1,22 @@
 import { IllegalMoveError, type GameOutcome } from 'game-kit/turns'
 import { activePlayerState, cityAt, citiesOf, peopleOnBoard } from './boardQueries'
 import { holdElection } from './elections'
+import type { HexKey } from '../map/hexGrid'
+import { flipTargets, flipTile, placeAndPromise, takeableKinds, takeTile } from './actions'
 import { arrive, beginImmigration } from './immigration'
 import { addMergerMarkers, citiesTouchedBy } from './mergers'
-import { isMovementOver, moveOnePerson, moveWhileForced } from './movement'
-import { hasAnyLegalPlacement, placeTile } from './placement'
+import { beginMovement, isMovementOver, moveOnePerson, moveWhileForced } from './movement'
+import { placeableKinds } from './placement'
 import type { Phase, PlayerColor, VotesMove, VotesState } from './types'
 
-// A turn: place a tile, then its immigration (a Factory or Mine), movement (levelling and
-// School pulls) until nobody can move, and a merger with its election if the tile joined
-// cities (they join the moment the tile is placed; see mergers.ts). Each move is one
+// A turn is one action: take a tile from the shared supply, place one from your own, or
+// flip one. Placing a School, or flipping anything, moves people (levelling, then School
+// pulls) until nobody can move; flipping a Factory first brings people from the bag.
+// Nothing else changes where people want to be. A placement that joins cities (they join
+// the moment the tile is placed; see mergers.ts) then holds an election. Each move is one
 // decision by the active player; everything that needs no decision runs straight on.
 
-type GameOverReason = 'lastMerger' | 'nobodyCanBuild'
+type GameOverReason = 'lastMerger' | 'nobodyCanAct'
 
 /** Whose decision the game is waiting for, or null once it's over. */
 export function activePlayerIndex(state: VotesState): number | null {
@@ -79,16 +83,16 @@ function startNextTurn(state: VotesState): VotesState {
       playerIndex: (state.turn.playerIndex + 1) % state.players.length,
       placedAt: null,
     },
-    phase: { kind: 'placement' },
+    phase: { kind: 'action' },
   }
 }
 
 function endTurn(state: VotesState): VotesState {
   const afterMerger = resolveMerger(state)
   if (citiesOf(afterMerger).length === 1) return endGame(afterMerger, 'lastMerger')
-  // Passing changes nothing a later placement depends on, so a full round of passes
-  // means nobody will ever build again.
-  if (afterMerger.consecutivePasses >= afterMerger.players.length) return endGame(afterMerger, 'nobodyCanBuild')
+  // Passing changes nothing a later action depends on, so a full round of passes means
+  // nobody will ever act again.
+  if (afterMerger.consecutivePasses >= afterMerger.players.length) return endGame(afterMerger, 'nobodyCanAct')
   return startNextTurn(afterMerger)
 }
 
@@ -101,8 +105,22 @@ function advance(state: VotesState): VotesState {
   return state
 }
 
+/** Whether the active player has any action: a tile to take, place or flip. */
+export function hasAnyAction(state: VotesState): boolean {
+  return takeableKinds(state).length > 0 || placeableKinds(state).length > 0 || flipTargets(state).length > 0
+}
+
+/** An action other than a pass breaks a run of passes. */
+const acted = (state: VotesState): VotesState => ({ ...state, consecutivePasses: 0 })
+
+/** Flips a tile; a Factory brings people first, and then everyone moves. */
+function flip(state: VotesState, at: HexKey): VotesState {
+  const { state: flipped, into } = flipTile(acted(state), at)
+  return into === 'factory' ? beginImmigration(flipped) : beginMovement(flipped)
+}
+
 function pass(state: VotesState): VotesState {
-  if (hasAnyLegalPlacement(state)) throw new IllegalMoveError('You can only pass when no tile fits anywhere')
+  if (hasAnyAction(state)) throw new IllegalMoveError('You can only pass when you have no action')
   return {
     ...state,
     consecutivePasses: state.consecutivePasses + 1,
@@ -122,11 +140,20 @@ export function drawsFromBag(state: VotesState, move: VotesMove): boolean {
 /** Applies the active player's move. Throws {@link IllegalMoveError} if it breaks the rules. */
 export function applyMove(state: VotesState, move: VotesMove): VotesState {
   switch (move.kind) {
-    case 'place':
-      requirePhase(state, 'placement')
-      return advance(beginImmigration(placeTile(state, move.tile, move.at)))
+    case 'take':
+      requirePhase(state, 'action')
+      return endTurn(takeTile(acted(state), move.tile))
+    case 'place': {
+      requirePhase(state, 'action')
+      const placed = placeAndPromise(acted(state), move.tile, move.at)
+      // Only a School changes where people want to be; face-down promises move nobody.
+      return move.tile === 'school' ? advance(beginMovement(placed)) : endTurn(placed)
+    }
+    case 'flip':
+      requirePhase(state, 'action')
+      return advance(flip(state, move.at))
     case 'pass':
-      requirePhase(state, 'placement')
+      requirePhase(state, 'action')
       // Every turn ends with nobody able to move, and a pass changes nothing, so the turn just ends.
       return endTurn(pass(state))
     case 'arrive':

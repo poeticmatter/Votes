@@ -151,7 +151,7 @@ export function ElectionFigure() {
       {seatDiscs.map((color, index) => (
         <SeatDisc key={`${color}-${index}`} x={SEAT_DISC.firstX + index * SEAT_DISC.pitch} y={cityY} color={color} />
       ))}
-      <SummaryValue y={cityY}>Worth {result.cityValue}</SummaryValue>
+      <SummaryValue y={cityY}>{result.pointsPerSeat === 1 ? '1 face-up Factory' : `${result.pointsPerSeat} face-up Factories`}</SummaryValue>
       <SummaryLabel y={payoutY}>{result.pointsPerSeat} PER SEAT</SummaryLabel>
       <SummaryValue y={payoutY}>{payout}</SummaryValue>
     </svg>

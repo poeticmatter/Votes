@@ -1,34 +1,22 @@
 import { IllegalMoveError } from 'game-kit/turns'
 import type { HexKey } from '../map/hexGrid'
+import type { TownId } from '../map/mapData'
 import { addVote, drawFromBag } from './bag'
-import { activePlayerState, bagSize, cityAt, crowdOf, residencesInCity } from './boardQueries'
+import { activePlayerState, bagSize, citiesOf, crowdOf, residencesInCity } from './boardQueries'
 import { beginMovement } from './movement'
-import type { CubeColor, IndustryKind, VotesState } from './types'
+import type { CubeColor, VotesState } from './types'
 
-// Immigration: a new Factory or Mine draws people from the bag one at a time, and each
-// moves into the least crowded Residence of its city, rechecked after every arrival. When
-// Residences tie, the active player chooses. Each arrival adds 1 of the active player's
-// cubes to the bag, which a later draw may bring out. Once the bag is empty nobody else
-// arrives.
+// Immigration: flipping a Factory face up draws 1 person from the bag for each city on
+// the board, a city at a time in the order of their first towns. Each goes into the least
+// crowded face-up Residence of that city; when Residences tie, the active player chooses.
+// Every city holds its towns' starting Residences, which are face up from the start, so
+// there is always somewhere to go. Each arrival adds 1 of the active player's cubes to
+// the bag, which a later draw may bring out. Once the bag is empty nobody else arrives.
 
-/** The Factory or Mine placed this turn, if that's what it was. */
-function placedIndustry(state: VotesState): IndustryKind | null {
-  const at = state.turn.placedAt
-  const kind = at ? state.tiles[at]?.kind : undefined
-  return kind === 'factory' || kind === 'mine' ? kind : null
-}
-
-/** How many people this turn's tile brings from the bag. */
-export function arrivalCount(state: VotesState): number {
-  const kind = placedIndustry(state)
-  return kind ? state.arrivals[kind] : 0
-}
-
-/** The Residences of the placed tile's city that hold the fewest people. */
-export function leastCrowdedResidences(state: VotesState): HexKey[] {
-  const at = state.turn.placedAt
-  if (!at) return []
-  const homes = residencesInCity(state, cityAt(state, at)).map(({ key }) => key)
+/** The city's face-up Residences that hold the fewest people. */
+export function leastCrowdedResidences(state: VotesState, city: TownId[]): HexKey[] {
+  const homes = residencesInCity(state, city).map(({ key }) => key)
+  if (homes.length === 0) throw new Error(`City ${city.join(' + ')} has no face-up Residence`)
   const fewest = Math.min(...homes.map(key => crowdOf(state, key)))
   return homes.filter(key => crowdOf(state, key) === fewest)
 }
@@ -45,18 +33,25 @@ function settle(state: VotesState, color: CubeColor, residence: HexKey): VotesSt
   })
 }
 
-/** Draws the next of `remaining` people, settling them unless Residences tie for least crowded. */
-function drawNext(state: VotesState, remaining: number): VotesState {
-  if (remaining === 0 || bagSize(state) === 0) return beginMovement(state)
-  const { state: drawn, color } = drawFromBag(state)
-  const residences = leastCrowdedResidences(drawn)
-  if (residences.length > 1) return { ...drawn, phase: { kind: 'arrival', person: color, residences, remaining: remaining - 1 } }
-  return drawNext(settle(drawn, color, residences[0]), remaining - 1)
+const cityOf = (state: VotesState, town: TownId): TownId[] => {
+  const city = citiesOf(state).find(candidate => candidate[0] === town)
+  if (!city) throw new Error(`No city starts with town ${town}`)
+  return city
 }
 
-/** Starts this turn's immigration; a tile that isn't a Factory or Mine brings nobody. */
+/** Draws a person for the first of `cities`, settling them unless Residences tie, then goes on to the rest. */
+function drawFor(state: VotesState, cities: TownId[]): VotesState {
+  const [town, ...remainingCities] = cities
+  if (!town || bagSize(state) === 0) return beginMovement(state)
+  const { state: drawn, color } = drawFromBag(state)
+  const residences = leastCrowdedResidences(drawn, cityOf(drawn, town))
+  if (residences.length > 1) return { ...drawn, phase: { kind: 'arrival', person: color, residences, remainingCities } }
+  return drawFor(settle(drawn, color, residences[0]), remainingCities)
+}
+
+/** A flipped Factory's immigration: 1 person for each city on the board. */
 export function beginImmigration(state: VotesState): VotesState {
-  return drawNext(state, arrivalCount(state))
+  return drawFor(state, citiesOf(state).map(city => city[0]))
 }
 
 export function arrive(state: VotesState, residence: HexKey): VotesState {
@@ -64,5 +59,5 @@ export function arrive(state: VotesState, residence: HexKey): VotesState {
   if (phase.kind !== 'arrival' || !phase.residences.includes(residence)) {
     throw new IllegalMoveError(`The new person can't move into ${residence}`)
   }
-  return drawNext(settle(state, phase.person, residence), phase.remaining)
+  return drawFor(settle(state, phase.person, residence), phase.remainingCities)
 }

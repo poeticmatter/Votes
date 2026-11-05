@@ -18,7 +18,7 @@ describe('setup', () => {
 
   it('starts each printed Factory in the city it touches', () => {
     const state = threePlayers()
-    for (const [col, row] of STARTING_FACTORIES) expect(state.tiles[`${col},${row}`]).toEqual({ kind: 'factory' })
+    for (const [col, row] of STARTING_FACTORIES) expect(state.tiles[`${col},${row}`]).toEqual({ kind: 'factory', isFaceDown: false })
     expect(citiesOf(state)).toHaveLength(TOWN_IDS.length)
   })
 
@@ -44,8 +44,14 @@ describe('setup', () => {
     expect(game(5).bag[INDEPENDENT]).toBe(10)
   })
 
-  it('starts with the full tile supply', () => {
-    expect(threePlayers().supply).toEqual(DEFAULT_SETTINGS.tileCounts)
+  it('gives each player 2 Residence tiles, taken from the shared supply', () => {
+    const state = threePlayers()
+    expect(state.players.map(player => player.supply)).toEqual(Array(3).fill({ residence: 2, factory: 0, school: 0 }))
+    expect(state.supply).toEqual({ ...DEFAULT_SETTINGS.tileCounts, residence: DEFAULT_SETTINGS.tileCounts.residence - 6 })
+  })
+
+  it('puts every starting tile face up', () => {
+    expect(Object.values(threePlayers().tiles).every(tile => tile.kind !== 'school' && !tile.isFaceDown)).toBe(true)
   })
 
   it('refuses two players', () => {
@@ -61,6 +67,11 @@ describe('setup', () => {
   it('refuses settings from a lobby running an older version', () => {
     // Draft 5.8's dials, which lack this version's; the cast stands in for a lobby the types can't see.
     const older = { startingCubesPerPlayer: 4, factoryArrivals: 3 } as unknown as VotesSettings
+    expect(() => createInitialState({ settings: older, playerCount: 3, seed: 1 })).toThrow('older version')
+  })
+
+  it('refuses Draft 5.12’s settings, which still had Mine and Factory arrivals', () => {
+    const older = { ...DEFAULT_SETTINGS, arrivals: { factory: 3, mine: 3 } }
     expect(() => createInitialState({ settings: older, playerCount: 3, seed: 1 })).toThrow('older version')
   })
 })

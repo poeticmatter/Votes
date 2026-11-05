@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { TileIcon } from '../names'
 import { MetroSteps, SectionHeading, type MetroStep } from './MetroSteps'
-import { PayoutTable } from './PayoutTable'
 import {
   BUILDINGS,
   CITIES,
@@ -100,7 +99,6 @@ export function RulesText() {
       <Section title="Election, after every merger">
         <p className="mb-2">{ELECTIONS_INTRO}</p>
         <MetroSteps steps={electionSteps} />
-        <PayoutTable />
       </Section>
       <Section title="Game end">
         <p>{GAME_END}</p>

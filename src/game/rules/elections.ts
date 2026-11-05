@@ -1,16 +1,14 @@
 import type { TownId } from '../map/mapData'
-import { cityValue, residencesInCity } from './boardQueries'
-import { pointsPerSeat } from './payout'
+import { faceUpFactoriesIn, residencesInCity } from './boardQueries'
 import { INDEPENDENT, PLAYER_COLORS, type CubeColor, type ElectionResult, type PlayerColor, type SeatResult, type VotesState } from './types'
 
 // Elections, held after every merger by the newly merged city only. Every Residence is
 // a seat. Grey people live there but never vote: the player colour with the most people
 // on it wins, and a tie goes to the tied colour furthest left, the one that has lived
 // there longest (people sit in a row, newcomers on the right). A Residence where nobody
-// votes, empty or all grey, is nobody's. The payout table gives the points per seat from
-// the city's Factory and Mine value and its number of seats, and every player scores
-// that for each seat they hold. Seats nobody holds count toward the city's seats but
-// score for nobody.
+// votes, empty or all grey, is nobody's. Only face-up Residences are seats; a face-down
+// one is a promise. Every seat scores its holder 1 point per face-up Factory in the city;
+// face-down Factories count for nothing, and seats nobody holds score for nobody.
 
 export type ColorCounts = Partial<Record<CubeColor, number>>
 
@@ -43,15 +41,13 @@ export function countVotes(state: VotesState, city: TownId[]): ElectionResult {
     ...seatWinner(tile.people),
   }))
   const seatsByColor = countByColor(seats.flatMap(seat => (seat.winner ? [seat.winner] : [])))
-  const value = cityValue(state, city)
-  const perSeat = pointsPerSeat(value, seats.length)
+  const perSeat = faceUpFactoriesIn(state, city)
   return {
     number: state.elections.length + 1,
     turn: state.turn.number,
     city,
     seats,
     seatsByColor,
-    cityValue: value,
     pointsPerSeat: perSeat,
     scores: playerScores(seatsByColor, perSeat),
   }

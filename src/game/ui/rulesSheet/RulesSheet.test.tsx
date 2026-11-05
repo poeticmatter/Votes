@@ -23,16 +23,15 @@ describe('the rules sheet', () => {
   })
 
   it('draws every worked example', () => {
-    expect(markup.match(/Example: /g)).toHaveLength(6)
+    expect(markup.match(/Example: /g)).toHaveLength(7)
   })
 
-  it('prints the payout table', () => {
-    expect(markup).toContain('Points per seat')
-    expect(markup).toContain('11+ seats')
+  it('explains that each seat scores per face-up Factory', () => {
+    expect(markup).toContain('1 point per face-up Factory')
   })
 
   it('names what each player scores in the election figure', () => {
-    expect(markup).toContain('Cobalt +4, Orchid +2, Saffron +2')
+    expect(markup).toContain('Cobalt +4, Saffron +2')
   })
 
   it('keeps the examples’ colours in a disguised solo playtest', () => {

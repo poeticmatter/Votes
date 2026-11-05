@@ -1,8 +1,8 @@
-import { BOARD, hexAt } from '../map/board'
+import { BOARD } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import type { TownId } from '../map/mapData'
 import { citiesOnBoard } from './cities'
-import type { CubeColor, IndustryKind, PlayerState, ResidenceTile, Tile, VotesState } from './types'
+import type { CubeColor, PlayerState, ResidenceTile, Tile, VotesState } from './types'
 
 // Read-only questions about a state, shared by the rules and the UI. Every list walks
 // the map in board order, never object-key order, so results are deterministic.
@@ -36,48 +36,59 @@ function tilesInCity(state: VotesState, city: TownId[]): Located<Tile>[] {
   return tilesInBoardOrder(state).filter(({ key }) => byHex.get(key)?.[0] === city[0])
 }
 
-export function residences(state: VotesState): Located<ResidenceTile>[] {
-  return tilesInBoardOrder(state).filter((entry): entry is Located<ResidenceTile> => entry.tile.kind === 'residence')
-}
-
-export function residencesInCity(state: VotesState, city: TownId[]): Located<ResidenceTile>[] {
-  return tilesInCity(state, city).filter((entry): entry is Located<ResidenceTile> => entry.tile.kind === 'residence')
-}
-
-export interface IndustryTile {
-  kind: IndustryKind
-}
-
-const isIndustry = (entry: Located<Tile>): entry is Located<IndustryTile> =>
-  entry.tile.kind === 'factory' || entry.tile.kind === 'mine'
-
-/** The city's Factories and Mines. */
-export function industryInCity(state: VotesState, city: TownId[]): Located<IndustryTile>[] {
-  return tilesInCity(state, city).filter(isIndustry)
-}
-
-const MINE_VALUE = 2
-const FACTORY_BASE_VALUE = 1
+const isFaceUpResidence = (entry: Located<Tile>): entry is Located<ResidenceTile> =>
+  entry.tile.kind === 'residence' && !entry.tile.isFaceDown
 
 /**
- * What the Factory or Mine at `key` adds to its city's value at elections, as the board
- * stands: a Mine 2; a Factory 1, +1 if it touches a Mine.
- * The tile needn't be placed yet, so this also previews a placement.
+ * The face-up Residences: the seats, where people live. A face-down Residence is only a
+ * promise, so it's left out.
  */
-export function industryValue(state: VotesState, kind: IndustryKind, key: HexKey): number {
-  if (kind === 'mine') return MINE_VALUE
-  const touchesMine = hexAt(key).neighbors.some(neighbor => state.tiles[neighbor.key]?.kind === 'mine')
-  return FACTORY_BASE_VALUE + Number(touchesMine)
+export function residences(state: VotesState): Located<ResidenceTile>[] {
+  return tilesInBoardOrder(state).filter(isFaceUpResidence)
 }
 
-/** The value of the city's Factories and Mines added up. */
-export function cityValue(state: VotesState, city: TownId[]): number {
-  return industryInCity(state, city).reduce((total, { key, tile }) => total + industryValue(state, tile.kind, key), 0)
+/** The city's face-up Residences. */
+export function residencesInCity(state: VotesState, city: TownId[]): Located<ResidenceTile>[] {
+  return tilesInCity(state, city).filter(isFaceUpResidence)
 }
 
-/** Every city that has a School, by its first town. */
+/** How many face-up Factories the city has: each seat there scores 1 point per Factory. */
+export function faceUpFactoriesIn(state: VotesState, city: TownId[]): number {
+  return tilesInCity(state, city).filter(({ tile }) => tile.kind === 'factory' && !tile.isFaceDown).length
+}
+
+/** Whether the tile at `key` is a face-down Residence or Factory, a promise not yet kept. */
+export function isFaceDown(state: VotesState, key: HexKey): boolean {
+  const tile = state.tiles[key]
+  return (tile?.kind === 'residence' || tile?.kind === 'factory') && tile.isFaceDown
+}
+
+/**
+ * How far a city's schooling goes: 0 with no School, 1 with a School, 2 with a
+ * University. A city pulls people from cities that rank below it.
+ */
+export type SchoolRank = 0 | 1 | 2
+
+/** Every city's {@link SchoolRank}, by its first town; a city that's missing ranks 0. */
+export function schoolRanks(state: VotesState): Map<TownId, SchoolRank> {
+  const ranks = new Map<TownId, SchoolRank>()
+  for (const { key, tile } of tilesInBoardOrder(state)) {
+    if (tile.kind !== 'school') continue
+    const town = cityAt(state, key)[0]
+    const rank: SchoolRank = tile.isUniversity ? 2 : 1
+    if (rank > (ranks.get(town) ?? 0)) ranks.set(town, rank)
+  }
+  return ranks
+}
+
+/** Every city that has a School or a University, by its first town. */
 export function schoolCities(state: VotesState): Set<TownId> {
-  return new Set(tilesInBoardOrder(state).flatMap(({ key, tile }) => (tile.kind === 'school' ? [cityAt(state, key)[0]] : [])))
+  return new Set(schoolRanks(state).keys())
+}
+
+/** How many Schools and Universities the city has. */
+export function schoolsIn(state: VotesState, city: TownId[]): number {
+  return tilesInCity(state, city).filter(({ tile }) => tile.kind === 'school').length
 }
 
 /** Only Residences hold people. */
