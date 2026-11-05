@@ -144,13 +144,19 @@ describe('game end', () => {
   })
 
   it('breaks a tied score on cubes on the board', () => {
-    // Every town has 1 grey person, and HOME a vermillion beside its grey, so nobody can
-    // level. Grey takes every seat, the tied one included, and nobody scores; vermillion's
-    // is the only player cube on the board.
+    // Every town has 1 grey person, who doesn't vote, so nobody can level. HOME holds an
+    // Orchid and a vermillion, and the Orchid on the left wins the tie; NEXT holds a
+    // vermillion. Orchid and vermillion hold a seat each and score the same, but
+    // vermillion has 2 cubes on the board to Orchid's 1.
     const towns = Object.fromEntries(TOWN_IDS.map(town => [startOf(town), residence(['grey'])]))
-    const tied = withTiles(nearlyDone, { ...towns, [startOf(HOME)]: residence(['grey', 'vermillion']) })
+    const tied = withTiles(nearlyDone, {
+      ...towns,
+      [startOf(HOME)]: residence(['pink', 'vermillion']),
+      [startOf(NEXT)]: residence(['vermillion']),
+    })
     const state = lastMerger(withBag(tied, {}))
-    expect(state.players.every(player => player.score === 0)).toBe(true)
+    const [pink, vermillion] = state.players
+    expect(pink.score).toBe(vermillion.score)
     expect(state.phase).toEqual({ kind: 'gameOver', winners: ['vermillion'] })
   })
 

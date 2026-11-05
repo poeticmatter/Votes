@@ -14,7 +14,7 @@ function SeatLine({ seat, state }: { seat: SeatResult; state: VotesState }) {
           {seat.reason === 'leftmostOfTie' && <span className="italic">(tie, the leftmost wins)</span>}
         </>
       ) : (
-        <span className="italic">empty, counts for nobody</span>
+        <span className="italic">nobody votes here, so it’s nobody’s seat</span>
       )}
     </li>
   )

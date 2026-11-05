@@ -183,7 +183,7 @@ export const LEVELLING_EXAMPLE = {
   caption: [
     'Saffron builds a Residence beside A’s starting Residence, which holds 4 people.',
     'Levelling: a person may move to another Residence in the same city with at least 2 fewer people. 4 against 0, so one moves; then 3 against 1, so another; at 2 and 2 nobody can.',
-    'Saffron chooses who moves: an Orchid, then the grey. Each Residence now holds a tie, and the Orchid on the left wins both seats.',
+    'Saffron chooses who moves: an Orchid, then the grey. A’s starting Residence now holds a tie, and the Orchid on the left wins it. The grey in the new one doesn’t vote, so Orchid wins that seat too.',
     'Votes: 2 people moved, so Saffron adds 2 Saffron cubes to the bag.',
   ],
 }

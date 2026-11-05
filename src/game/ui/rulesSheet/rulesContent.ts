@@ -34,7 +34,7 @@ export const COMPONENTS: LeadText[] = [
     lead: 'Tiles',
     text: `${tileCounts.residence} Residences, ${tileCounts.factory} Factories, ${tileCounts.mine} Mines and ${tileCounts.school} Schools. Tiles belong to nobody.`,
   },
-  { lead: 'Pieces', text: `Cubes (people) in each player’s colour, ${greyCubes} grey cubes (independents) and a bag.` },
+  { lead: 'Pieces', text: `Cubes (people) in each player’s colour, ${greyCubes} grey cubes (independents, who never vote) and a bag.` },
   { lead: 'Payout table', text: 'For elections; it is printed below.' },
 ]
 
@@ -120,13 +120,13 @@ export const ELECTIONS_INTRO = 'Only the newly merged city votes.'
 export const ELECTIONS: TitledText[] = [
   {
     title: 'Seats',
-    text: 'Each Residence is a seat. The colour with the most cubes on it wins the seat.',
-    note: 'Ties go to the tied colour furthest left. An empty seat belongs to nobody.',
+    text: 'Each Residence is a seat. Grey people don’t vote: the player colour with the most cubes on it wins the seat.',
+    note: 'Ties go to the tied player colour furthest left. A seat where nobody votes, empty or all grey, belongs to nobody.',
   },
   {
     title: 'Payout',
     text: 'Add up the value of the city’s Factories and Mines. Find the points per seat on the payout table, from the city’s value and its number of seats. Each player scores that many points for each seat they hold.',
-    note: 'Grey and empty seats count toward the city’s seats but score for nobody. A city with no Factories or Mines pays nothing.',
+    note: 'Seats nobody holds count toward the city’s seats but score for nobody. A city with no Factories or Mines pays nothing.',
   },
 ]
 

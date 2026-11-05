@@ -11,8 +11,8 @@ describe('a Residence’s seat', () => {
     expect(seatWinner(['vermillion', 'vermillion', 'pink'])).toEqual({ winner: 'vermillion', reason: 'mostPeople' })
   })
 
-  it('goes to grey when grey has the most', () => {
-    expect(seatWinner(['grey', 'grey', 'pink'])).toEqual({ winner: 'grey', reason: 'mostPeople' })
+  it('ignores grey people, who never vote, however many there are', () => {
+    expect(seatWinner(['grey', 'grey', 'pink'])).toEqual({ winner: 'pink', reason: 'mostPeople' })
   })
 
   it('goes to the tied colour furthest left', () => {
@@ -20,12 +20,16 @@ describe('a Residence’s seat', () => {
     expect(seatWinner(['pink', 'vermillion', 'vermillion', 'pink'])).toEqual({ winner: 'pink', reason: 'leftmostOfTie' })
   })
 
-  it('can go to grey on a tie', () => {
-    expect(seatWinner(['grey', 'pink'])).toEqual({ winner: 'grey', reason: 'leftmostOfTie' })
+  it('breaks a tie between the voters only, skipping grey people to their left', () => {
+    expect(seatWinner(['grey', 'vermillion', 'pink'])).toEqual({ winner: 'vermillion', reason: 'leftmostOfTie' })
   })
 
   it('belongs to nobody when empty', () => {
-    expect(seatWinner([])).toEqual({ winner: null, reason: 'empty' })
+    expect(seatWinner([])).toEqual({ winner: null, reason: 'noVoters' })
+  })
+
+  it('belongs to nobody when only grey people live there', () => {
+    expect(seatWinner(['grey', 'grey'])).toEqual({ winner: null, reason: 'noVoters' })
   })
 })
 

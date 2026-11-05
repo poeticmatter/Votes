@@ -11,7 +11,7 @@
 ## Components
 - Hex map with mountains and 5 town sites, each with a starting Residence.
 - **Tiles:** [15] Residences, [10] Factories, [5] Mines and [5] Schools. Tiles belong to nobody.
-- Cubes in each player's color (people), plus [10] grey cubes (independents).
+- Cubes in each player's color (people), plus [10] grey cubes (independents). Grey people live in Residences and move like anyone else, but never vote.
 - One bag.
 
 ## Setup
@@ -66,7 +66,7 @@ You may not place a School in a city that already has one.
 ## Elections
 Only the newly merged city votes, once everyone has moved.
 
-1. **Each Residence is a seat.** The color with the most cubes on it wins the seat. **Ties go to the tied color furthest left.** An empty seat belongs to nobody.
+1. **Each Residence is a seat.** Grey people don't vote: the player color with the most cubes on it wins the seat. **Ties go to the tied player color furthest left.** A seat where nobody votes, empty or all grey, belongs to nobody.
 2. **Payout:** add up the value of the city's Factories and Mines. Find the points per seat on the table, using the city's total number of seats. Each player scores that many points for each seat they hold. A city with no Factories or Mines pays nothing.
 
 | City value | 2–3 seats | 4–6 | 7–10 | 11+ |
@@ -89,6 +89,7 @@ The game ends after the **4th election**, when the last two cities merge. Most p
   3. Housing is replaced by levelling (within a city, to a Residence with at least 2 fewer) and School pulls (from cities without a School, to a Residence with fewer).
   4. Every person who arrives or moves gives a vote, immigration included.
   5. Residences have no capacity.
+  6. Grey people never vote. They used to win seats (most cubes, or furthest left in a tie); now they're only population, and a Residence of greys belongs to nobody.
 - **No overcrowding threshold, on purpose.** Watch for new Residences draining small districts, and School pulls emptying rival cities. Add a threshold only if needed.
 - **Bag volume:** every arrival now adds a cube, so the bag refills as fast as it's drawn. In seeded test games the bag never ran out, and ended with 40–75 cubes.
 - **Ties are frequent:** least-crowded arrivals and levelling tie often, about 60–75 choices a game in seeded tests. Watch whether that's interesting or a chore.
@@ -103,7 +104,7 @@ The game ends after the **4th election**, when the last two cities merge. Most p
 - **Payout table:** an approximation of value ÷ seats, rounded up. It matches exact division 80% of the time and is off by 0.2 points per seat on average. It assumes about 3 industry tiles per 4 seats. That figure predates flat-2 Mines and the filled cells below.
 - **Filled cells:** lots of value in few seats (17+ in 2–3 seats, 25+ in 4–6) were blank. They're filled one step past their neighbors, below exact division, so a small city stacked with industry isn't a jackpot. They should rarely come up.
 - **Residences dilute:** each new seat can drop a city into a cheaper column. Watch whether Residences now feel aggressive, not like a setup for the next player.
-- **Grey seats** count toward the city's seats but score for nobody.
+- **Seats nobody holds**, empty or all grey, count toward the city's seats but score for nobody. Greys still dilute: they fill Residences and seats without ever winning one.
 - A tile touching three cities merges them all in one election. Allow it, or limit merges to two cities at a time?
 
 ### Interpretations chosen in the app (revisit)

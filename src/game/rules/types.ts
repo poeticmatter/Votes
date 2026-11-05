@@ -9,7 +9,10 @@ export const PLAYER_COLORS = ['pink', 'vermillion', 'blue', 'yellow', 'green'] a
 
 export type PlayerColor = (typeof PLAYER_COLORS)[number]
 
-/** Grey cubes are independents: people no player brought in. Those not seeded at setup go in the bag. */
+/**
+ * Grey cubes are independents: people no player brought in, who never vote. Those not
+ * seeded at setup go in the bag.
+ */
 export const INDEPENDENT = 'grey' as const
 
 /** A cube is a person. */
@@ -92,16 +95,16 @@ export interface MergerMarker {
 /** Levelling within a city, or a School city pulling from a city without one. */
 export type MoveReason = 'levelling' | 'schoolPull'
 
-/** Why a Residence's seat went where it did: the most people, the leftmost of a tie, or nobody's when empty. */
-export type SeatReason = 'mostPeople' | 'leftmostOfTie' | 'empty'
+/** Why a Residence's seat went where it did: the most voters, the leftmost of a tie, or nobody's when nobody there votes. */
+export type SeatReason = 'mostPeople' | 'leftmostOfTie' | 'noVoters'
 
 /** Every Residence is a seat. */
 export interface SeatResult {
   residence: HexKey
   /** Who lived there when the city voted. */
   people: CubeColor[]
-  /** Null only for an empty Residence. */
-  winner: CubeColor | null
+  /** Null when nobody there votes: the Residence is empty, or holds only grey people. */
+  winner: PlayerColor | null
   reason: SeatReason
 }
 
@@ -141,9 +144,9 @@ export type LogEntry =
  * Residences beside the rail, 10 Schools filling every Residence they touch, 11 Draft
  * 5.11 (no relocation; a School widens its city's housing, one School per city), 12
  * the 7-row map, 13 Draft 5.12 (no rail or Stations; arrivals into the least crowded
- * Residence, levelling and School pulls).
+ * Residence, levelling and School pulls), 14 grey people not voting.
  */
-export const RULES_VERSION = 13
+export const RULES_VERSION = 14
 
 export interface VotesState {
   /** {@link RULES_VERSION} when the game was created; missing in games from before it existed. */
