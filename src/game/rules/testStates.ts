@@ -1,11 +1,9 @@
 import { BOARD } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
-import { flipTargets, takeableKinds } from './actions'
-import { movementMoves } from './movement'
-import { legalPlacements, PLACEABLE_KINDS, withActivePlayer } from './placement'
+import { withActivePlayer } from './placement'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
 import { splitColumn } from './testMap'
-import type { CubeColor, PlaceableKind, Tile, VotesMove, VotesState } from './types'
+import type { CubeColor, PlaceableKind, Tile, VotesState } from './types'
 
 // Builders for rules tests. Positions are set directly, so a test can start from any
 // board without replaying the turns that would lead there. Where on the map a test
@@ -72,22 +70,4 @@ export function withTilesInHand(state: VotesState, tiles: Partial<Record<Placeab
       school: player.supply.school + (tiles.school ?? 0),
     },
   }))
-}
-
-/** Every action the active player could take now; a pass only when there is none. */
-export function legalActions(state: VotesState): VotesMove[] {
-  const takes = takeableKinds(state).map(tile => ({ kind: 'take' as const, tile }))
-  const placements = PLACEABLE_KINDS.flatMap(tile => legalPlacements(state, tile).map(at => ({ kind: 'place' as const, tile, at })))
-  const flips = flipTargets(state).map(at => ({ kind: 'flip' as const, at }))
-  const actions = [...takes, ...placements, ...flips]
-  return actions.length ? actions : [{ kind: 'pass' }]
-}
-
-/** Every move the active player could make now. */
-export function legalMoves(state: VotesState): VotesMove[] {
-  const { phase } = state
-  if (phase.kind === 'arrival') return phase.residences.map(residence => ({ kind: 'arrive', residence }))
-  if (phase.kind === 'movement') return movementMoves(state).map(move => ({ kind: 'move', ...move }))
-  if (phase.kind === 'gameOver') return []
-  return legalActions(state)
 }

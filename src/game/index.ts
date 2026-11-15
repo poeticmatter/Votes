@@ -1,4 +1,5 @@
 import type { GameModule } from 'game-kit/turns'
+import { votesBot } from './bot'
 import { votesRules } from './rules'
 import { DEFAULT_SETTINGS } from './rules/setup'
 import { MAX_PLAYERS, MIN_PLAYERS, PLAYER_COLORS, type VotesMove, type VotesSettings, type VotesState } from './rules/types'
@@ -9,6 +10,7 @@ import { PIECE_COLORS } from './ui/pieceColors'
 /** Votes, plugged into the platform. Seat i plays PLAYER_COLORS[i]. */
 export const game: GameModule<VotesSettings, VotesState, VotesMove> = {
   rules: votesRules,
+  bot: votesBot,
   minPlayers: MIN_PLAYERS,
   maxPlayers: MAX_PLAYERS,
   defaultSettings: DEFAULT_SETTINGS,

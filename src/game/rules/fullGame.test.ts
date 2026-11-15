@@ -4,7 +4,7 @@ import { BOARD } from '../map/board'
 import { bagSize, citiesOf, peopleOnBoard } from './boardQueries'
 import { citiesTouchedBy } from './mergers'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
-import { legalMoves } from './testStates'
+import { legalMoves } from './legalMoves'
 import { applyMove } from './turnFlow'
 import type { VotesMove, VotesState } from './types'
 
