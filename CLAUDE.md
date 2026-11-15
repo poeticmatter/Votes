@@ -41,6 +41,19 @@ Votes: a 3–5 player, take-turns-in-order browser game with no backend of its o
 - **Solo playtest** (`'solo_playtest'`, "Solo Playtest" in the lobby): one tester plays several tables at once, dealt a random seat each turn, and the dealt seat always wears seat 0's colour (Orchid) while the others' colours are shuffled. The board draws, names and orders every player colour through `BoardProps.lookOf` (via `ui/viewer.tsx`: `usePieceColorOf`, `useByLook`), never `PIECE_COLORS[color]` directly; lists of players start from the viewer's seat. `rules.outcome` gives the summary its winners and scores. `docs/solo-playtest.md` explains the colour swap for other games to copy; keep it in step with GameKit and `viewer.tsx`.
 - To change platform behaviour, change GameKit, tag a release, and bump the `game-kit` version in `package.json`. Don't patch `node_modules/game-kit`.
 
+## Rules document and design log
+
+Claude keeps two documents in `docs/` and updates them in the same change as the work they describe, without being asked:
+
+- **`docs/rules.md`**: the game's rules as it plays them now, in plain language, as a new player would read them: what you're trying to do, what's on the table, setup, a turn, how it ends. No code names, file paths or jargon. Every change to the rules or content updates it, so it always matches the game.
+- **`docs/design-log.md`**: what changed and why, newest first, in two sections:
+  - **Game design**: the game itself: rules, content (map, tiles, cards, numbers and dials) and balance.
+  - **Game development**: everything else: the board and UI, visuals, GameKit bumps, bots, tooling, and fixes that don't change the rules.
+
+  One entry per change, headed by its date and a short title, in the section it belongs to; a change that does both gets an entry in each. Say what changed for players and, when it's known, why. Leave how it was built to the commits.
+
+In Votes, `docs/rules.md` is separate from the designer's draft (`docs/rules-draft-5.13.md`): the draft stays the designer's text, while `rules.md` describes what the game plays, the rule interpretations below included.
+
 ## Rules
 
 - All state changes go through `rules.applyMove`. UI components only render state and submit moves.
