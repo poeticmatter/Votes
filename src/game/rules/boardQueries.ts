@@ -86,6 +86,11 @@ export function schoolCities(state: VotesState): Set<TownId> {
   return new Set(schoolRanks(state).keys())
 }
 
+/** Every city that has a Town Hall, by its first town. */
+export function hallCities(state: VotesState): Set<TownId> {
+  return new Set(tilesInBoardOrder(state).flatMap(({ key, tile }) => (tile.kind === 'hall' ? [cityAt(state, key)[0]] : [])))
+}
+
 /** How many Schools and Universities the city has. */
 export function schoolsIn(state: VotesState, city: TownId[]): number {
   return tilesInCity(state, city).filter(({ tile }) => tile.kind === 'school').length

@@ -53,7 +53,7 @@ describe('arrivals', () => {
   it('settles its own person where they take a seat', () => {
     const [rivals, independents] = [startOf(HOME), startOf(NEXT)]
     const tied = withTiles(newGame(), { [rivals]: residence(['vermillion']), [independents]: residence(['grey']) })
-    const arriving: VotesState = { ...tied, phase: { kind: 'arrival', person: 'pink', residences: [rivals, independents], remainingCities: [] } }
+    const arriving: VotesState = { ...tied, phase: { kind: 'arrival', person: 'pink', residences: [rivals, independents], remainingCities: [], destination: 'leastCrowded' } }
     expect(chooseBotMove(arriving, 0)).toEqual({ kind: 'arrive', residence: independents })
   })
 })

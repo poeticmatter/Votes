@@ -4,6 +4,21 @@ What changed and why, newest first. **Game design** is the game itself: rules, c
 
 ## Game design
 
+### 2026-11-16: Eminent domain removed
+Building over Residences is gone from the proposed rules. Re-simulated without it, with every other tile and Hubs adding 2 cubes, Hubs still get played (all of them, against none at 0 cubes), and close finishes are a little more common (up to 10%). Games are less fair than with it: about 6–7 points of seat bias at best with catch-up cubes of 0, 1, 2, 2, 2. Details in `docs/simulations.md`.
+
+### 2026-11-16: Everything together, with Hubs adding 2 cubes
+Simulated: Hubs, Ports, eminent domain and Town Halls all at once, with the own-city Factory, and a Hub adding 2 of its placer's cubes to the bag. Hubs then get placed for their own sake, rather than mostly as the tile built over Residences. Without catch-up cubes, the first player's edge grows (1.66x). With catch-up cubes of 0, 1, 1, 2, 2 it's as fair as any set tested, with comebacks in 59% of games, but close finishes stay rare (6%). Details in `docs/simulations.md`.
+
+### 2026-11-16: Round 3: Factories bring people to their own city
+Simulated: a placed Factory brings 2 people for its own city, not 1 for every city. They can settle in any city Hubs join it to, and go to the best-schooled of them. Catch-up cubes were tested with the second player getting fewer than later players. Fewer people arrive, so games are lower-scoring and a little closer, and the first player's edge shrinks. Catch-up cubes of 0, 1, 2, 2, 2 by turn position then make it the fairest set of all three rounds. With Town Halls it's the new recommended set. The cost is that good play counts for less, unless Ports are in. Hubs still go unplayed. Nothing is adopted; the game still plays 5.13. Details in `docs/simulations.md`.
+
+### 2026-11-15: Round 2: place-only turns simulated
+Taking and flipping were dropped: a turn is placing a tile, face up, from a supply of 8 Residences, 2 Factories and 1 School each. Cities then always merge, but early, after 6 or 7 turns each with half the tiles unplaced, so the map doesn't need tightening. The first player won about twice their share, because each arrival added the placer's cube to the bag. Adding only the placed tiles' cubes, plus catch-up cubes of 0, 1, 1, 2, 2 by turn position, made it the fairest set tested. With Town Halls it's the recommended set. Hubs went almost unused, and close finishes are rare. Still to try: slowing the merging, and Factories scoring less. Details in `docs/simulations.md`.
+
+### 2026-11-15: Proposed rules simulated: Hubs, Ports, eminent domain, personal tiles, cubes per tile
+Five proposals were simulated with bots, alone and in every combination, with personal tiles and cubes per tile always in. A Town Hall tile and some number changes were tried too. None is adopted yet; the game still plays 5.13. Hubs did the most of the five proposals, and Hubs plus Ports was the best combination of them. Eminent domain changed little under bots. Adding a Town Hall (its city votes at once) roughly doubled the elections and the comebacks, at the cost of fewer close finishes. The second player won most often under every rule set, 5.13 included. The data and the guessed details are in `docs/simulations.md`.
+
 ### 2026-11-05: Rules Draft 5.13: one action a turn, face-down promises, Universities
 - A turn is one action: take a Factory or School from the shared supply, place a tile from your own supply, or flip any face-down tile. Players start with 2 Residence tiles of their own.
 - Residences and Factories are placed face down as promises. A face-down Residence adds a cube to the bag per overcrowded (4+) Residence in its city; a face-down Factory gives its placer 2 Residence tiles.
@@ -90,6 +105,18 @@ Setup prints two Factories in district E and deals 2 families onto each printed 
 The map, districts and look ported from the asset generator, with rules for placement, the School bonus, immigration from a seeded bag, mergers, elections and the game's end. The bracketed values in the rules became lobby settings.
 
 ## Game development
+
+### 2026-11-16: Eminent domain option removed
+The setting, the bot's valuation of it, its log entry and its tests are gone, and the simulation sets no longer combine it. Saved games from before show the "different version" message.
+
+### 2026-11-16: An own-city Factory option
+A new setting, off by default, has a placed Factory bring 2 people for its own city, who settle in the best-schooled city its Hubs reach. The player picks between tied Residences, as for any arrival. The bot values it by the people it's likely to bring.
+
+### 2026-11-15: Place-only options for the simulations
+New settings, off by default: place-only turns (no taking or flipping, every tile face up), placed Factories drawing people, quiet arrivals, catch-up cubes by turn position, and closed hexes for trying tighter maps. Eminent domain no longer builds a Residence over a Residence. The bot values face-up Residences and Factories, and values a first Hub more.
+
+### 2026-11-15: Rule options and a simulation runner
+On the `explore/new-rules` branch, the proposed rules are settings that are off by default: Hubs, Ports, Town Halls, eminent domain, personal tiles and cubes per tile. The bot plays them, and `scripts/simulate/` plays many seeded bot games per rule set and measures them (lead changes, comebacks, close finishes, seat bias, and so on). The board draws the new tiles as plain lettered hexes and logs what they do. The lobby can't switch them on yet.
 
 ### 2026-11-15: A plain-language rules document and this log
 `docs/rules.md` describes the game as it plays now, and this log records changes in two parts. Both are kept up to date with every change.

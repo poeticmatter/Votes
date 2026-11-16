@@ -81,6 +81,27 @@ const BuildingTile = ({ center, fill, kind }: { center: Point; fill: string; kin
   )
 }
 
+/** Proposed tiles not yet drawn by the asset generator: a plain tile with a letter (H for Hub, P for Port, T for Town Hall). */
+const LETTERED_TILE_FONT_SIZE = 44
+
+const LetteredTile = ({ center, fill, letter }: { center: Point; fill: string; letter: string }) => (
+  <g>
+    <TileBase center={center} fill={fill} />
+    <text
+      x={center.x}
+      y={center.y}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontFamily={FONT_FAMILY}
+      fontWeight={700}
+      fontSize={LETTERED_TILE_FONT_SIZE}
+      fill={TILE_STYLE.ink}
+    >
+      {letter}
+    </text>
+  </g>
+)
+
 const FACE_DOWN_GLYPH_SCALE = 0.7
 
 /** A face-down Residence or Factory: a promise, pale and dashed, its kind shown faintly. */
@@ -116,6 +137,12 @@ export function TilePiece({ tile, center, townLetter }: { tile: Tile; center: Po
       return <BuildingTile center={center} fill={fill} kind="factory" />
     case 'school':
       return <BuildingTile center={center} fill={fill} kind={tile.isUniversity ? 'university' : 'school'} />
+    case 'hub':
+      return <LetteredTile center={center} fill={fill} letter="H" />
+    case 'port':
+      return <LetteredTile center={center} fill={fill} letter="P" />
+    case 'hall':
+      return <LetteredTile center={center} fill={fill} letter="T" />
   }
 }
 

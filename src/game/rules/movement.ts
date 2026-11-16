@@ -1,7 +1,8 @@
 import { IllegalMoveError } from 'game-kit/turns'
 import type { HexKey } from '../map/hexGrid'
-import { cityAt, crowdOf, residences, schoolRanks } from './boardQueries'
-import { isSameMove, isWithinCity, movePerson, movesFrom } from './people'
+import type { TownId } from '../map/mapData'
+import { cityAt, crowdOf, residences, schoolRanks, tilesInBoardOrder, type SchoolRank } from './boardQueries'
+import { isSameMove, movePerson, movesFrom } from './people'
 import type { MoveReason, PersonMove, VotesState } from './types'
 
 // Movement, after a flip or a School placement, until nobody can move. Two kinds of move,
@@ -17,6 +18,10 @@ import type { MoveReason, PersonMove, VotesState } from './types'
 // destination; the active player breaks ties and chooses which person (colour) moves. A
 // move that is the only one possible happens by itself. Moving adds nothing to the bag.
 //
+// Hubs (a proposed tile): every city with a Hub counts as one city for all of this, so
+// people level between them, and they pull, and are pulled, as one, at the best rank
+// any of them has.
+//
 // It always ends: levelling evens out the Residences' sizes, and a pull never makes them
 // less even while moving someone up a rank for good. So the sum of the squared sizes plus
 // each person's rank shortfall (2 minus their city's rank) falls with every move.
@@ -29,18 +34,52 @@ interface Candidate {
   to: HexKey
 }
 
+/** Stands for every city with a Hub, which move people as one. */
+const HUB_AREA = 'hub'
+
+type MovementArea = TownId | typeof HUB_AREA
+
+function hubCities(state: VotesState): Set<TownId> {
+  return new Set(tilesInBoardOrder(state).flatMap(({ key, tile }) => (tile.kind === 'hub' ? [cityAt(state, key)[0]] : [])))
+}
+
+/** Which area each Residence moves people in: its city, or all the Hub cities together. */
+function movementAreas(state: VotesState): (key: HexKey) => MovementArea {
+  const hubs = hubCities(state)
+  return key => {
+    const town = cityAt(state, key)[0]
+    return hubs.has(town) ? HUB_AREA : town
+  }
+}
+
+/** The face-up Residences people in `city` can reach: its own, or every Hub city's if it has a Hub. */
+export function residencesInReach(state: VotesState, city: TownId[]): HexKey[] {
+  const areaOf = movementAreas(state)
+  const area: MovementArea = hubCities(state).has(city[0]) ? HUB_AREA : city[0]
+  return residences(state)
+    .map(({ key }) => key)
+    .filter(key => areaOf(key) === area)
+}
+
+function areaRanks(state: VotesState, areaOf: (key: HexKey) => MovementArea): (key: HexKey) => SchoolRank {
+  const ranks = schoolRanks(state)
+  const hubs = hubCities(state)
+  const hubRank = Math.max(0, ...[...hubs].map(town => ranks.get(town) ?? 0)) as SchoolRank // the max of SchoolRanks is one
+  return key => (areaOf(key) === HUB_AREA ? hubRank : (ranks.get(cityAt(state, key)[0]) ?? 0))
+}
+
 function levellingCandidates(state: VotesState, homes: HexKey[]): Candidate[] {
+  const areaOf = movementAreas(state)
   return homes.flatMap(from =>
     homes
-      .filter(to => to !== from && isWithinCity(state, from, to))
+      .filter(to => to !== from && areaOf(to) === areaOf(from))
       .filter(to => crowdOf(state, from) - crowdOf(state, to) >= LEVELLING_GAP)
       .map(to => ({ from, to })),
   )
 }
 
 function pullCandidates(state: VotesState, homes: HexKey[]): Candidate[] {
-  const ranks = schoolRanks(state)
-  const rankAt = (key: HexKey) => ranks.get(cityAt(state, key)[0]) ?? 0
+  const rankAt = areaRanks(state, movementAreas(state))
   return homes.flatMap(from =>
     homes
       .filter(to => rankAt(to) > rankAt(from))
@@ -71,9 +110,10 @@ export function movementMoves(state: VotesState): PersonMove[] {
   return candidates(state).flatMap(({ from, to }) => movesFrom(state, from, [to]))
 }
 
-/** Why the move happens: levelling within a city, or a pull from another. */
+/** Why the move happens: levelling within a city (or between Hub cities), or a pull from another. */
 export function moveReason(state: VotesState, { from, to }: PersonMove): MoveReason {
-  return isWithinCity(state, from, to) ? 'levelling' : 'schoolPull'
+  const areaOf = movementAreas(state)
+  return areaOf(from) === areaOf(to) ? 'levelling' : 'schoolPull'
 }
 
 export function isMovementOver(state: VotesState): boolean {

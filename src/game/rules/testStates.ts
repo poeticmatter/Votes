@@ -1,6 +1,6 @@
 import { BOARD } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
-import { withActivePlayer } from './placement'
+import { PLACEABLE_KINDS, withActivePlayer } from './placement'
 import { createInitialState, DEFAULT_SETTINGS } from './setup'
 import { splitColumn } from './testMap'
 import type { CubeColor, PlaceableKind, Tile, VotesState } from './types'
@@ -64,10 +64,8 @@ export const joiningHex = (): HexKey => splitColumn().joining
 export function withTilesInHand(state: VotesState, tiles: Partial<Record<PlaceableKind, number>>): VotesState {
   return withActivePlayer(state, player => ({
     ...player,
-    supply: {
-      residence: player.supply.residence + (tiles.residence ?? 0),
-      factory: player.supply.factory + (tiles.factory ?? 0),
-      school: player.supply.school + (tiles.school ?? 0),
-    },
+    supply: Object.fromEntries(
+      PLACEABLE_KINDS.map(kind => [kind, player.supply[kind] + (tiles[kind] ?? 0)]),
+    ) as Record<PlaceableKind, number>, // fromEntries loses the keys; PLACEABLE_KINDS covers every kind.
   }))
 }

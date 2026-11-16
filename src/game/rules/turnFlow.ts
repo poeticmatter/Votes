@@ -3,11 +3,11 @@ import { activePlayerState, cityAt, citiesOf, peopleOnBoard } from './boardQueri
 import { holdElection } from './elections'
 import type { HexKey } from '../map/hexGrid'
 import { flipTargets, flipTile, placeAndPromise, takeableKinds, takeTile } from './actions'
-import { arrive, beginImmigration } from './immigration'
+import { arrive, beginImmigration, beginOwnCityArrivals } from './immigration'
 import { addMergerMarkers, citiesTouchedBy } from './mergers'
 import { beginMovement, isMovementOver, moveOnePerson, moveWhileForced } from './movement'
 import { placeableKinds } from './placement'
-import type { Phase, PlayerColor, VotesMove, VotesState } from './types'
+import type { FactoryArrivals, Phase, PlaceableKind, PlayerColor, VotesMove, VotesState } from './types'
 
 // A turn is one action: take a tile from the shared supply, place one from your own, or
 // flip one. Placing a School, or flipping anything, moves people (levelling, then School
@@ -60,11 +60,19 @@ function endGame(state: VotesState, reason: GameOverReason): VotesState {
   }
 }
 
+/** A Town Hall that joined no cities still has its city vote. */
+function hallElection(state: VotesState, at: HexKey): VotesState {
+  if (state.tiles[at]?.kind !== 'hall') return state
+  const city = cityAt(state, at)
+  const entry = { kind: 'hallElection' as const, turn: state.turn.number, city, electionNumber: state.elections.length + 1 }
+  return holdElection({ ...state, log: [...state.log, entry] }, city)
+}
+
 function resolveMerger(state: VotesState): VotesState {
   const at = state.turn.placedAt
   if (!at) return state
   const { joins } = citiesTouchedBy(state, at)
-  if (joins.length === 0) return state
+  if (joins.length === 0) return hallElection(state, at)
 
   const merged = addMergerMarkers(state, joins)
   const city = cityAt(merged, at)
@@ -137,6 +145,35 @@ export function drawsFromBag(state: VotesState, move: VotesMove): boolean {
   return applyMove(state, move).randomState !== state.randomState
 }
 
+/**
+ * Who placing a tile of `kind` brings from the bag: a Port brings 1 person for every city;
+ * with place-only turns, a Factory brings whoever `factoryArrivals` says.
+ */
+function arrivalsOnPlace(state: VotesState, kind: PlaceableKind): FactoryArrivals {
+  if (kind === 'port') return 'everyCity'
+  return kind === 'factory' && state.options.isPlaceOnly ? state.options.factoryArrivals : 'none'
+}
+
+/**
+ * Whether placing a tile of `kind` changes where people want to be: a School or Hub, a
+ * Residence placed face up (a new seat to level into). Face-down promises move nobody.
+ */
+function movesPeopleOnPlace(state: VotesState, kind: PlaceableKind): boolean {
+  return kind === 'school' || kind === 'hub' || (kind === 'residence' && state.options.isPlaceOnly)
+}
+
+/** A tile that brings people brings them first; then everyone moves, if anything changed where they want to be. */
+function afterPlacing(placed: VotesState, kind: PlaceableKind, at: HexKey): VotesState {
+  switch (arrivalsOnPlace(placed, kind)) {
+    case 'everyCity':
+      return advance(beginImmigration(placed))
+    case 'ownCity':
+      return advance(beginOwnCityArrivals(placed, at))
+    case 'none':
+      return movesPeopleOnPlace(placed, kind) ? advance(beginMovement(placed)) : endTurn(placed)
+  }
+}
+
 /** Applies the active player's move. Throws {@link IllegalMoveError} if it breaks the rules. */
 export function applyMove(state: VotesState, move: VotesMove): VotesState {
   switch (move.kind) {
@@ -145,9 +182,7 @@ export function applyMove(state: VotesState, move: VotesMove): VotesState {
       return endTurn(takeTile(acted(state), move.tile))
     case 'place': {
       requirePhase(state, 'action')
-      const placed = placeAndPromise(acted(state), move.tile, move.at)
-      // Only a School changes where people want to be; face-down promises move nobody.
-      return move.tile === 'school' ? advance(beginMovement(placed)) : endTurn(placed)
+      return afterPlacing(placeAndPromise(acted(state), move.tile, move.at), move.tile, move.at)
     }
     case 'flip':
       requirePhase(state, 'action')

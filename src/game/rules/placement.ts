@@ -1,27 +1,28 @@
 import { IllegalMoveError } from 'game-kit/turns'
 import { BOARD } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
-import { activePlayerState, cityAt, schoolCities } from './boardQueries'
+import { activePlayerState, cityAt, hallCities, schoolCities } from './boardQueries'
 import type { PlaceableKind, PlayerState, Tile, VotesState } from './types'
 
 // Placing a tile from your own supply, as your turn's action. Residences and Factories go
-// face down, as promises; Schools go face up. Every tile goes on an empty open hex
-// touching a tile; mountains take nothing.
+// face down, as promises; Schools, Hubs and Ports go face up. Every tile goes on an
+// empty open hex touching a tile; mountains take nothing.
 
-export const PLACEABLE_KINDS: readonly PlaceableKind[] = ['residence', 'factory', 'school']
+export const PLACEABLE_KINDS: readonly PlaceableKind[] = ['residence', 'factory', 'school', 'hub', 'port', 'hall']
 
 /**
- * An empty open hex touching a tile. A School may not go in a city that already has
- * one, nor join one.
+ * An empty open hex touching a tile. A School may not go in a city that already has one,
+ * nor join one; nor may a Town Hall.
  */
 function isLegalHex(state: VotesState, kind: PlaceableKind, at: HexKey): boolean {
   const hex = BOARD.hexByKey.get(at)
-  if (!hex || hex.terrain !== 'open' || state.tiles[at]) return false
+  if (!hex || hex.terrain !== 'open' || state.options.closedHexes.includes(at)) return false
+  if (state.tiles[at]) return false
   const touched = hex.neighbors.filter(({ key }) => state.tiles[key])
   if (touched.length === 0) return false
-  if (kind !== 'school') return true
-  const schools = schoolCities(state)
-  return touched.every(({ key }) => !schools.has(cityAt(state, key)[0]))
+  if (kind !== 'school' && kind !== 'hall') return true
+  const taken = kind === 'school' ? schoolCities(state) : hallCities(state)
+  return touched.every(({ key }) => !taken.has(cityAt(state, key)[0]))
 }
 
 /** Hexes where the active player may place a tile of `kind` from their supply right now; none if they have none. */
@@ -35,11 +36,12 @@ export function placeableKinds(state: VotesState): PlaceableKind[] {
   return PLACEABLE_KINDS.filter(kind => legalPlacements(state, kind).length > 0)
 }
 
-/** A tile as it's placed: Residences and Factories face down, Schools face up. */
-export function newTile(kind: PlaceableKind): Tile {
-  if (kind === 'residence') return { kind, isFaceDown: true, people: [] }
-  if (kind === 'factory') return { kind, isFaceDown: true }
-  return { kind, isUniversity: false }
+/** A tile as it's placed: Residences and Factories face down unless turns are place-only, the rest face up. */
+export function newTile(kind: PlaceableKind, isPlaceOnly: boolean): Tile {
+  if (kind === 'residence') return { kind, isFaceDown: !isPlaceOnly, people: [] }
+  if (kind === 'factory') return { kind, isFaceDown: !isPlaceOnly }
+  if (kind === 'school') return { kind, isUniversity: false }
+  return { kind }
 }
 
 /** Updates the active player, for actions that change their supply. */
@@ -56,7 +58,7 @@ export function placeTile(state: VotesState, kind: PlaceableKind, at: HexKey): V
   const placed = withActivePlayer(state, current => ({ ...current, supply: { ...current.supply, [kind]: current.supply[kind] - 1 } }))
   return {
     ...placed,
-    tiles: { ...state.tiles, [at]: newTile(kind) },
+    tiles: { ...state.tiles, [at]: newTile(kind, state.options.isPlaceOnly) },
     turn: { ...state.turn, placedAt: at },
     log: [...state.log, { kind: 'placed', turn: state.turn.number, player: player.color, tile: kind, at }],
   }

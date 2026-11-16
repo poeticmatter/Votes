@@ -72,7 +72,7 @@ const BADGE_OFFSET = { x: 54, y: -50 }
 export const PlacementFigure = () => (
   <MapExcerpt position={PLACEMENT_EXAMPLE.position} label="Five hexes around town B, numbered as in the text">
     {PLACEMENT_EXAMPLE.candidates.map(candidate => (
-      <GhostTile key={candidate.number} tile={newTile(candidate.kind)} center={centerOfHex(candidate.at)} />
+      <GhostTile key={candidate.number} tile={newTile(candidate.kind, false)} center={centerOfHex(candidate.at)} />
     ))}
     {PLACEMENT_EXAMPLE.candidates.map(candidate => (
       <NumberBadge

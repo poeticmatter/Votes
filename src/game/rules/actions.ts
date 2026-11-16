@@ -26,7 +26,7 @@ import {
 
 /** Kinds the active player may take from the shared supply now. */
 export function takeableKinds(state: VotesState): TakeableKind[] {
-  if (state.phase.kind !== 'action') return []
+  if (state.phase.kind !== 'action' || state.options.isPlaceOnly) return []
   return TAKEABLE_KINDS.filter(kind => state.supply[kind] > 0)
 }
 
@@ -59,9 +59,23 @@ function promiseFactory(state: VotesState): VotesState {
   return { ...rewarded, supply: { ...state.supply, residence: state.supply.residence - count }, log: [...state.log, entry] }
 }
 
-/** Places a tile from the active player's supply, with whatever its placing promises. */
+/** With cubes per tile (a proposed rule), the tile adds its kind's cubes of the placer's colour to the bag. */
+function bagCubesFor(state: VotesState, kind: PlaceableKind, cubesByKind: Record<PlaceableKind, number>): VotesState {
+  const player = activePlayerState(state).color
+  const count = cubesByKind[kind]
+  const bagged = addToBag(state, player, count)
+  return { ...bagged, log: [...bagged.log, { kind: 'bagged', turn: state.turn.number, player, tile: kind, count }] }
+}
+
+/**
+ * Places a tile from the active player's supply, with whatever its placing promises: the
+ * 5.13 promises of face-down Residences and Factories, or the cubes per tile that
+ * replace them. Whatever follows (a Port's arrivals, movement) is up to the turn.
+ */
 export function placeAndPromise(state: VotesState, kind: PlaceableKind, at: HexKey): VotesState {
   const placed = placeTile(state, kind, at)
+  const { bagCubesOnPlace } = state.options
+  if (bagCubesOnPlace) return bagCubesFor(placed, kind, bagCubesOnPlace)
   if (kind === 'residence') return promiseResidence(placed, at)
   if (kind === 'factory') return promiseFactory(placed)
   return placed
@@ -70,13 +84,13 @@ export function placeAndPromise(state: VotesState, kind: PlaceableKind, at: HexK
 /** What flipping the tile would make of it, or null if it can't be flipped now. */
 function flipInto(state: VotesState, key: HexKey, tile: Tile): FlippedInto | null {
   if (tile.kind === 'residence' || tile.kind === 'factory') return tile.isFaceDown ? tile.kind : null
-  if (tile.isUniversity) return null
+  if (tile.kind !== 'school' || tile.isUniversity) return null
   return schoolsIn(state, cityAt(state, key)) >= 2 ? 'university' : null
 }
 
 /** Tiles the active player may flip now: any face-down tile, anyone's, and Schools in a city with two. */
 export function flipTargets(state: VotesState): HexKey[] {
-  if (state.phase.kind !== 'action') return []
+  if (state.phase.kind !== 'action' || state.options.isPlaceOnly) return []
   return tilesInBoardOrder(state)
     .filter(({ key, tile }) => flipInto(state, key, tile) !== null)
     .map(({ key }) => key)
@@ -84,7 +98,8 @@ export function flipTargets(state: VotesState): HexKey[] {
 
 function flipped(tile: Tile): Tile {
   if (tile.kind === 'school') return { ...tile, isUniversity: true }
-  return { ...tile, isFaceDown: false }
+  if (tile.kind === 'residence' || tile.kind === 'factory') return { ...tile, isFaceDown: false }
+  throw new Error(`A ${tile.kind} can't be flipped`)
 }
 
 /** Flips the tile at `at`. What follows (immigration or movement) is up to the turn. */

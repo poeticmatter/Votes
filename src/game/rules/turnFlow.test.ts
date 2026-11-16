@@ -19,9 +19,8 @@ import {
   withTiles,
   withTilesInHand,
 } from './testStates'
+import { NO_TILES } from './setup'
 import type { VotesState } from './types'
-
-const NO_TILES = { residence: 0, factory: 0, school: 0 }
 
 /** Nobody has a tile to take or place, and nothing is face down. */
 function withNothingToDo(state: VotesState): VotesState {

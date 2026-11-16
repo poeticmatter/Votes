@@ -19,11 +19,17 @@ import {
   type VotesState,
 } from './types'
 
-/** The rules' playtest values. */
+/** No tiles of any kind. */
+export const NO_TILES: Record<PlaceableKind, number> = { residence: 0, factory: 0, school: 0, hub: 0, port: 0, hall: 0 }
+
+/** The rules' playtest values: Draft 5.13, with none of the proposed rule options. */
 export const DEFAULT_SETTINGS: VotesSettings = {
   startingCubesPerPlayer: 2,
   greyCubes: 10,
-  tileCounts: { residence: 15, factory: 10, school: 5 },
+  tileCounts: { ...NO_TILES, residence: 15, factory: 10, school: 5 },
+  personalTiles: null,
+  catchUpCubes: [],
+  options: { bagCubesOnPlace: null, isPlaceOnly: false, factoryArrivals: 'none', arrivalsAddCubes: true, closedHexes: [] },
 }
 
 const STARTING_PEOPLE = TOWN_IDS.length * STARTING_PEOPLE_PER_RESIDENCE
@@ -37,12 +43,15 @@ export function greyPeopleAtSetup(playerCount: PlayerCount): number {
   return STARTING_PEOPLE - playerCount * STARTING_PEOPLE_PER_PLAYER
 }
 
-/** The grey cubes left over after seeding go in the bag, with each player's cubes. */
-function startingBag(settings: VotesSettings, playerCount: PlayerCount): VotesState['bag'] {
+/** The grey cubes left over after seeding go in the bag, with each player's cubes and any catch-up cubes. */
+function startingBag(settings: VotesSettings, playerCount: PlayerCount, firstPlayerIndex: number): VotesState['bag'] {
   const greyInBag = Math.max(0, settings.greyCubes - greyPeopleAtSetup(playerCount))
+  const placesAfterFirst = (seat: number) => (seat - firstPlayerIndex + playerCount) % playerCount
   return {
     [INDEPENDENT]: greyInBag,
-    ...Object.fromEntries(PLAYER_COLORS.slice(0, playerCount).map(color => [color, settings.startingCubesPerPlayer])),
+    ...Object.fromEntries(
+      PLAYER_COLORS.slice(0, playerCount).map((color, seat) => [color, settings.startingCubesPerPlayer + (settings.catchUpCubes[placesAfterFirst(seat)] ?? 0)]),
+    ),
   }
 }
 
@@ -82,13 +91,21 @@ function startingTiles(peopleByTown: CubeColor[][]): Record<HexKey, Tile> {
 
 interface StartingSupplies {
   shared: Record<PlaceableKind, number>
-  perPlayer: number
+  eachPlayer: Record<PlaceableKind, number>
 }
 
-/** Each player takes their starting Residences from the shared supply, as many as it can spare evenly. */
-function dealStartingResidences(tileCounts: Record<PlaceableKind, number>, playerCount: PlayerCount): StartingSupplies {
+/**
+ * Each player takes their starting Residences from the shared supply, as many as it can
+ * spare evenly; or, with personal tiles, starts with their own and there's no shared supply.
+ */
+function dealStartingTiles(settings: VotesSettings, playerCount: PlayerCount): StartingSupplies {
+  if (settings.personalTiles) return { shared: NO_TILES, eachPlayer: settings.personalTiles }
+  const { tileCounts } = settings
   const perPlayer = Math.min(STARTING_RESIDENCES_PER_PLAYER, Math.floor(tileCounts.residence / playerCount))
-  return { shared: { ...tileCounts, residence: tileCounts.residence - perPlayer * playerCount }, perPlayer }
+  return {
+    shared: { ...tileCounts, residence: tileCounts.residence - perPlayer * playerCount },
+    eachPlayer: { ...NO_TILES, residence: perPlayer },
+  }
 }
 
 export interface VotesSetup {
@@ -100,24 +117,25 @@ export interface VotesSetup {
 export function createInitialState({ settings, playerCount, seed }: VotesSetup): VotesState {
   if (!isPlayerCount(playerCount)) throw new Error(`Votes is for ${MIN_PLAYERS}–${MAX_PLAYERS} players, not ${playerCount}`)
   // A lobby running an older deploy sends its own set of dials.
-  if (typeof settings.greyCubes !== 'number' || !settings.tileCounts || 'arrivals' in settings) {
+  if (typeof settings.greyCubes !== 'number' || !settings.tileCounts || !settings.options?.factoryArrivals || 'arrivals' in settings) {
     throw new Error('These settings come from an older version of Votes; reload the page and start again')
   }
 
   const colors = PLAYER_COLORS.slice(0, playerCount)
-  const { shared, perPlayer } = dealStartingResidences(settings.tileCounts, playerCount)
+  const { shared, eachPlayer } = dealStartingTiles(settings, playerCount)
   const { index: firstPlayerIndex, nextState: afterFirstPlayer } = nextIndex(seed >>> 0, playerCount)
   const { peopleByTown, randomState } = seedPeople(playerCount, afterFirstPlayer)
 
   return {
     rulesVersion: RULES_VERSION,
-    players: colors.map(color => ({ color, score: 0, supply: { residence: perPlayer, factory: 0, school: 0 } })),
+    players: colors.map(color => ({ color, score: 0, supply: eachPlayer })),
     firstPlayerIndex,
     turn: { number: 1, playerIndex: firstPlayerIndex, placedAt: null },
     phase: { kind: 'action' },
     tiles: startingTiles(peopleByTown),
     mergers: [],
-    bag: startingBag(settings, playerCount),
+    bag: startingBag(settings, playerCount, firstPlayerIndex),
+    options: settings.options,
     randomState,
     supply: shared,
     consecutivePasses: 0,

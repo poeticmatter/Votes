@@ -35,15 +35,15 @@ export const STARTING_RESIDENCES_PER_PLAYER = 2
 /** Residence tiles a player takes into their supply for placing a Factory. */
 export const RESIDENCES_PER_FACTORY = 2
 
-export type TileKind = 'residence' | 'factory' | 'school'
+export type TileKind = 'residence' | 'factory' | 'school' | 'hub' | 'port' | 'hall'
 
 /** Players place every kind of tile; the starting Residences and printed Factories are on the map from the start. */
 export type PlaceableKind = TileKind
 
 /** Tiles a player may take from the shared supply as their action. Residences come only with Factories and at setup. */
-export type TakeableKind = 'factory' | 'school'
+export type TakeableKind = Exclude<PlaceableKind, 'residence'>
 
-export const TAKEABLE_KINDS: readonly TakeableKind[] = ['factory', 'school']
+export const TAKEABLE_KINDS: readonly TakeableKind[] = ['factory', 'school', 'hub', 'port', 'hall']
 
 /** The [bracketed] playtest dials from the rules. */
 export interface VotesSettings {
@@ -53,6 +53,47 @@ export interface VotesSettings {
   greyCubes: number
   /** Tiles of each kind in the shared supply at setup, before players take their starting Residences. */
   tileCounts: Record<PlaceableKind, number>
+  /**
+   * Proposed rule: every player starts with these tiles of their own, and nobody takes
+   * from a shared supply. Null keeps Draft 5.13's shared supply.
+   */
+  personalTiles: Record<PlaceableKind, number> | null
+  /**
+   * Proposed compensation for turn order: extra cubes in the bag at the start, by how
+   * many places after the first player a player sits (the first entry is the first
+   * player's). Missing entries are 0.
+   */
+  catchUpCubes: number[]
+  /** The rule options that apply during play; see {@link RuleOptions}. */
+  options: RuleOptions
+}
+
+/**
+ * Rules proposed after Draft 5.13, off by default, so they can be playtested and
+ * simulated alone or together.
+ */
+export interface RuleOptions {
+  /**
+   * Cubes of the placer's colour a tile adds to the bag when placed, by kind, instead of
+   * the 5.13 promises (a face-down Residence's cube per overcrowded Residence, a
+   * face-down Factory's 2 Residence tiles). Null keeps the 5.13 promises.
+   */
+  bagCubesOnPlace: Record<PlaceableKind, number> | null
+  /**
+   * A turn is only placing a tile from your own supply: no taking, no flipping, and
+   * every tile goes down face up, doing at once what a flip would have done. With no
+   * flips there are no Universities.
+   */
+  isPlaceOnly: boolean
+  /** With place-only turns, who a placed Factory brings from the bag. */
+  factoryArrivals: FactoryArrivals
+  /**
+   * Whether each person drawn from the bag adds 1 of the active player's cubes to it, as
+   * in 5.13. Without it, the only cubes added are those of the tiles placed.
+   */
+  arrivalsAddCubes: boolean
+  /** Hexes closed off for a playtest, to try a tighter map: nothing can be placed there. */
+  closedHexes: HexKey[]
 }
 
 /**
@@ -79,8 +120,26 @@ export interface SchoolTile {
   isUniversity: boolean
 }
 
+/** Placed face up. Every city with a Hub counts as one city for moving people. */
+export interface HubTile {
+  kind: 'hub'
+}
+
+/** Placed face up, drawing a person from the bag for every city. */
+export interface PortTile {
+  kind: 'port'
+}
+
+/**
+ * Placed face up, at most one to a city: its city holds an election at once, without
+ * merging. (Proposed during the simulations, not by the designer.)
+ */
+export interface HallTile {
+  kind: 'hall'
+}
+
 /** Tiles belong to nobody, once placed. */
-export type Tile = ResidenceTile | FactoryTile | SchoolTile
+export type Tile = ResidenceTile | FactoryTile | SchoolTile | HubTile | PortTile | HallTile
 
 export interface PlayerState {
   color: PlayerColor
@@ -89,14 +148,27 @@ export interface PlayerState {
   supply: Record<PlaceableKind, number>
 }
 
+/**
+ * Who a placed Factory brings: nobody; 1 person for every city, as a flipped Factory
+ * does; or 2 people for its own city, who may settle in any city joined to it by Hubs and
+ * go to the best-schooled of them.
+ */
+export type FactoryArrivals = 'none' | 'everyCity' | 'ownCity'
+
+/**
+ * Where a drawn person settles: the least crowded Residence of their city, or (brought to
+ * a Factory's own city) the least crowded in the best-schooled city it reaches by Hubs.
+ */
+export type ArrivalDestination = 'leastCrowded' | 'bestSchooled'
+
 export type Phase =
   | { kind: 'action' }
   /**
-   * A flipped Factory drew `person` from the bag for one city, and these of its
-   * Residences tie for least crowded: the player picks one. Then one more person is
-   * drawn for each city in `remainingCities`, named by their first town.
+   * A Factory (or Port) drew `person` from the bag for one city, and these Residences
+   * tie as where they'd settle: the player picks one. Then one more person is drawn for
+   * each city in `remainingCities`, named by their first town (a city may be named twice).
    */
-  | { kind: 'arrival'; person: CubeColor; residences: HexKey[]; remainingCities: TownId[] }
+  | { kind: 'arrival'; person: CubeColor; residences: HexKey[]; remainingCities: TownId[]; destination: ArrivalDestination }
   /** Levelling, then School pulls, until nobody can move; the player breaks ties. */
   | { kind: 'movement' }
   | { kind: 'gameOver'; winners: PlayerColor[] }
@@ -151,17 +223,21 @@ export type FlippedInto = 'residence' | 'factory' | 'university'
 export type LogEntry =
   | { kind: 'took'; turn: number; player: PlayerColor; tile: TakeableKind }
   | { kind: 'placed'; turn: number; player: PlayerColor; tile: PlaceableKind; at: HexKey }
+  /** A placed tile added `count` of the player's cubes to the bag. */
+  | { kind: 'bagged'; turn: number; player: PlayerColor; tile: PlaceableKind; count: number }
   /** A face-down Residence's promise: `votes` of the player's cubes went into the bag, one per overcrowded Residence in its city. */
   | { kind: 'promised'; turn: number; player: PlayerColor; votes: number }
   /** A Factory placed face down earned the player `count` Residence tiles from the shared supply. */
   | { kind: 'gotResidences'; turn: number; player: PlayerColor; count: number }
   | { kind: 'flipped'; turn: number; player: PlayerColor; at: HexKey; into: FlippedInto }
   | { kind: 'passed'; turn: number; player: PlayerColor }
-  /** A person drawn from the bag into a Residence; the voter added 1 cube to the bag. */
-  | { kind: 'arrived'; turn: number; color: CubeColor; residence: HexKey; voter: PlayerColor }
+  /** A person drawn from the bag into a Residence; the voter, if arrivals add cubes, added 1 cube to the bag. */
+  | { kind: 'arrived'; turn: number; color: CubeColor; residence: HexKey; voter: PlayerColor | null }
   /** A person moved between Residences. Moving adds nothing to the bag. */
   | { kind: 'moved'; turn: number; color: CubeColor; from: HexKey; to: HexKey; reason: MoveReason }
   | { kind: 'merger'; turn: number; city: TownId[]; electionNumber: number }
+  /** A Town Hall's city voted without merging. */
+  | { kind: 'hallElection'; turn: number; city: TownId[]; electionNumber: number }
   | { kind: 'gameOver'; turn: number; winners: PlayerColor[]; reason: 'lastMerger' | 'nobodyCanAct' }
 
 /**
@@ -176,9 +252,10 @@ export type LogEntry =
  * the 7-row map, 13 Draft 5.12 (no rail or Stations; arrivals into the least crowded
  * Residence, levelling and School pulls), 14 grey people not voting, 15 Draft 5.13 (one
  * action a turn, face-down promises, players' own supplies, Universities, no Mines or
- * payout table).
+ * payout table), 16 the proposed rule options (Hubs, Ports, eminent domain, personal
+ * tiles, cubes per tile), 17 a Factory that brings people to its own city, 18 no eminent domain.
  */
-export const RULES_VERSION = 15
+export const RULES_VERSION = 18
 
 export interface VotesState {
   /** {@link RULES_VERSION} when the game was created; missing in games from before it existed. */
@@ -192,6 +269,8 @@ export interface VotesState {
   tiles: Record<HexKey, Tile>
   mergers: MergerMarker[]
   bag: Partial<Record<CubeColor, number>>
+  /** The rule options this game was created with. */
+  options: RuleOptions
   /** Seeded generator state, so every client draws the same cubes. */
   randomState: number
   /** The shared supply: tiles nobody has taken yet, by kind. */

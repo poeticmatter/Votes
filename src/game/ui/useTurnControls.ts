@@ -160,7 +160,7 @@ function placementMap(state: VotesState, placement: PlacementChoice, { setAt, se
     targets: legalPlacements(state, tile),
     describeTarget: () => `Place a ${TILE_NAMES[tile]} here`,
     onTarget: setAt,
-    preview: at ? { tile: newTile(tile), at } : null,
+    preview: at ? { tile: newTile(tile, state.options.isPlaceOnly), at } : null,
     emphasized: [],
   }
 }

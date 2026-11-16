@@ -3,7 +3,7 @@ import { residenceSiteKey, TOWN_IDS } from '../map/board'
 import { STARTING_FACTORIES } from '../map/mapData'
 import { countByColor } from './elections'
 import { citiesOf, peopleOnBoard, residences, tilesInBoardOrder } from './boardQueries'
-import { createInitialState, DEFAULT_SETTINGS } from './setup'
+import { createInitialState, DEFAULT_SETTINGS, NO_TILES } from './setup'
 import { INDEPENDENT, type VotesSettings } from './types'
 
 const game = (playerCount: number, seed = 3) => createInitialState({ settings: DEFAULT_SETTINGS, playerCount, seed })
@@ -46,12 +46,12 @@ describe('setup', () => {
 
   it('gives each player 2 Residence tiles, taken from the shared supply', () => {
     const state = threePlayers()
-    expect(state.players.map(player => player.supply)).toEqual(Array(3).fill({ residence: 2, factory: 0, school: 0 }))
+    expect(state.players.map(player => player.supply)).toEqual(Array(3).fill({ ...NO_TILES, residence: 2 }))
     expect(state.supply).toEqual({ ...DEFAULT_SETTINGS.tileCounts, residence: DEFAULT_SETTINGS.tileCounts.residence - 6 })
   })
 
   it('puts every starting tile face up', () => {
-    expect(Object.values(threePlayers().tiles).every(tile => tile.kind !== 'school' && !tile.isFaceDown)).toBe(true)
+    expect(Object.values(threePlayers().tiles).every(tile => (tile.kind === 'residence' || tile.kind === 'factory') && !tile.isFaceDown)).toBe(true)
   })
 
   it('refuses two players', () => {

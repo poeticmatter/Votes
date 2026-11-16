@@ -37,7 +37,7 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
       return (
         <>
           <PlayerChip color={entry.player} /> placed a {TILE_NAMES[entry.tile]}
-          {entry.tile === 'school' ? '' : ' face down'} in city {cityLabel(cityAt(state, entry.at))}.
+          {entry.tile === 'residence' || entry.tile === 'factory' ? ' face down' : ''} in city {cityLabel(cityAt(state, entry.at))}.
         </>
       )
     case 'promised':
@@ -45,6 +45,13 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
         <>
           <PlayerChip color={entry.player} />’s promise: {countOf(entry.votes, 'overcrowded Residence')} in the city. Bag:{' '}
           {entry.votes === 0 ? <strong>no cube</strong> : <BagCube color={entry.player} amount={entry.votes} />}
+        </>
+      )
+    case 'bagged':
+      return (
+        <>
+          The {TILE_NAMES[entry.tile]} added {entry.count === 0 ? <strong>no cube</strong> : <BagCube color={entry.player} amount={entry.count} />} to
+          the bag.
         </>
       )
     case 'gotResidences':
@@ -68,8 +75,13 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
     case 'arrived':
       return (
         <>
-          <CubeChip color={entry.color} /> A person drawn from the bag moved into the {describeHex(state, entry.residence)}. Bag:{' '}
-          <BagCube color={entry.voter} />
+          <CubeChip color={entry.color} /> A person drawn from the bag moved into the {describeHex(state, entry.residence)}.
+          {entry.voter && (
+            <>
+              {' '}
+              Bag: <BagCube color={entry.voter} />
+            </>
+          )}
         </>
       )
     case 'moved':
@@ -83,6 +95,12 @@ function EntryText({ entry, state }: { entry: LogEntry; state: VotesState }) {
       return (
         <>
           <strong>Merger:</strong> {cityLabel(entry.city)} became one city. Election {entry.electionNumber} held.
+        </>
+      )
+    case 'hallElection':
+      return (
+        <>
+          <strong>Town Hall:</strong> {cityLabel(entry.city)} voted. Election {entry.electionNumber} held.
         </>
       )
     case 'gameOver':
