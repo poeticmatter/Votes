@@ -14,7 +14,7 @@ npm run deploy     # build and publish to GitHub Pages
 
 ## Architecture
 
-Votes: a 3–5 player, take-turns-in-order browser game with no backend of its own. It is part of the game lab (poeticmatter/game-lab). Its multiplayer platform (lobby, seats, async and live play, the solo playtest) comes from **GameKit** (`game-kit/turns`), a package pinned in `package.json` to a release tag of poeticmatter/GameKit (local copy: `C:\Code\GameKit`).
+Votes: a 3–5 player, take-turns-in-order browser game with no backend of its own. It is part of the game lab (poeticmatter/game-lab). Its multiplayer platform (lobby, seats, async and live play, the solo playtest) comes from **GameKit** (`game-kit/turns`), a package pinned in `package.json` to a release tag of poeticmatter/GameKit (local copy: `C:\Code\digital-board-games\GameKit`).
 
 - `src/game/`: the game, and `index.ts` exporting `game: GameModule`.
   - `map/`: map content (`mapData.ts`: mountains, town sites, printed Factories) and everything derived from it (`board.ts`: town sites, adjacency).
