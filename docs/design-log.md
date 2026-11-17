@@ -4,6 +4,9 @@ What changed and why, newest first. **Game design** is the game itself: rules, c
 
 ## Game design
 
+### 2026-11-17: Round 3's recommended set can be playtested
+The lobby offers it as a rule set beside Draft 5.13: place-only turns, Factories bringing 2 people to their own city, a Town Hall each, only placed tiles adding cubes, and catch-up cubes of 0, 1, 2, 2, 2. It was the fairest set simulated, so it's the first to try at the table. Draft 5.13 stays the default.
+
 ### 2026-11-16: Eminent domain removed
 Building over Residences is gone from the proposed rules. Re-simulated without it, with every other tile and Hubs adding 2 cubes, Hubs still get played (all of them, against none at 0 cubes), and close finishes are a little more common (up to 10%). Games are less fair than with it: about 6–7 points of seat bias at best with catch-up cubes of 0, 1, 2, 2, 2. Details in `docs/simulations.md`.
 
@@ -105,6 +108,9 @@ Setup prints two Factories in district E and deals 2 families onto each printed 
 The map, districts and look ported from the asset generator, with rules for placement, the School bonus, immigration from a seeded bag, mergers, elections and the game's end. The bracketed values in the rules became lobby settings.
 
 ## Game development
+
+### 2026-11-17: A rule set choice in the lobby
+The lobby chooses between Draft 5.13 and the Round 3 playtest set; the Playtest dials only show the shared supply's tile counts when there is a shared supply, and no longer show the proposed tiles' counts. The arrival panel explains own-city Factories when they're in play.
 
 ### 2026-11-16: Eminent domain option removed
 The setting, the bot's valuation of it, its log entry and its tests are gone, and the simulation sets no longer combine it. Saved games from before show the "different version" message.

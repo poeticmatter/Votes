@@ -70,6 +70,17 @@ When a tile you place touches two or more cities, they become one city at once. 
 
 The game ends after the election that leaves **one city**, or when everyone has passed in a row because nobody can do anything. Most points wins. If points tie, the player with the most people on the board wins, and anyone still tied shares the win.
 
+## Rule set
+
+When you create a game, the lobby's "Rule set" picks which rules it plays. **Draft 5.13** is everything above. **Round 3 playtest** tries proposed rules instead, and changes the game like this:
+
+- **Your own tiles.** There is no shared supply. Everyone starts with 8 Residences, 2 Factories, 1 School and 1 Town Hall of their own.
+- **A turn is placing one tile, face up.** Nobody takes or flips tiles, so there are no face-down tiles, promises or Universities. A placed tile does at once what flipping it would have done.
+- **Placing adds your people to the bag:** 1 for a Residence, 2 for a Factory, none for a School or Town Hall. People arriving add nobody.
+- **A Factory brings 2 people from the bag for its own city**, each into the least crowded Residence there. You choose between Residences that tie.
+- **A Town Hall's city holds an election** when it's placed, even if it joins no cities.
+- **Catch-up people.** Players after the first start with extra people of their colour in the bag: 1 for the second player and 2 for each player after.
+
 ## Playtest dials
 
-When you create a game you can change the numbers in the lobby's "Playtest dials": the people of each colour in the bag at the start, the number of grey people, and how many tiles of each kind are in the supply.
+When you create a game you can change the numbers in the lobby's "Playtest dials": the people of each colour in the bag at the start, the number of grey people, and, with Draft 5.13, how many tiles of each kind are in the supply.

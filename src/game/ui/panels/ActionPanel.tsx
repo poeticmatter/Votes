@@ -9,7 +9,14 @@ import { ActionChoices } from './ActionChoices'
 import { Panel } from './Panel'
 import { PersonChoices } from './PersonChoices'
 
-/** Where the person a flipped Factory just drew goes, when Residences tie for least crowded. */
+function arrivalRule(state: VotesState): string {
+  if (state.options.factoryArrivals === 'ownCity') {
+    return 'Your Factory brings 2 people from the bag for its own city, each into the least crowded Residence of the best-schooled city its Hubs reach.'
+  }
+  return `Your Factory brings 1 person from the bag for each of the ${countOf(citiesOf(state).length, 'city', 'cities')}, each into the least crowded Residence of that city.`
+}
+
+/** Where the person a Factory just drew goes, when Residences tie for least crowded. */
 function ArrivalChoices({
   state,
   person,
@@ -24,10 +31,7 @@ function ArrivalChoices({
   const colorNameOf = useColorNameOf()
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-ink-soft">
-        Your Factory brings 1 person from the bag for each of the {countOf(citiesOf(state).length, 'city', 'cities')}, each into the
-        least crowded Residence of that city.
-      </p>
+      <p className="text-sm text-ink-soft">{arrivalRule(state)}</p>
       <p className="flex items-center gap-2 text-sm">
         <CubeChip color={person} size={18} />
         <span>
