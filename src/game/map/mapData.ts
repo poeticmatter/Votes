@@ -16,11 +16,14 @@ export const MOUNTAINS: readonly HexCoord[] = [
 ]
 
 /**
- * Factories printed on the map from the start. Each sits next to a town's starting
- * Residence, so it begins in that town's city. E's stands where its Station was before
- * Draft 5.12 removed Stations.
+ * Factories printed on the map from the start, owned by nobody. Each sits next to a town's
+ * starting Residence, so it begins in that town's city: E's in the south-west, B's in the
+ * east.
  */
-export const STARTING_FACTORIES: readonly HexCoord[] = [[3, 5]]
+export const STARTING_FACTORIES: readonly HexCoord[] = [
+  [3, 5],
+  [9, 3],
+]
 
 export interface TownSite {
   /** Where the town's starting Residence goes at setup. */

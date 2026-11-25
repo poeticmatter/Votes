@@ -2,7 +2,57 @@
 
 *2026-11-15. Bots played 800 games of each rule set: 600 bot-only games (200 each at 3, 4 and 5 players), and 200 games with one bot against three sloppy players. The rules are switched on through options on the `explore/new-rules` branch, and Draft 5.13 still plays by default. To rerun: `npx vite-node scripts/simulate/run.ts -- 200 out.json all` (or a comma-separated list of the ids below).*
 
-There were three rounds. **Round 3 is the current one**: a turn is only placing a tile, and a Factory brings 2 people to its own city. Round 2 had the same turns with a Factory drawing for every city. Round 1 kept 5.13's taking and flipping, and is kept below for the record, along with how each measure is defined ("How 'interesting' was measured").
+There were three rounds of proposed rules, all since replaced; the rules the game plays now are in the next section. **Round 3 was the last of them**: a turn is only placing a tile, and a Factory brings 2 people to its own city. Round 2 had the same turns with a Factory drawing for every city. Round 1 kept 5.13's taking and flipping, and is kept below for the record, along with how each measure is defined ("How 'interesting' was measured").
+
+## Own tiles and voluntary pulls: the rules the game now plays
+
+*2026-11-25. Same method: 600 bot-only games and 200 against sloppy players, at the default dials.* Players own their tiles (15 Residences, 5 Factories, 1 School each); a Factory draws 5 cubes from the bag; players pull people into their own Residences instead of anything moving by itself; two printed Factories; the bag starts with 20 cubes. See `rules.md`.
+
+| Turns | Elections | Ended by last merger | Winner's points | Close finishes | Lead changes | Comebacks | Seat bias (pts) | First player's edge | Bot vs sloppy | People at end | Bag at end |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 26 | 4.0 | 100% | 100 | 55% | 0.74 | 55% | 9.1 | 1.37x | 68% | 45 | 15 |
+
+Tiles placed per game: 15.9 Residences, 9.6 Factories, 0.1 Schools.
+
+Wins by turn position: 3 players 40%, 33%, 28%; 4 players 29%, 28%, 19%, 24%; 5 players 36%, 23%, 16%, 14%, 13%.
+
+- **Games are closer still**: over half are won by at most 10% of the winner's score, and comebacks are more common (55%).
+- **Skill counts for much more**: the bot wins 68% against three sloppy players (25% would be even), against 44–49% under the previous rules. Choosing pulls rewards care.
+- **The first player's edge is a little smaller** (1.37x), with the most seat bias at 5 players.
+- **The bot almost never places its School**, so Schools are still untested by bots; its School value doesn't see the cross-city pulls a School opens up.
+
+## Factory cubes (2026-11-23, since replaced)
+
+*2026-11-23. 600 bot-only games (200 each at 3, 4 and 5 players) and 200 with one bot against three sloppy players, at the default dials. To rerun: `npx vite-node scripts/simulate/run.ts -- 200 out.json`.*
+
+The proposed rules above were dropped. The game now plays Draft 5.13 changed like this: one shared pool placed from directly (no taking or flipping, everything face up); Factories cover two hexes and take 10 of the placer's cubes; a new Residence draws up to 3 people from the bag while its city's Factories hold cubes, sending as many Factory cubes back to the bag; levelling and School pulls run at the end of every turn; after a merger's election each Residence of the new city draws 1 person; bags start with 10 cubes per player. See `rules.md`.
+
+| Turns | Elections | Ended by last merger | Winner's points | Close finishes | Lead changes | Comebacks | Seat bias (pts) | First player's edge | Bot vs sloppy | People at end | Bag at end |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 19 | 3.9 | 94% | 72 | 34% | 0.93 | 48% | 10.8 | 1.42x | 44% | 63 | 28 |
+
+Tiles placed per game: 11.0 Residences, 7.4 Factories, 0.2 Schools.
+
+Wins by turn position: 3 players 45%, 32%, 23%; 4 players 37%, 22%, 19%, 23%; 5 players 29%, 20%, 20%, 14%, 18%.
+
+What it suggests, with the bot's limits in mind (it values moves by the board as it stands and never looks ahead):
+
+- **Games are short and close.** About 19 turns, and a third of games are won by at most 10% of the winner's score, far more than any earlier set (round 3's best was 15%).
+- **The first player has an edge again** (1.42x an even share), about as large as round 3 without catch-up cubes.
+- **The bot hardly ever places a School.** Its School value is small next to a Residence's draw or a Factory's points, so whether Schools are worth placing is untested here; a playtest will tell more.
+- **Better play is rewarded** (the bot wins 44% against three sloppy players, against an even 25%).
+
+### With a cube per seat won at a merger
+
+*2026-11-24. Same method.* After a merger's arrivals, each player adds 1 cube to the bag per seat they won.
+
+| Turns | Elections | Ended by last merger | Winner's points | Close finishes | Lead changes | Comebacks | Seat bias (pts) | First player's edge | Bot vs sloppy | People at end | Bag at end |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 19 | 3.9 | 92% | 74 | 30% | 0.84 | 41% | 10.1 | 1.40x | 49% | 63 | 48 |
+
+Wins by turn position: 3 players 41%, 32%, 27%; 4 players 41%, 27%, 19%, 14%; 5 players 27%, 25%, 17%, 14%, 18%.
+
+The bag ends the game with about 48 cubes instead of 28, so it no longer runs low. Games are a little less close (30% close finishes, from 34%) and comebacks rarer (41%, from 48%): a cube for every seat won helps whoever is already winning seats. Better play counts for a little more (49% against sloppy players). The bot doesn't yet count the cubes a merger would bag when it values one.
 
 ## Round 3: Factories bring people to their own city
 

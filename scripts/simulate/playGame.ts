@@ -44,8 +44,6 @@ export interface GameRecord {
   /** The winner's points that came from the last election, as a share of their total. */
   lastElectionShare: number | null
   placed: Record<PlaceableKind, number>
-  flips: number
-  takes: number
   passes: number
   /** Legal actions on offer, averaged over the action-phase decisions. */
   meanActions: number
@@ -129,8 +127,6 @@ export function playGame(settings: VotesSettings, playerCount: number, seed: num
     halfwayLeaderLost: halfwayLeaderLost(state, history, winners),
     lastElectionShare: lastElectionShare(state, winners),
     placed: countPlacements(state),
-    flips: countLog(state, 'flipped'),
-    takes: countLog(state, 'took'),
     passes: countLog(state, 'passed'),
     meanActions: actionDecisions ? actionsOffered / actionDecisions : 0,
     peopleOnBoard: peopleOnBoard(state).length,

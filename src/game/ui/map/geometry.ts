@@ -20,7 +20,6 @@ export const TILE_LAYOUT = {
   cubeSize: 0.32 * TILE_RADIUS,
   residenceSize: 0.84 * TILE_RADIUS,
   factorySize: 0.84 * TILE_RADIUS,
-  universitySize: 0.86 * TILE_RADIUS,
   schoolSize: 0.86 * TILE_RADIUS,
 } as const
 
@@ -63,10 +62,9 @@ function cubeRows(tileCenter: Point, { firstRowY, rowStep, count }: CubeRows): P
 }
 
 /**
- * Where the `count` people on a Residence sit: rows of 3 over the bottom of its house,
- * filled left to right, with each new row above the last. A Residence has no capacity.
+ * Where the `count` people on a Residence, or cubes on a Factory, sit: rows of 3 over the
+ * bottom of its glyph, filled left to right, with each new row above the last.
  */
 export function residentCenters(tileCenter: Point, count: number): Point[] {
   return cubeRows(tileCenter, { firstRowY: TILE_LAYOUT.homesY, rowStep: -TILE_LAYOUT.cubePitch, count })
 }
-

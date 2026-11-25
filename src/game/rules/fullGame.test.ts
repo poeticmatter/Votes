@@ -30,25 +30,40 @@ function expectInvariants(state: VotesState, peopleBefore: number): void {
   expect(peopleOnBoard(state).length).toBeGreaterThanOrEqual(peopleBefore)
   expect(citiesOf(state).flat().sort()).toEqual(['A', 'B', 'C', 'D', 'E'])
   expect(Object.values(state.bag).every(count => (count ?? 0) >= 0)).toBe(true)
-  // Tiles sit only on open hexes, and face-down Residences hold nobody.
+  // Tiles sit only on open hexes, and every placed tile has an owner.
   for (const [key, tile] of Object.entries(state.tiles)) {
     expect(BOARD.hexByKey.get(key)?.terrain).toBe('open')
-    if (tile.kind === 'residence' && tile.isFaceDown) expect(tile.people).toEqual([])
+    if (!isPrinted(key)) expect(tile.owner).not.toBeNull()
   }
-  // Tiles are never made or lost: the shared supply, players' supplies and the board add up.
-  expect(Object.values(state.supply).every(count => count >= 0)).toBe(true)
+  // Tiles are never made or lost: the players' supplies and the board add up.
   for (const player of state.players) expect(Object.values(player.supply).every(count => count >= 0)).toBe(true)
-  expect(tileTotal(state)).toBe(TILES_IN_GAME)
+  expect(tileTotal(state)).toBe(TILES_PER_PLAYER * state.players.length)
+  // Cubes are never made or lost: only cubes put in the bag (for Factories, Schools and seats) come from outside.
+  expect(cubeTotal(state)).toBe(cubeTotal(startOf(state)) + cubesBagged(state))
 }
 
-/** Every tile in the shared supply, in players' supplies and placed, the printed ones aside. */
+const isPrinted = (key: string) => {
+  const hex = BOARD.hexByKey.get(key)
+  return Boolean(hex?.residenceSite || hex?.hasStartingFactory)
+}
+
+const cubesBagged = (state: VotesState) => state.log.reduce((sum, entry) => sum + (entry.kind === 'bagged' ? entry.count : 0), 0)
+
+/** Every tile in the players' supplies and placed, the printed ones aside. */
 function tileTotal(state: VotesState): number {
-  const inSupplies = [state.supply, ...state.players.map(player => player.supply)].flatMap(Object.values)
-  const placed = Object.keys(state.tiles).filter(key => !BOARD.hexByKey.get(key)?.residenceSite && !BOARD.hexByKey.get(key)?.hasStartingFactory)
-  return inSupplies.reduce((sum, count) => sum + count, 0) + placed.length
+  const inSupplies = state.players.flatMap(player => Object.values(player.supply)).reduce((sum, count) => sum + count, 0)
+  return inSupplies + Object.keys(state.tiles).filter(key => !isPrinted(key)).length
 }
 
-const TILES_IN_GAME = Object.values(DEFAULT_SETTINGS.tileCounts).reduce((sum, count) => sum + count, 0)
+/** People on the board, cubes in the bag and cubes on Factories. */
+function cubeTotal(state: VotesState): number {
+  const onFactories = Object.values(state.tiles).reduce((sum, tile) => sum + (tile.kind === 'factory' ? tile.cubes.length : 0), 0)
+  return peopleOnBoard(state).length + bagSize(state) + onFactories
+}
+
+const startOf = (state: VotesState) => createInitialState({ settings: DEFAULT_SETTINGS, playerCount: state.players.length, seed: 1 })
+
+const TILES_PER_PLAYER = Object.values(DEFAULT_SETTINGS.tilesPerPlayer).reduce((sum, count) => sum + count, 0)
 
 function playOut(playerCount: number, seed: number, agent: Agent): { final: VotesState; moves: VotesMove[] } {
   let state = createInitialState({ settings: DEFAULT_SETTINGS, playerCount, seed })
@@ -86,31 +101,26 @@ describe('seeded games', () => {
   const games = [3, 4, 5].flatMap(playerCount => [playOut(playerCount, 1, 'cautious'), playOut(playerCount, 1, 'random')])
   const movesPlayed = games.flatMap(game => game.moves)
 
-  const movesLogged = games.flatMap(({ final }) => final.log.filter(entry => entry.kind === 'moved'))
+  const logged = games.flatMap(({ final }) => final.log)
 
-  it('level people within cities', () => {
-    expect(movesLogged.some(entry => entry.reason === 'levelling')).toBe(true)
+  it('place every kind of tile', () => {
+    for (const tile of ['residence', 'factory', 'school'] as const) expect(movesPlayed.some(move => move.kind === 'place' && move.tile === tile)).toBe(true)
   })
 
-  it('pull people into School cities', () => {
-    expect(movesLogged.some(entry => entry.reason === 'schoolPull')).toBe(true)
+  it('pull people from Factories and from Residences', () => {
+    const sources = new Set(
+      games.flatMap(({ final }) => final.log.flatMap(entry => (entry.kind === 'pulled' ? [final.tiles[entry.from]?.kind] : []))),
+    )
+    expect(sources).toEqual(new Set(['factory', 'residence']))
   })
 
-  it('let the player break ties when people move', () => {
-    expect(movesPlayed.some(move => move.kind === 'move')).toBe(true)
+  it('put cubes in the bag for Factories, Schools and seats', () => {
+    const reasons = new Set(logged.flatMap(entry => (entry.kind === 'bagged' ? [entry.reason] : [])))
+    expect(reasons).toEqual(new Set(['factory', 'school', 'seats']))
   })
 
-  it('let the player choose between tied Residences for a Factory’s people', () => {
-    expect(movesPlayed.some(move => move.kind === 'arrive')).toBe(true)
-  })
-
-  it('take, place and flip tiles', () => {
-    for (const kind of ['take', 'place', 'flip'] as const) expect(movesPlayed.some(move => move.kind === kind)).toBe(true)
-  })
-
-  it('flip Schools into Universities', () => {
-    const flips = games.flatMap(({ final }) => final.log.filter(entry => entry.kind === 'flipped'))
-    expect(flips.some(entry => entry.into === 'university')).toBe(true)
+  it('bring people to merged cities', () => {
+    expect(logged.some(entry => entry.kind === 'arrived')).toBe(true)
   })
 })
 

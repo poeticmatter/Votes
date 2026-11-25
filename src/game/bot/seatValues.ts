@@ -1,17 +1,17 @@
 import type { HexKey } from '../map/hexGrid'
 import type { TownId } from '../map/mapData'
-import { cityAt, faceUpFactoriesIn, peopleAt, residencesInCity } from '../rules/boardQueries'
+import { cityAt, factoryCountIn, peopleAt, residencesInCity } from '../rules/boardQueries'
 import { seatWinner } from '../rules/elections'
-import type { CubeColor, PersonMove, PlayerColor, VotesState } from '../rules/types'
+import type { CubeColor, PlayerColor, Pull, VotesState } from '../rules/types'
 
 // How much a Residence's seat is worth to the bot, and how one person arriving or leaving
-// changes that. A seat scores its holder 1 point per face-up Factory at the city's next
+// changes that. A seat scores its holder 1 point per Factory at the city's next
 // election, so seats count for more in cities with Factories; a seat held by nobody at
 // least isn't an opponent's.
 
 /** An opponent's seat costs less than the bot's own is worth: it's shared out among several rivals. */
 const OPPONENT_SEAT_VALUE = -0.5
-/** Even a city without a face-up Factory will likely have one by its election. */
+/** Even a city without a Factory will likely have one by its election. */
 const BASE_CITY_WEIGHT = 1
 
 export function seatValue(people: readonly CubeColor[], me: PlayerColor): number {
@@ -22,7 +22,7 @@ export function seatValue(people: readonly CubeColor[], me: PlayerColor): number
 
 /** How much the seats of the city holding `key` matter. */
 export function cityWeight(state: VotesState, key: HexKey): number {
-  return BASE_CITY_WEIGHT + faceUpFactoriesIn(state, cityAt(state, key))
+  return BASE_CITY_WEIGHT + factoryCountIn(state, cityAt(state, key))
 }
 
 /** `people` with the leftmost `color` gone, as when that colour leaves a Residence. */
@@ -40,8 +40,8 @@ export function arrivalValue(state: VotesState, key: HexKey, color: CubeColor, m
   return changeAt(state, key, [...peopleAt(state, key), color], me)
 }
 
-/** What moving one person is worth to the bot: the seat it leaves and the seat it joins. */
-export function personMoveValue(state: VotesState, { from, color, to }: PersonMove, me: PlayerColor): number {
+/** What pulling one person is worth to the bot: the seat it leaves (none, from a Factory) and the seat it joins. */
+export function personMoveValue(state: VotesState, { from, color, to }: Pull, me: PlayerColor): number {
   return changeAt(state, from, withoutOne(peopleAt(state, from), color), me) + arrivalValue(state, to, color, me)
 }
 

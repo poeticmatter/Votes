@@ -3,44 +3,28 @@ import { hexAt } from '../map/board'
 import type { HexKey } from '../map/hexGrid'
 import { cityAt } from '../rules/boardQueries'
 import type { TownId } from '../map/mapData'
-import type { CubeColor, PlayerColor, Tile, TileKind, VotesState } from '../rules/types'
+import type { CubeColor, PlaceableKind, PlayerColor, Tile, VotesState } from '../rules/types'
 import { TILE_RADIUS } from './map/geometry'
-import { TilePiece } from './map/Pieces'
+import { KindPiece } from './map/Pieces'
 import { seatOfColor, usePieceColorOf, useViewer } from './viewer'
 
 // How the board names players and pieces in text, always by the colour the viewer sees.
 
-export const TILE_NAMES: Record<TileKind, string> = {
+export const TILE_NAMES: Record<PlaceableKind, string> = {
   residence: 'Residence',
   factory: 'Factory',
   school: 'School',
-  hub: 'Hub',
-  port: 'Port',
-  hall: 'Town Hall',
 }
 
-export const PLURAL_TILE_NAMES: Record<TileKind, string> = {
+export const PLURAL_TILE_NAMES: Record<PlaceableKind, string> = {
   residence: 'Residences',
   factory: 'Factories',
   school: 'Schools',
-  hub: 'Hubs',
-  port: 'Ports',
-  hall: 'Town Halls',
 }
 
-/** A tile of `kind` face up, for drawing the kind itself rather than a placed promise. */
-export function faceUpTile(kind: TileKind): Tile {
-  if (kind === 'residence') return { kind, isFaceDown: false, people: [] }
-  if (kind === 'factory') return { kind, isFaceDown: false }
-  if (kind === 'school') return { kind, isUniversity: false }
-  return { kind }
-}
-
-/** "Residence", "face-down Factory", "University": a placed tile as the board shows it. */
+/** "Residence", "Factory", "printed Factory": a tile as the board names it. */
 export function tileName(tile: Tile): string {
-  if (tile.kind === 'school') return tile.isUniversity ? 'University' : 'School'
-  if (tile.kind === 'hub' || tile.kind === 'port' || tile.kind === 'hall') return TILE_NAMES[tile.kind]
-  return tile.isFaceDown ? `face-down ${TILE_NAMES[tile.kind]}` : TILE_NAMES[tile.kind]
+  return tile.kind === 'factory' && tile.owner === null ? `printed ${TILE_NAMES.factory}` : TILE_NAMES[tile.kind]
 }
 
 /** "A", or "B + C" for a city of two towns. */
@@ -105,8 +89,8 @@ const ICON_MARGIN = 4
 const ICON_HALF_WIDTH = TILE_RADIUS + ICON_MARGIN
 const ICON_HALF_HEIGHT = (Math.sqrt(3) / 2) * TILE_RADIUS + ICON_MARGIN
 
-/** A single tile as an inline SVG, `width` px wide. */
-export function TileIcon({ tile, width }: { tile: Tile; width: number }) {
+/** An empty tile of `kind` as an inline SVG, `width` px wide. */
+export function TileIcon({ kind, width }: { kind: PlaceableKind; width: number }) {
   return (
     <svg
       width={width}
@@ -115,7 +99,7 @@ export function TileIcon({ tile, width }: { tile: Tile; width: number }) {
       className="block shrink-0"
       aria-hidden
     >
-      <TilePiece tile={tile} center={{ x: 0, y: 0 }} townLetter={null} />
+      <KindPiece kind={kind} center={{ x: 0, y: 0 }} />
     </svg>
   )
 }

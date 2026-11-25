@@ -33,7 +33,7 @@ function Buildings() {
     <div className="grid gap-x-4 gap-y-2.5 sm:grid-cols-2">
       {BUILDINGS.map(building => (
         <div key={building.name} className="flex items-start gap-2.5">
-          <TileIcon tile={building.tile} width={TILE_ICON_WIDTH} />
+          <TileIcon kind={building.kind} width={TILE_ICON_WIDTH} />
           <div>
             <span className="font-bold">{building.name}</span>
             <div>{building.text}</div>

@@ -8,7 +8,7 @@ import type { Tile } from './types'
 // Finds places on the map for rules tests to use, so a test says what it needs (a hex
 // touching only one tile, a chain of tiles joining two towns) and the map decides where.
 // Editing the map then doesn't break the tests, as long as it still has such places.
-// Everything here looks at the board as it starts: the towns' tiles and printed Factories.
+// Everything here looks at the board as it starts: the towns' starting Residences and the printed Factories.
 
 const startingTiles: Record<HexKey, Tile> = createInitialState({ settings: DEFAULT_SETTINGS, playerCount: 3, seed: 1 }).tiles
 const occupiedAtStart = new Set(Object.keys(startingTiles))
@@ -25,7 +25,7 @@ export function must<T>(found: T | undefined, what: string): T {
   return found
 }
 
-/** Every tile of the town's city at the start: its Residence and any printed Factory. */
+/** Every tile of the town's city at the start: its Residence. */
 export function townHexes(town: TownId): HexKey[] {
   return Object.keys(startingTiles).filter(key => startingCities.byHex.get(key)?.[0] === town)
 }
@@ -221,7 +221,7 @@ export function splitColumn(): { column: number; joining: HexKey } {
   if (split) return split
   for (let column = 1; column < BOARD.grid.columns - 1; column += 1) {
     const tiles: Record<HexKey, Tile> = { ...startingTiles }
-    for (const hex of BOARD.hexes) if (hex.terrain === 'open' && hex.col !== column && !tiles[hex.key]) tiles[hex.key] = { kind: 'factory', isFaceDown: false }
+    for (const hex of BOARD.hexes) if (hex.terrain === 'open' && hex.col !== column && !tiles[hex.key]) tiles[hex.key] = { kind: 'residence', owner: null, people: [] }
     const { list, byHex } = citiesOnBoard(tiles)
     if (list.length !== 2) continue
     const joining = BOARD.hexes.find(

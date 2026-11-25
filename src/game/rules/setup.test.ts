@@ -1,77 +1,67 @@
 import { describe, expect, it } from 'vitest'
 import { residenceSiteKey, TOWN_IDS } from '../map/board'
+import { hexKey } from '../map/hexGrid'
 import { STARTING_FACTORIES } from '../map/mapData'
 import { countByColor } from './elections'
-import { citiesOf, peopleOnBoard, residences, tilesInBoardOrder } from './boardQueries'
-import { createInitialState, DEFAULT_SETTINGS, NO_TILES } from './setup'
-import { INDEPENDENT, type VotesSettings } from './types'
+import { citiesOf, factories, peopleOnBoard, residences, tilesInBoardOrder } from './boardQueries'
+import { createInitialState, DEFAULT_SETTINGS } from './setup'
+import { INDEPENDENT, type VotesSettings, type VotesState } from './types'
 
 const game = (playerCount: number, seed = 3) => createInitialState({ settings: DEFAULT_SETTINGS, playerCount, seed })
 const threePlayers = (seed = 3) => game(3, seed)
+const factoryCubes = (state: VotesState) => factories(state).flatMap(({ tile }) => tile.cubes)
 
 describe('setup', () => {
-  it('puts a starting Residence in every town, and the printed Factories, and nothing else', () => {
+  it('puts a starting Residence in every town and the printed Factories, and nothing else', () => {
     const towns = TOWN_IDS.map(residenceSiteKey)
-    const factories = STARTING_FACTORIES.map(([col, row]) => `${col},${row}`)
-    expect(tilesInBoardOrder(threePlayers()).map(({ key }) => key).sort()).toEqual([...towns, ...factories].sort())
+    const printed = STARTING_FACTORIES.map(([col, row]) => hexKey(col, row))
+    expect(tilesInBoardOrder(threePlayers()).map(({ key }) => key).sort()).toEqual([...towns, ...printed].sort())
   })
 
-  it('starts each printed Factory in the city it touches', () => {
-    const state = threePlayers()
-    for (const [col, row] of STARTING_FACTORIES) expect(state.tiles[`${col},${row}`]).toEqual({ kind: 'factory', isFaceDown: false })
-    expect(citiesOf(state)).toHaveLength(TOWN_IDS.length)
+  it('leaves every starting tile owned by nobody', () => {
+    expect(Object.values(threePlayers().tiles).every(tile => tile.kind !== 'school' && tile.owner === null)).toBe(true)
   })
 
   it('starts every town as a city of its own', () => {
     expect(citiesOf(threePlayers())).toEqual(TOWN_IDS.map(town => [town]))
   })
 
-  it('seeds two people on every starting Residence', () => {
+  it('deals two people onto every starting Residence and five cubes onto every printed Factory', () => {
     expect(residences(threePlayers()).map(({ tile }) => tile.people.length)).toEqual([2, 2, 2, 2, 2])
+    expect(factories(threePlayers()).map(({ tile }) => tile.cubes.length)).toEqual([5, 5])
   })
 
-  it('seeds two of each player colour, topped up with grey to ten', () => {
-    expect(countByColor(peopleOnBoard(threePlayers()))).toEqual({ pink: 2, vermillion: 2, blue: 2, [INDEPENDENT]: 4 })
+  it('deals two of each player colour onto the Residences, and two more onto the Factories, topped up with grey', () => {
+    const dealt = { pink: 2, vermillion: 2, blue: 2, [INDEPENDENT]: 4 }
+    expect(countByColor(peopleOnBoard(threePlayers()))).toEqual(dealt)
+    expect(countByColor(factoryCubes(threePlayers()))).toEqual(dealt)
   })
 
-  it('seeds four grey people with three players and none with five', () => {
-    expect(countByColor(peopleOnBoard(threePlayers()))[INDEPENDENT]).toBe(4)
-    expect(countByColor(peopleOnBoard(game(5)))[INDEPENDENT]).toBeUndefined()
+  it('deals no grey with five players', () => {
+    expect(countByColor([...peopleOnBoard(game(5)), ...factoryCubes(game(5))])[INDEPENDENT]).toBeUndefined()
   })
 
-  it('bags two cubes of each player colour and the grey cubes left over', () => {
-    expect(threePlayers().bag).toEqual({ pink: 2, vermillion: 2, blue: 2, [INDEPENDENT]: 6 })
-    expect(game(5).bag[INDEPENDENT]).toBe(10)
+  it('bags four cubes of each player colour, topped up with grey to twenty', () => {
+    expect(threePlayers().bag).toEqual({ pink: 4, vermillion: 4, blue: 4, [INDEPENDENT]: 8 })
+    expect(game(5).bag[INDEPENDENT]).toBeUndefined()
   })
 
-  it('gives each player 2 Residence tiles, taken from the shared supply', () => {
-    const state = threePlayers()
-    expect(state.players.map(player => player.supply)).toEqual(Array(3).fill({ ...NO_TILES, residence: 2 }))
-    expect(state.supply).toEqual({ ...DEFAULT_SETTINGS.tileCounts, residence: DEFAULT_SETTINGS.tileCounts.residence - 6 })
-  })
-
-  it('puts every starting tile face up', () => {
-    expect(Object.values(threePlayers().tiles).every(tile => (tile.kind === 'residence' || tile.kind === 'factory') && !tile.isFaceDown)).toBe(true)
+  it('gives every player their own tiles', () => {
+    expect(threePlayers().players.map(player => player.supply)).toEqual(Array(3).fill({ residence: 15, factory: 5, school: 1 }))
   })
 
   it('refuses two players', () => {
     expect(() => game(2)).toThrow('3–5 players')
   })
 
-  it('deals the seeded people differently for different seeds', () => {
-    const dealOf = (seed: number) => residences(threePlayers(seed)).map(({ tile }) => tile.people)
-    const deals = new Set([1, 2, 3, 4, 5].map(seed => JSON.stringify(dealOf(seed))))
-    expect(deals.size).toBeGreaterThan(1)
+  it('deals the cubes differently for different seeds', () => {
+    const dealOf = (seed: number) => JSON.stringify([residences(threePlayers(seed)).map(({ tile }) => tile.people), factoryCubes(threePlayers(seed))])
+    expect(new Set([1, 2, 3, 4, 5].map(dealOf)).size).toBeGreaterThan(1)
   })
 
   it('refuses settings from a lobby running an older version', () => {
-    // Draft 5.8's dials, which lack this version's; the cast stands in for a lobby the types can't see.
-    const older = { startingCubesPerPlayer: 4, factoryArrivals: 3 } as unknown as VotesSettings
-    expect(() => createInitialState({ settings: older, playerCount: 3, seed: 1 })).toThrow('older version')
-  })
-
-  it('refuses Draft 5.12’s settings, which still had Mine and Factory arrivals', () => {
-    const older = { ...DEFAULT_SETTINGS, arrivals: { factory: 3, mine: 3 } }
+    // The previous version's dials, which lack this one's; the cast stands in for a lobby the types can't see.
+    const older = { startingCubesPerPlayer: 10, greyCubes: 10, tileCounts: { residence: 15, factory: 10, school: 5 } } as unknown as VotesSettings
     expect(() => createInitialState({ settings: older, playerCount: 3, seed: 1 })).toThrow('older version')
   })
 })

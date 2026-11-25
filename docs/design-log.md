@@ -4,6 +4,34 @@ What changed and why, newest first. **Game design** is the game itself: rules, c
 
 ## Game design
 
+### 2026-11-25: Own tiles, voluntary pulls, printed Factories
+- **Tiles are the players' own again**: 15 Residences, 5 Factories and 1 School each, and a placed tile belongs to its placer. The shared pool is gone.
+- **Factories are back to one hex.** A placed Factory draws 5 cubes from the bag onto itself (fewer if the bag runs short).
+- **Residences don't fill by themselves, and nothing levels automatically.** After placing, the active player pulls people, one at a time and as many as they like, into their own Residences or the starting ones: from a Factory while the Residence holds fewer than 3, or from a Residence with at least 2 more. Within the city, or from any city when the Residence's city has a School.
+- **Cubes go in the bag as people are pulled:** the Factory's owner adds 1 per cube pulled from it (grey for a printed Factory), and a School's owner 1 per person brought from another city, the puller choosing whose School when there are several owners.
+- **Two printed Factories**, beside E and B, owned by nobody.
+- **Setup deals 20 cubes and seeds the bag with 20.** 2 of each player's colour, topped up with grey, on the starting Residences (2 each), and the same again on the printed Factories (5 each). The bag starts with 4 of each player's colour and grey to 20, so the first Factories have cubes to draw.
+- Merger arrivals and the cube per seat won stay as they were.
+- Calls the game makes: a turn is placing, then pulling, then ending the turn, and a player who can't place still pulls; a School city may pull from Factories in other cities as well as Residences; a School still can't be placed in a city that has one; a placed Factory's cubes come from the bag; the merger's election comes before the turn's pulls.
+
+Bot games of these rules run about 26 turns, and the first player's edge falls to 1.37x; details in `docs/simulations.md`.
+
+### 2026-11-24: Seats won at a merger put cubes in the bag
+After a merger's election and its arrivals, each player adds 1 cube of their colour to the bag for every seat they won. It comes after the arrivals, so none of those cubes can arrive the same turn. The merger arrivals draw the bag down, and this puts cubes back in, favouring whoever is winning seats.
+
+### 2026-11-23: Factory cubes, Residences that draw people, a shared pool
+The game now plays Draft 5.13 with these changes, replacing both 5.13 as written and the Round 3 playtest set:
+- **Only Residences, Factories and Schools.** Hubs, Ports and Town Halls are gone, and so is the Factory printed beside E.
+- **A shared pool, placed from directly.** A turn is placing one tile from the pool, face up. Nobody takes tiles into a supply of their own or flips them, so there are no promises and no Universities.
+- **Factories cover two neighbouring hexes**, only one of which has to touch a tile. A placed Factory takes 10 of the placer's cubes. It still scores 1 point per seat in its city.
+- **A placed Residence draws 3 people from the bag** while its city's Factories hold cubes: fewer if they hold fewer than 3, or the bag runs short; none if they're empty. Then as many cubes go from the city's Factories back into the bag, the placer choosing which.
+- **Levelling and School pulls run at the end of every turn.** Levelling within a city needs a gap of 2; a School city pulls from cities without a School with a gap of 1.
+- **After a merger's election, each Residence of the merged city draws 1 person** from the bag.
+- **Bags start with 10 cubes per player** (was 2). Arrivals no longer add the active player's cubes to the bag.
+- Calls the game makes where the brief is open: the placer makes every choice, whoever's cubes they are; School cities never pull from each other, since two of them would trade the same person back and forth for ever; the people are drawn before the Factory cubes go back, so those cubes can't come out on the same turn; a merger's election comes before its arrivals and the turn's movement; when the bag runs short of merger arrivals, Residences draw in order across the map.
+
+Bot games of the new rules are short (about 19 turns) and often close (a third won by at most 10%), with a first-player edge of 1.42x; details in `docs/simulations.md`.
+
 ### 2026-11-17: Round 3's recommended set can be playtested
 The lobby offers it as a rule set beside Draft 5.13: place-only turns, Factories bringing 2 people to their own city, a Town Hall each, only placed tiles adding cubes, and catch-up cubes of 0, 1, 2, 2, 2. It was the fairest set simulated, so it's the first to try at the table. Draft 5.13 stays the default.
 
@@ -108,6 +136,12 @@ Setup prints two Factories in district E and deals 2 families onto each printed 
 The map, districts and look ported from the asset generator, with rules for placement, the School bonus, immigration from a seeded bag, mergers, elections and the game's end. The bracketed values in the rules became lobby settings.
 
 ## Game development
+
+### 2026-11-25: The board for pulling
+Owned tiles wear their owner's colour as a thick outline. Factories are one hex again, with their cubes in rows over the glyph. After placing, a "Pull people" panel picks the Residence to pull into, then where from, then the colour and the School to credit when there's a choice, with an End turn button; the map highlights the same choices. The players panel shows each player's tiles again. The Playtest dials set tiles per player, bag cubes per player and the bag's size. The rules sheet's examples now show a Factory drawing from the bag, pulls from a Factory, from a Residence and through a School. The bot pulls while a pull gains it a seat or puts its own cube in the bag, then ends its turn.
+
+### 2026-11-23: The board for Factory cubes
+Factories are drawn across their two hexes as one piece, with their cubes in rows on the second hex. Placing a Factory takes two clicks, one per hex. A new panel picks which Factory cube goes back to the bag when there's a choice, and a Factory holding one colour can be clicked on the map instead. The lobby's rule set choice is gone; its Playtest dials always show the pool's tile counts, and bag cubes go up to 20. The rules sheet and its worked examples are rewritten for the new rules. The bot values a Residence by the people it's likely to draw and sends its own Factory cubes back first. The simulation script plays the current rules only. Saved games from before show the "different version" message.
 
 ### 2026-11-17: A rule set choice in the lobby
 The lobby chooses between Draft 5.13 and the Round 3 playtest set; the Playtest dials only show the shared supply's tile counts when there is a shared supply, and no longer show the proposed tiles' counts. The arrival panel explains own-city Factories when they're in play.

@@ -5,7 +5,7 @@ import type { Tile, VotesState } from '../../rules/types'
 import { COLORS } from '../theme'
 import { centerOfHex, HEX_RADIUS, MAP_SIZE, sharedEdgeMidpoint, TILE_RADIUS } from './geometry'
 import { MapSurface } from './MapSurface'
-import { MergerMarker, TilePiece } from './Pieces'
+import { MergerMarker, PlacedTiles } from './Pieces'
 
 // Room around the grid for merger markers on edge hexes.
 const MAP_MARGIN = 24
@@ -17,9 +17,11 @@ const TARGET_RING_WIDTH = 7
 const LAST_PLACED_RING_RADIUS = TILE_RADIUS + 7
 const PREVIEW_OPACITY = 0.8
 
+const townLetterOf = (key: HexKey) => hexAt(key).residenceSite
+
+/** Tiles shown faintly where the player is about to place them. */
 export interface TilePreview {
-  tile: Tile
-  at: HexKey
+  tiles: Record<HexKey, Tile>
 }
 
 interface MapViewProps {
@@ -67,9 +69,7 @@ export function MapView({ state, targets, describeTarget, onTarget, preview, emp
     <svg viewBox={VIEW_BOX} className="block h-auto w-full select-none" role="group" aria-label="Map">
       <MapSurface />
 
-      {tilesInBoardOrder(state).map(({ key, tile }) => (
-        <TilePiece key={key} tile={tile} center={centerOfHex(key)} townLetter={hexAt(key).residenceSite} />
-      ))}
+      <PlacedTiles tiles={tilesInBoardOrder(state).map(({ key, tile }) => [key, tile])} centerOf={centerOfHex} townLetterOf={townLetterOf} />
 
       {lastPlaced && (
         <HexRing at={lastPlaced} radius={LAST_PLACED_RING_RADIUS} className="fill-none stroke-ink-soft [stroke-dasharray:10_7] [stroke-width:4]" />
@@ -77,7 +77,7 @@ export function MapView({ state, targets, describeTarget, onTarget, preview, emp
 
       {preview && (
         <g opacity={PREVIEW_OPACITY} pointerEvents="none">
-          <TilePiece tile={preview.tile} center={centerOfHex(preview.at)} townLetter={null} />
+          <PlacedTiles tiles={Object.entries(preview.tiles)} centerOf={centerOfHex} townLetterOf={() => null} />
         </g>
       )}
 

@@ -26,8 +26,8 @@ describe('the rules sheet', () => {
     expect(markup.match(/Example: /g)).toHaveLength(7)
   })
 
-  it('explains that each seat scores per face-up Factory', () => {
-    expect(markup).toContain('1 point per face-up Factory')
+  it('explains that each seat scores per Factory', () => {
+    expect(markup).toContain('1 point per Factory')
   })
 
   it('names what each player scores in the election figure', () => {

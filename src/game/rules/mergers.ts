@@ -5,8 +5,8 @@ import { citiesWithout } from './cities'
 import type { VotesState } from './types'
 
 // A tile that touches two or more cities connects them into one. The tile is part of
-// the merged city from the moment it is placed, so its turn's immigration and movement
-// already use it; the merger step then marks the join and holds the election.
+// the merged city from the moment it is placed, so the rest of its turn already uses
+// it; the merger step then marks the join and holds the election.
 
 export interface CityJoin {
   /** A city the tile connects to the one it touches first. */

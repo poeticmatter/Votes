@@ -2,14 +2,15 @@ import { residenceSiteKey, TOWN_IDS } from '../../map/board'
 import { hexKey, type HexKey } from '../../map/hexGrid'
 import { STARTING_FACTORIES, type TownId } from '../../map/mapData'
 import { countVotes } from '../../rules/elections'
-import { beginMovement, isMovementOver, moveOnePerson } from '../../rules/movement'
+import { pull } from '../../rules/pulls'
 import { createInitialState, DEFAULT_SETTINGS } from '../../rules/setup'
-import type { CubeColor, ElectionResult, PersonMove, PlaceableKind, PlayerColor, PlayerCount, Tile, VotesState } from '../../rules/types'
+import { FACTORY_DRAW, type CubeColor, type ElectionResult, type PlaceableKind, type PlayerColor, type PlayerCount, type Pull, type Tile, type VotesState } from '../../rules/types'
 
 // Positions for the rules sheet's worked examples, on the real map. examples.test.ts
-// checks them against the game's rules. The examples where people move are played out by
-// the game itself, from the position just after the flip or placement to the one drawn,
-// and so is the election.
+// checks them against the game's rules. The examples where people are pulled are played
+// out by the game itself, from the position just after the placement to the one drawn,
+// and so is the election. Colours go by their in-game names: pink is Orchid, blue
+// Cobalt, yellow Saffron.
 
 export interface ExamplePosition {
   playerCount: PlayerCount
@@ -36,52 +37,46 @@ export interface PersonArrow {
   home: number
 }
 
-/** A person who arrived from the bag; `home` is their place in the Residence's people. */
-export interface ArrivalRing {
-  at: HexKey
-  home: number
-}
+// Every example seats 4 players, so Saffron (yellow) is in the game.
+const PLAYERS: PlayerCount = 4
 
-const residence = (people: CubeColor[] = []): Tile => ({ kind: 'residence', isFaceDown: false, people })
-const faceDownResidence = (): Tile => ({ kind: 'residence', isFaceDown: true, people: [] })
-const factory = (): Tile => ({ kind: 'factory', isFaceDown: false })
-const faceDownFactory = (): Tile => ({ kind: 'factory', isFaceDown: true })
-const school = (): Tile => ({ kind: 'school', isUniversity: false })
+const residence = (people: CubeColor[] = [], owner: PlayerColor | null = null): Tile => ({ kind: 'residence', owner, people })
+const factory = (cubes: CubeColor[] = [], owner: PlayerColor | null = null): Tile => ({ kind: 'factory', owner, cubes })
+const school = (owner: PlayerColor): Tile => ({ kind: 'school', owner })
 
-/** Every town's starting Residence and the printed Factories, with `startingPeople`, under the example's own tiles. */
+const PRINTED_FACTORIES = STARTING_FACTORIES.map(([col, row]) => hexKey(col, row))
+
+/** Every town's starting Residence with `startingPeople`, and every printed Factory, empty, under the example's own tiles. */
 function examplePosition(
-  frame: Omit<ExamplePosition, 'tiles'>,
+  frame: Omit<ExamplePosition, 'tiles' | 'playerCount'>,
   startingPeople: Partial<Record<TownId, CubeColor[]>>,
   tiles: Record<HexKey, Tile>,
 ): ExamplePosition {
   const towns = TOWN_IDS.map((town): [HexKey, Tile] => [residenceSiteKey(town), residence(startingPeople[town] ?? [])])
-  const printed = STARTING_FACTORIES.map(([col, row]): [HexKey, Tile] => [hexKey(col, row), factory()])
-  return { ...frame, tiles: { ...Object.fromEntries([...towns, ...printed]), ...tiles } }
+  const printed = PRINTED_FACTORIES.map((key): [HexKey, Tile] => [key, factory()])
+  return { ...frame, playerCount: PLAYERS, tiles: { ...Object.fromEntries([...towns, ...printed]), ...tiles } }
 }
-
-/** A game state holding the example's position, for asking the rules about it. */
-export function stateOf(position: ExamplePosition): VotesState {
-  const state = createInitialState({ settings: DEFAULT_SETTINGS, playerCount: position.playerCount, seed: 0 })
-  return { ...state, tiles: position.tiles }
-}
-
-/** One of the moves a player makes, as a person's colour leaving one Residence for another. */
-export type ExampleMove = PersonMove
 
 /**
- * The position after `moves`, each one made through the rules' own movement, which
- * throws if the rules wouldn't allow it then. Movement must be over afterwards.
+ * A game state holding the example's position, with `active` (if given) pulling, for
+ * asking the rules about it. The bag starts empty, so it holds only what the example adds.
  */
-function afterMoves(before: ExamplePosition, moves: ExampleMove[]): ExamplePosition {
-  const after = moves.reduce(moveOnePerson, beginMovement(stateOf(before)))
-  if (!isMovementOver(after)) throw new Error('A rules example stops while people could still move')
-  return { ...before, tiles: after.tiles }
+export function stateOf(position: ExamplePosition, active?: PlayerColor): VotesState {
+  const state = createInitialState({ settings: DEFAULT_SETTINGS, playerCount: position.playerCount, seed: 0 })
+  const seat = active ? state.players.findIndex(player => player.color === active) : state.turn.playerIndex
+  return { ...state, tiles: position.tiles, bag: {}, turn: { ...state.turn, playerIndex: seat }, phase: active ? { kind: 'pulling' } : state.phase }
 }
 
-/** Arrows for `moves`, each to the place the person took in their new Residence. */
-function arrowsFor(after: ExamplePosition, moves: ExampleMove[]): PersonArrow[] {
-  return moves.map(({ from, to }, index) => {
-    const laterInto = moves.slice(index + 1).filter(move => move.to === to).length
+/** The position after `pulls` by `active`, each made through the rules, which throw if one isn't allowed then. */
+function afterPulls(before: ExamplePosition, active: PlayerColor, pulls: Pull[]): { position: ExamplePosition; state: VotesState } {
+  const state = pulls.reduce(pull, stateOf(before, active))
+  return { position: { ...before, tiles: state.tiles }, state }
+}
+
+/** Arrows for `pulls`, each to the place the person took in their new Residence. */
+function arrowsFor(after: ExamplePosition, pulls: Pull[]): PersonArrow[] {
+  return pulls.map(({ from, to }, index) => {
+    const laterInto = pulls.slice(index + 1).filter(move => move.to === to).length
     const people = after.tiles[to]?.kind === 'residence' ? after.tiles[to].people : []
     return { from, to, home: people.length - 1 - laterInto }
   })
@@ -97,21 +92,21 @@ export interface PlacementCandidate {
 
 export const PLACEMENT_EXAMPLE = {
   intro: 'Cobalt is choosing where to place a tile from their supply, around town B in the east.',
-  position: examplePosition({ playerCount: 3, columns: [7, 10], rows: [1, 4] }, { B: ['pink', 'blue'] }, {}),
+  position: examplePosition({ columns: [7, 10], rows: [1, 4] }, { B: ['pink', 'blue'] }, {}),
   candidates: [
     {
       number: 1,
-      at: '9,3',
+      at: '10,2',
       kind: 'residence',
       isAllowed: true,
-      reason: 'It touches B’s Residence. It goes face down.',
+      reason: 'It touches B’s Residence.',
     },
     {
       number: 2,
-      at: '10,2',
-      kind: 'factory',
+      at: '8,3',
+      kind: 'school',
       isAllowed: true,
-      reason: 'It touches B’s Residence too, and also goes face down.',
+      reason: 'It touches B’s Residence too, and B has no School yet.',
     },
     {
       number: 3,
@@ -130,120 +125,118 @@ export const PLACEMENT_EXAMPLE = {
   ] satisfies PlacementCandidate[],
 }
 
-// Town A during Saffron's turns.
-const A_FRAME: Omit<ExamplePosition, 'tiles'> = { playerCount: 3, columns: [7, 10], rows: [3, 6] }
+// Town A during Saffron's and Orchid's turns.
+const A_FRAME = { columns: [7, 10] as [number, number], rows: [3, 6] as [number, number] }
 const A_STARTING_RESIDENCE = residenceSiteKey('A')
-const A_PROMISE = '7,5'
-const A_SECOND_RESIDENCE = '7,6'
 const A_FACTORY = '8,5'
+const A_ORCHID_RESIDENCE = '7,6'
+const DRAWN: CubeColor[] = ['blue', 'grey', 'yellow', 'pink', 'pink']
 
-// Saffron places a Residence face down beside A, whose starting Residence holds 4.
-export const PROMISE_EXAMPLE = {
-  position: examplePosition(
-    A_FRAME,
-    { A: ['grey', 'pink', 'pink', 'blue'] },
-    { [A_SECOND_RESIDENCE]: residence(['blue', 'yellow']), [A_PROMISE]: faceDownResidence() },
-  ),
-  placed: A_PROMISE,
-  bagTags: [{ at: A_PROMISE, color: 'yellow', amount: 1, side: 'above' }] satisfies BagTag[],
-  caption: [
-    'Saffron places a Residence from their supply face down beside A. It’s a promise: no seat, and nobody moves into it yet.',
-    'Votes: a face-down Residence adds 1 of your cubes to the bag for each overcrowded Residence (4 or more people) in its city. A’s starting Residence holds 4, so Saffron adds 1 Saffron cube.',
-  ],
-}
-
-// A turn later, Orchid flips Saffron's promise; people level into it.
-const LEVELLING_BEFORE = examplePosition(
-  A_FRAME,
-  { A: ['grey', 'pink', 'pink', 'blue'] },
-  { [A_SECOND_RESIDENCE]: residence(['blue', 'yellow']), [A_PROMISE]: residence() },
-)
-const LEVELLING_MOVES: ExampleMove[] = [
-  { from: A_STARTING_RESIDENCE, color: 'pink', to: A_PROMISE },
-  { from: A_STARTING_RESIDENCE, color: 'grey', to: A_PROMISE },
-]
-const LEVELLING_AFTER = afterMoves(LEVELLING_BEFORE, LEVELLING_MOVES)
-
-export const LEVELLING_EXAMPLE = {
-  before: LEVELLING_BEFORE,
-  position: LEVELLING_AFTER,
-  placed: A_PROMISE,
-  moves: arrowsFor(LEVELLING_AFTER, LEVELLING_MOVES),
-  caption: [
-    'On a later turn Orchid flips that Residence: any face-down tile may be flipped, anyone’s. Now it’s a seat.',
-    'Levelling: a person may move to another Residence in the same city with at least 2 fewer people, the most crowded first. 4 against 0, so one moves; then 3 against 1, so another; then every Residence holds 2.',
-    'Orchid chooses who moves: an Orchid, then the grey. The grey doesn’t vote, so Orchid wins the new seat. Moving adds nothing to the bag.',
-  ],
-}
-
-// Saffron flips a face-down Factory beside A's Station hex. Before, A's starting
-// Residence held a grey and an Orchid, and the second one a Cobalt.
-export const IMMIGRATION_EXAMPLE = {
-  position: examplePosition(
-    A_FRAME,
-    { A: ['grey', 'pink'] },
-    { [A_FACTORY]: factory(), [A_SECOND_RESIDENCE]: residence(['blue', 'yellow']) },
-  ),
+// Saffron places a Factory beside A; it draws 5 cubes from the bag.
+export const FACTORY_EXAMPLE = {
+  position: examplePosition(A_FRAME, { A: ['grey', 'pink'] }, { [A_FACTORY]: factory(DRAWN, 'yellow') }),
   placed: A_FACTORY,
-  arrivals: [{ at: A_SECOND_RESIDENCE, home: 1 }] satisfies ArrivalRing[],
-  bagTags: [{ at: A_FACTORY, color: 'yellow', amount: 1, side: 'above' }] satisfies BagTag[],
+  drawn: DRAWN,
   caption: [
-    'Saffron flips a face-down Factory beside A. It brings 1 person from the bag for each city on the board, each into the least crowded Residence of that city.',
-    'A’s person, a Saffron, goes into the second Residence, which held only 1. Every other city gets its own person the same way, so later Factories bring fewer as cities merge.',
-    'Votes: each person who arrives adds 1 of Saffron’s cubes to the bag. From now on every seat in A scores 1 more point.',
+    `Saffron places a Factory from their supply beside A. It draws ${FACTORY_DRAW} cubes from the bag: here a Cobalt, a grey, a Saffron and two Orchids.`,
+    'The coloured outline shows it’s Saffron’s. From now on every seat in A scores 1 more point at elections.',
+  ],
+}
+
+// On a later turn Orchid places a Residence beside A, then pulls from Saffron's Factory.
+const FACTORY_PULLS: Pull[] = [
+  { from: A_FACTORY, color: 'pink', to: A_ORCHID_RESIDENCE, credit: null },
+  { from: A_FACTORY, color: 'pink', to: A_ORCHID_RESIDENCE, credit: null },
+  { from: A_FACTORY, color: 'grey', to: A_ORCHID_RESIDENCE, credit: null },
+]
+const FACTORY_PULL_BEFORE = examplePosition(A_FRAME, { A: ['grey', 'pink'] }, {
+  [A_FACTORY]: factory(DRAWN, 'yellow'),
+  [A_ORCHID_RESIDENCE]: residence([], 'pink'),
+})
+const FACTORY_PULL_AFTER = afterPulls(FACTORY_PULL_BEFORE, 'pink', FACTORY_PULLS)
+
+export const FACTORY_PULL_EXAMPLE = {
+  before: FACTORY_PULL_BEFORE,
+  position: FACTORY_PULL_AFTER.position,
+  after: FACTORY_PULL_AFTER.state,
+  placed: A_ORCHID_RESIDENCE,
+  moves: arrowsFor(FACTORY_PULL_AFTER.position, FACTORY_PULLS),
+  bagTags: [{ at: A_FACTORY, color: 'yellow', amount: FACTORY_PULLS.length, side: 'above' }] satisfies BagTag[],
+  caption: [
+    'Orchid places a Residence of their own beside A. Nobody moves in by itself: Orchid pulls people in after placing.',
+    'A Residence holding fewer than 3 people may pull from a Factory in its city. Orchid pulls two Orchids and the grey, and stops at 3.',
+    'Each person pulled from a Factory has its owner add 1 cube to the bag, so Saffron adds 3 Saffron cubes.',
+  ],
+}
+
+// Orchid places a Residence in A and pulls from A's crowded starting Residence.
+const RESIDENCE_PULL_PLACED = '7,5'
+const A_SAFFRON_RESIDENCE = '7,6'
+const RESIDENCE_PULLS: Pull[] = [
+  { from: A_STARTING_RESIDENCE, color: 'pink', to: RESIDENCE_PULL_PLACED, credit: null },
+  { from: A_STARTING_RESIDENCE, color: 'grey', to: RESIDENCE_PULL_PLACED, credit: null },
+]
+const RESIDENCE_PULL_BEFORE = examplePosition(A_FRAME, { A: ['grey', 'pink', 'pink', 'blue'] }, {
+  [A_SAFFRON_RESIDENCE]: residence(['blue', 'yellow'], 'yellow'),
+  [RESIDENCE_PULL_PLACED]: residence([], 'pink'),
+})
+const RESIDENCE_PULL_AFTER = afterPulls(RESIDENCE_PULL_BEFORE, 'pink', RESIDENCE_PULLS)
+
+export const RESIDENCE_PULL_EXAMPLE = {
+  before: RESIDENCE_PULL_BEFORE,
+  position: RESIDENCE_PULL_AFTER.position,
+  after: RESIDENCE_PULL_AFTER.state,
+  placed: RESIDENCE_PULL_PLACED,
+  moves: arrowsFor(RESIDENCE_PULL_AFTER.position, RESIDENCE_PULLS),
+  caption: [
+    'Orchid places a Residence in A. A has no Factory, but its starting Residence is crowded.',
+    'A Residence may pull from another in its city that holds at least 2 more people. 4 against 0, so Orchid pulls an Orchid; then 3 against 1, so the grey; at 2 against 2 nobody more can come.',
+    'The grey doesn’t vote, so Orchid holds the new seat. Orchid can’t pull into Saffron’s Residence: only into their own, and the starting ones.',
   ],
 }
 
 const C_SCHOOL = '7,1'
 const B_STARTING_RESIDENCE = residenceSiteKey('B')
 const C_STARTING_RESIDENCE = residenceSiteKey('C')
+const SCHOOL_PULLS: Pull[] = [{ from: B_STARTING_RESIDENCE, color: 'blue', to: C_STARTING_RESIDENCE, credit: 'yellow' }]
 
-// C held 1 person and B, with no School, 4, when Saffron placed a School in C.
-const SCHOOL_BEFORE = examplePosition(
-  { playerCount: 3, columns: [6, 10], rows: [0, 3] },
-  { C: ['grey'], B: ['blue', 'pink', 'pink', 'blue'] },
-  { [C_SCHOOL]: school() },
-)
-const SCHOOL_MOVES: ExampleMove[] = [
-  { from: B_STARTING_RESIDENCE, color: 'blue', to: C_STARTING_RESIDENCE },
-  { from: B_STARTING_RESIDENCE, color: 'pink', to: C_STARTING_RESIDENCE },
-]
-const SCHOOL_AFTER = afterMoves(SCHOOL_BEFORE, SCHOOL_MOVES)
+// Saffron places a School in C, whose starting Residence holds 1, then pulls from B, which holds 4.
+const SCHOOL_BEFORE = examplePosition({ columns: [6, 10], rows: [0, 3] }, { C: ['grey'], B: ['blue', 'pink', 'pink', 'blue'] }, { [C_SCHOOL]: school('yellow') })
+const SCHOOL_AFTER = afterPulls(SCHOOL_BEFORE, 'yellow', SCHOOL_PULLS)
 
 export const SCHOOL_EXAMPLE = {
   before: SCHOOL_BEFORE,
-  position: SCHOOL_AFTER,
+  position: SCHOOL_AFTER.position,
+  after: SCHOOL_AFTER.state,
   placed: C_SCHOOL,
-  moves: arrowsFor(SCHOOL_AFTER, SCHOOL_MOVES),
+  moves: arrowsFor(SCHOOL_AFTER.position, SCHOOL_PULLS),
+  bagTags: [{ at: C_SCHOOL, color: 'yellow', amount: SCHOOL_PULLS.length, side: 'above' }] satisfies BagTag[],
   caption: [
-    'Saffron places a School in C, face up. A city may have only one School.',
-    'School pull: a city with a School pulls people from cities without one, from a Residence there into one here with fewer people. B’s Residence holds 4 and C’s 1, so a person comes; then 3 against 2, so another; at 2 against 3 nobody can.',
-    'Saffron chooses who comes: a Cobalt, then an Orchid. Nobody levels first, as there’s nothing to level.',
-    'A city with two Schools, after a merger, can flip one into a University, which also pulls from cities with a School but no University.',
+    'Saffron places their School in C. A city may have only one School when it’s placed.',
+    'A Residence in a city with a School may pull from other cities too, by the same rules. Anyone may pull into a starting Residence, so Saffron pulls a Cobalt from B’s, 4 against 1; at 3 against 2 nobody more can come.',
+    'Each person brought from another city has the School’s owner add 1 cube to the bag: Saffron adds a Saffron cube. B’s Factory is empty here, or C could have pulled from it too.',
   ],
 }
 
 const MERGER_PLACED = '8,3'
 const C_SECOND_RESIDENCE = '7,2'
 
-// C's tiles reach down to [7, 2] and B's Residence is at [9, 2]; the face-down Residence
-// at [8, 3] touches both.
+// C's tiles reach down to [7, 2] and B's Residence is at [9, 2]; the Residence at [8, 3]
+// touches both. Both Factories are empty.
 export const MERGER_EXAMPLE = {
   position: examplePosition(
-    { playerCount: 3, columns: [7, 10], rows: [0, 4] },
+    { columns: [6, 10], rows: [0, 4] },
     { C: ['pink', 'blue', 'blue'], B: ['blue', 'blue', 'pink'] },
     {
-      '7,1': factory(),
-      '9,3': factory(),
-      '8,0': faceDownFactory(),
-      [C_SECOND_RESIDENCE]: residence(['yellow', 'blue']),
-      [MERGER_PLACED]: faceDownResidence(),
+      '7,1': factory([], 'blue'),
+      [C_SECOND_RESIDENCE]: residence(['yellow', 'blue'], 'blue'),
+      [MERGER_PLACED]: residence([], 'yellow'),
     },
   ),
   placed: MERGER_PLACED,
   caption: [
-    'Saffron places a Residence face down where it touches both C’s Residence and B’s.',
-    'A tile that touches two cities joins them, face down or not: B and C are one city, and it votes at once. Nobody moves, since only a flip or a School moves people.',
+    'Saffron places a Residence where it touches both C’s tiles and B’s Residence.',
+    'A tile that touches two cities joins them: B and C are one city, and it votes at once, before Saffron pulls anyone.',
   ],
 }
 
@@ -257,9 +250,9 @@ function mergerElection(): ElectionResult {
 export const ELECTION_EXAMPLE = {
   result: mergerElection(),
   caption: [
-    'Each face-up Residence in the new city is a seat: 3 of them. The face-down one is only a promise.',
+    'Each Residence in the new city is a seat, whoever owns it: 4 of them. The new one is empty, so nobody holds it.',
     'Cobalt wins C’s and B’s starting Residences. The one next to C’s holds a Saffron and a Cobalt, tied, so the colour furthest left, Saffron, wins it.',
-    'Each seat scores its holder 1 point per face-up Factory in the city. There are 2; the face-down one counts for nothing.',
-    'Cobalt scores 4, Saffron 2.',
+    'Each seat scores its holder 1 point per Factory in the city. There are 2, B’s printed one and Cobalt’s, so Cobalt scores 4 and Saffron 2.',
+    'After the vote, each of the city’s 4 Residences draws 1 person from the bag. Only then does Cobalt add 2 Cobalt cubes to the bag and Saffron 1 Saffron cube, 1 per seat won.',
   ],
 }

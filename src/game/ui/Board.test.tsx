@@ -44,25 +44,25 @@ const otherRole = (state: VotesState) => (state.turn.playerIndex + 1) % PLAYERS.
 
 describe('board rendering', () => {
   const start = playUntil(() => true)
-  const moving = playUntil(state => state.phase.kind === 'movement')
-  const arriving = playUntil(state => state.phase.kind === 'arrival')
+  const pullingTurn = playUntil(state => state.phase.kind === 'pulling')
+  const withFactory = playUntil(state => Object.values(state.tiles).some(tile => tile.kind === 'factory' && tile.owner !== null))
   const afterElection = playUntil(state => state.elections.length > 0 && state.phase.kind === 'action')
   const finished = playUntil(state => state.phase.kind === 'gameOver')
 
   it('offers the tile picker to the active player', () => {
-    expect(render(start, { role: activeRole(start) })).toContain('Take a tile into your supply')
+    expect(render(start, { role: activeRole(start) })).toContain('Place a tile from your supply')
   })
 
   it('tells everyone else whose turn it is', () => {
-    expect(render(start, { role: otherRole(start) })).toContain('is choosing an action')
+    expect(render(start, { role: otherRole(start) })).toContain('is choosing a tile to place')
   })
 
-  it('lists the Residences people may move from when moves tie', () => {
-    expect(render(moving, { role: activeRole(moving) })).toContain('choose who moves next')
+  it('offers pulls and the end of the turn after placing', () => {
+    expect(render(pullingTurn, { role: activeRole(pullingTurn) })).toContain('End turn')
   })
 
-  it('asks where a drawn person goes when Residences tie for least crowded', () => {
-    expect(render(arriving, { role: activeRole(arriving) })).toContain('tie for least crowded')
+  it('renders a placed Factory and logs the cubes it drew', () => {
+    expect(render(withFactory, { role: 'spectator' })).toContain('from the bag')
   })
 
   it('shows past elections', () => {

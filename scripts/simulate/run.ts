@@ -1,17 +1,22 @@
 import { writeFileSync } from 'node:fs'
 import { botPlayer, playGame, sloppyPlayer, type GameRecord } from './playGame'
 import { summarize, type Summary } from './summarize'
-import { OWN_CITY, PLACE_ONLY, REFERENCE, ROUND_ONE, type Variant } from './variants'
-import { CATCH_UP, HUB_CUBE_SETS, TWEAKS } from './tweaks'
+import { DEFAULT_SETTINGS } from '../../src/game/rules/setup'
+import type { VotesSettings } from '../../src/game/rules/types'
 
-// Plays every rule set with bots and prints what the games add up to.
+// Plays the rules with bots and prints what the games add up to.
 //
-//   npx vite-node scripts/simulate/run.ts -- [games per player count] [out.json] [set]
+//   npx vite-node scripts/simulate/run.ts -- [games per player count] [out.json]
 //
-// set: "round1" (5.13 and every combination keeping taking and flipping, the default),
-// "place" (5.13 and every place-only combination), "own" (every combination with
-// Factories bringing people to their own city), "catchup", "hubcubes", "tweaks", "all", or a
-// comma-separated list of ids.
+// To compare dials, add variants to VARIANTS.
+
+interface Variant {
+  id: string
+  description: string
+  settings: VotesSettings
+}
+
+const VARIANTS: Variant[] = [{ id: 'current', description: 'The rules as the game plays them, at the default dials.', settings: DEFAULT_SETTINGS }]
 
 const PLAYER_COUNTS = [3, 4, 5]
 /** The bot against sloppy players, at 4 players: how much better play is rewarded. */
@@ -38,21 +43,6 @@ function skillShare(variant: Variant, games: number): number {
   return wins.length / games
 }
 
-function variantsFor(set: string): Variant[] {
-  if (set === 'tweaks') return TWEAKS
-  const everything = [REFERENCE, ...ROUND_ONE, ...PLACE_ONLY, ...TWEAKS, ...OWN_CITY, ...CATCH_UP, ...HUB_CUBE_SETS]
-  if (set === 'all') return everything
-  if (set === 'round1') return [REFERENCE, ...ROUND_ONE]
-  if (set === 'place') return [REFERENCE, ...PLACE_ONLY]
-  if (set === 'own') return OWN_CITY
-  if (set === 'catchup') return CATCH_UP
-  if (set === 'hubcubes') return HUB_CUBE_SETS
-  const ids = set.split(',')
-  const chosen = everything.filter(variant => ids.includes(variant.id))
-  if (chosen.length !== ids.length) throw new Error(`Unknown rule set among ${set}`)
-  return chosen
-}
-
 const percent = (share: number) => `${Math.round(share * 100)}%`
 const fixed = (value: number, digits = 1) => value.toFixed(digits)
 
@@ -74,12 +64,10 @@ function printTable(results: VariantResult[]): void {
     fixed(s.meanActions, 0),
     percent(botWinShareVsSloppy),
   ])
-  const usageHeader = ['set', 'R', 'F', 'S', 'H', 'P', 'flips', 'takes', 'passes', 'people', 'bag']
+  const usageHeader = ['set', 'R', 'F', 'S', 'passes', 'people', 'bag']
   const usage = results.map(({ id, summary: s }) => [
     id,
-    ...(['residence', 'factory', 'school', 'hub', 'port'] as const).map(kind => fixed(s.placed[kind])),
-    fixed(s.flips),
-    fixed(s.takes),
+    ...(['residence', 'factory', 'school'] as const).map(kind => fixed(s.placed[kind])),
     fixed(s.passes),
     fixed(s.peopleOnBoard),
     fixed(s.bagAtEnd),
@@ -92,9 +80,9 @@ function printTable(results: VariantResult[]): void {
 }
 
 function main(): void {
-  const [gamesArg, outPath, set = 'round1'] = process.argv.slice(2).filter(arg => arg !== '--')
+  const [gamesArg, outPath] = process.argv.slice(2).filter(arg => arg !== '--')
   const gamesPerCount = Number(gamesArg ?? 50)
-  const results: VariantResult[] = variantsFor(set).map(variant => {
+  const results: VariantResult[] = VARIANTS.map(variant => {
     const started = Date.now()
     const result = {
       id: variant.id,

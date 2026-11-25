@@ -1,7 +1,7 @@
 import { hexCorners, roundedPolygonPath, type Point } from '../../map/hexGrid'
-import type { CubeColor, Tile } from '../../rules/types'
+import type { CubeColor, PlaceableKind } from '../../rules/types'
 import { TILE_LAYOUT, TILE_RADIUS } from '../map/geometry'
-import { Cube, TilePiece } from '../map/Pieces'
+import { Cube, KindPiece } from '../map/Pieces'
 import { COLORS, FONT_FAMILY } from '../theme'
 
 // Marks drawn over the rules sheet's map excerpts, in map pixels; ported from the asset
@@ -38,9 +38,9 @@ export const NumberBadge = ({ center, number, isAllowed }: { center: Point; numb
 )
 
 /** A tile someone is considering: see-through, so it reads as hypothetical. */
-export const GhostTile = ({ tile, center }: { tile: Tile; center: Point }) => (
+export const GhostTile = ({ kind, center }: { kind: PlaceableKind; center: Point }) => (
   <g opacity={0.42}>
-    <TilePiece tile={tile} center={center} townLetter={null} />
+    <KindPiece kind={kind} center={center} />
   </g>
 )
 

@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react'
 import { ElectionFigure } from './ElectionFigure'
-import { ImmigrationFigure, LevellingFigure, MergerFigure, PlacementFigure, PromiseFigure, SchoolFigure } from './ExampleFigures'
+import { FactoryFigure, FactoryPullFigure, MergerFigure, PlacementFigure, ResidencePullFigure, SchoolFigure } from './ExampleFigures'
 import {
   ELECTION_EXAMPLE,
-  IMMIGRATION_EXAMPLE,
-  LEVELLING_EXAMPLE,
+  FACTORY_EXAMPLE,
+  FACTORY_PULL_EXAMPLE,
   MERGER_EXAMPLE,
   PLACEMENT_EXAMPLE,
-  PROMISE_EXAMPLE,
+  RESIDENCE_PULL_EXAMPLE,
   SCHOOL_EXAMPLE,
 } from './examples'
 import { SectionHeading } from './MetroSteps'
@@ -59,16 +59,16 @@ export function RulesExamples() {
           </p>
         ))}
       </Example>
-      <Example title="Example: a promise" figure={<PromiseFigure />}>
-        <CaptionLines lines={PROMISE_EXAMPLE.caption} />
+      <Example title="Example: placing a Factory" figure={<FactoryFigure />}>
+        <CaptionLines lines={FACTORY_EXAMPLE.caption} />
       </Example>
-      <Example title="Example: flipping a Residence" figure={<LevellingFigure />}>
-        <CaptionLines lines={LEVELLING_EXAMPLE.caption} />
+      <Example title="Example: pulling from a Factory" figure={<FactoryPullFigure />}>
+        <CaptionLines lines={FACTORY_PULL_EXAMPLE.caption} />
       </Example>
-      <Example title="Example: flipping a Factory" figure={<ImmigrationFigure />}>
-        <CaptionLines lines={IMMIGRATION_EXAMPLE.caption} />
+      <Example title="Example: pulling from a Residence" figure={<ResidencePullFigure />}>
+        <CaptionLines lines={RESIDENCE_PULL_EXAMPLE.caption} />
       </Example>
-      <Example title="Example: a School pull" figure={<SchoolFigure />}>
+      <Example title="Example: pulling through a School" figure={<SchoolFigure />}>
         <CaptionLines lines={SCHOOL_EXAMPLE.caption} />
       </Example>
       <Example title="Example: a merger" figure={<MergerFigure />}>

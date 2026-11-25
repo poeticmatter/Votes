@@ -1,20 +1,19 @@
 import { IllegalMoveError, type GameOutcome } from 'game-kit/turns'
-import { activePlayerState, cityAt, citiesOf, peopleOnBoard } from './boardQueries'
-import { holdElection } from './elections'
 import type { HexKey } from '../map/hexGrid'
-import { flipTargets, flipTile, placeAndPromise, takeableKinds, takeTile } from './actions'
-import { arrive, beginImmigration, beginOwnCityArrivals } from './immigration'
+import { activePlayerState, cityAt, citiesOf, peopleOnBoard } from './boardQueries'
+import { addSeatCubes, holdElection } from './elections'
+import { mergerArrivals, stockFactory } from './arrivals'
 import { addMergerMarkers, citiesTouchedBy } from './mergers'
-import { beginMovement, isMovementOver, moveOnePerson, moveWhileForced } from './movement'
-import { placeableKinds } from './placement'
-import type { FactoryArrivals, Phase, PlaceableKind, PlayerColor, VotesMove, VotesState } from './types'
+import { placeableKinds, placeTile } from './placement'
+import { pull } from './pulls'
+import type { Phase, PlaceableKind, PlayerColor, VotesMove, VotesState } from './types'
 
-// A turn is one action: take a tile from the shared supply, place one from your own, or
-// flip one. Placing a School, or flipping anything, moves people (levelling, then School
-// pulls) until nobody can move; flipping a Factory first brings people from the bag.
-// Nothing else changes where people want to be. A placement that joins cities (they join
-// the moment the tile is placed; see mergers.ts) then holds an election. Each move is one
-// decision by the active player; everything that needs no decision runs straight on.
+// A turn: place one tile from your own supply (or pass if none fits), then pull people
+// into your Residences and the starting ones, as many as you like, then end the turn. A
+// placed Factory draws cubes from the bag. A placement that joins cities (they join the
+// moment the tile is placed; see mergers.ts) holds an election, after which every
+// Residence of the new city draws 1 person, and then each player adds 1 cube to the bag
+// for every seat they won. Nobody moves unless the active player pulls them.
 
 type GameOverReason = 'lastMerger' | 'nobodyCanAct'
 
@@ -60,19 +59,10 @@ function endGame(state: VotesState, reason: GameOverReason): VotesState {
   }
 }
 
-/** A Town Hall that joined no cities still has its city vote. */
-function hallElection(state: VotesState, at: HexKey): VotesState {
-  if (state.tiles[at]?.kind !== 'hall') return state
-  const city = cityAt(state, at)
-  const entry = { kind: 'hallElection' as const, turn: state.turn.number, city, electionNumber: state.elections.length + 1 }
-  return holdElection({ ...state, log: [...state.log, entry] }, city)
-}
-
-function resolveMerger(state: VotesState): VotesState {
-  const at = state.turn.placedAt
-  if (!at) return state
+/** Joins the cities the placed tile touches, holds their election, brings each Residence there a person, and bags the seats won. */
+function resolveMerger(state: VotesState, at: HexKey): VotesState {
   const { joins } = citiesTouchedBy(state, at)
-  if (joins.length === 0) return hallElection(state, at)
+  if (joins.length === 0) return state
 
   const merged = addMergerMarkers(state, joins)
   const city = cityAt(merged, at)
@@ -80,10 +70,38 @@ function resolveMerger(state: VotesState): VotesState {
     ...merged,
     log: [...merged.log, { kind: 'merger', turn: state.turn.number, city, electionNumber: merged.elections.length + 1 }],
   }
-  return holdElection(logged, city)
+  const elected = holdElection(logged, city)
+  // The last merger ends the game, so nobody needs to arrive or bag their seats.
+  if (citiesOf(elected).length === 1) return elected
+  const election = elected.elections[elected.elections.length - 1]
+  // The seats' cubes go in only after the arrivals, so none of them can arrive this turn.
+  return addSeatCubes(mergerArrivals(elected, city), election)
 }
 
-function startNextTurn(state: VotesState): VotesState {
+const beginPulling = (state: VotesState): VotesState => ({ ...state, phase: { kind: 'pulling' } })
+
+function place(state: VotesState, kind: PlaceableKind, at: HexKey): VotesState {
+  const placed = placeTile({ ...state, consecutivePasses: 0 }, kind, at)
+  const stocked = kind === 'factory' ? stockFactory(placed, at) : placed
+  const afterMerger = resolveMerger(stocked, at)
+  if (citiesOf(afterMerger).length === 1) return endGame(afterMerger, 'lastMerger')
+  return beginPulling(afterMerger)
+}
+
+/** Whether the active player has a tile they can place. */
+export function hasAnyPlacement(state: VotesState): boolean {
+  return placeableKinds(state).length > 0
+}
+
+function pass(state: VotesState): VotesState {
+  if (hasAnyPlacement(state)) throw new IllegalMoveError('You can only pass when no tile in your supply fits')
+  const entry = { kind: 'passed' as const, turn: state.turn.number, player: activePlayerState(state).color }
+  return beginPulling({ ...state, consecutivePasses: state.consecutivePasses + 1, log: [...state.log, entry] })
+}
+
+function endTurn(state: VotesState): VotesState {
+  // A full round of players unable to place means nobody ever will again.
+  if (state.consecutivePasses >= state.players.length) return endGame(state, 'nobodyCanAct')
   return {
     ...state,
     turn: {
@@ -92,47 +110,6 @@ function startNextTurn(state: VotesState): VotesState {
       placedAt: null,
     },
     phase: { kind: 'action' },
-  }
-}
-
-function endTurn(state: VotesState): VotesState {
-  const afterMerger = resolveMerger(state)
-  if (citiesOf(afterMerger).length === 1) return endGame(afterMerger, 'lastMerger')
-  // Passing changes nothing a later action depends on, so a full round of passes means
-  // nobody will ever act again.
-  if (afterMerger.consecutivePasses >= afterMerger.players.length) return endGame(afterMerger, 'nobodyCanAct')
-  return startNextTurn(afterMerger)
-}
-
-/** Runs the turn on until the active player has a decision to make, or the turn ends. */
-function advance(state: VotesState): VotesState {
-  if (state.phase.kind === 'movement') {
-    const moved = moveWhileForced(state)
-    return isMovementOver(moved) ? endTurn(moved) : moved
-  }
-  return state
-}
-
-/** Whether the active player has any action: a tile to take, place or flip. */
-export function hasAnyAction(state: VotesState): boolean {
-  return takeableKinds(state).length > 0 || placeableKinds(state).length > 0 || flipTargets(state).length > 0
-}
-
-/** An action other than a pass breaks a run of passes. */
-const acted = (state: VotesState): VotesState => ({ ...state, consecutivePasses: 0 })
-
-/** Flips a tile; a Factory brings people first, and then everyone moves. */
-function flip(state: VotesState, at: HexKey): VotesState {
-  const { state: flipped, into } = flipTile(acted(state), at)
-  return into === 'factory' ? beginImmigration(flipped) : beginMovement(flipped)
-}
-
-function pass(state: VotesState): VotesState {
-  if (hasAnyAction(state)) throw new IllegalMoveError('You can only pass when you have no action')
-  return {
-    ...state,
-    consecutivePasses: state.consecutivePasses + 1,
-    log: [...state.log, { kind: 'passed', turn: state.turn.number, player: activePlayerState(state).color }],
   }
 }
 
@@ -145,57 +122,20 @@ export function drawsFromBag(state: VotesState, move: VotesMove): boolean {
   return applyMove(state, move).randomState !== state.randomState
 }
 
-/**
- * Who placing a tile of `kind` brings from the bag: a Port brings 1 person for every city;
- * with place-only turns, a Factory brings whoever `factoryArrivals` says.
- */
-function arrivalsOnPlace(state: VotesState, kind: PlaceableKind): FactoryArrivals {
-  if (kind === 'port') return 'everyCity'
-  return kind === 'factory' && state.options.isPlaceOnly ? state.options.factoryArrivals : 'none'
-}
-
-/**
- * Whether placing a tile of `kind` changes where people want to be: a School or Hub, a
- * Residence placed face up (a new seat to level into). Face-down promises move nobody.
- */
-function movesPeopleOnPlace(state: VotesState, kind: PlaceableKind): boolean {
-  return kind === 'school' || kind === 'hub' || (kind === 'residence' && state.options.isPlaceOnly)
-}
-
-/** A tile that brings people brings them first; then everyone moves, if anything changed where they want to be. */
-function afterPlacing(placed: VotesState, kind: PlaceableKind, at: HexKey): VotesState {
-  switch (arrivalsOnPlace(placed, kind)) {
-    case 'everyCity':
-      return advance(beginImmigration(placed))
-    case 'ownCity':
-      return advance(beginOwnCityArrivals(placed, at))
-    case 'none':
-      return movesPeopleOnPlace(placed, kind) ? advance(beginMovement(placed)) : endTurn(placed)
-  }
-}
-
 /** Applies the active player's move. Throws {@link IllegalMoveError} if it breaks the rules. */
 export function applyMove(state: VotesState, move: VotesMove): VotesState {
   switch (move.kind) {
-    case 'take':
+    case 'place':
       requirePhase(state, 'action')
-      return endTurn(takeTile(acted(state), move.tile))
-    case 'place': {
-      requirePhase(state, 'action')
-      return afterPlacing(placeAndPromise(acted(state), move.tile, move.at), move.tile, move.at)
-    }
-    case 'flip':
-      requirePhase(state, 'action')
-      return advance(flip(state, move.at))
+      return place(state, move.tile, move.at)
     case 'pass':
       requirePhase(state, 'action')
-      // Every turn ends with nobody able to move, and a pass changes nothing, so the turn just ends.
-      return endTurn(pass(state))
-    case 'arrive':
-      requirePhase(state, 'arrival')
-      return advance(arrive(state, move.residence))
-    case 'move':
-      requirePhase(state, 'movement')
-      return advance(moveOnePerson(state, move))
+      return pass(state)
+    case 'pull':
+      requirePhase(state, 'pulling')
+      return pull(state, move)
+    case 'endTurn':
+      requirePhase(state, 'pulling')
+      return endTurn(state)
   }
 }

@@ -31,8 +31,6 @@ export interface Summary {
   /** Win shares by turn position, for each player count. */
   winSharesByCount: Record<number, number[]>
   placed: Record<PlaceableKind, number>
-  flips: number
-  takes: number
   passes: number
   meanActions: number
   peopleOnBoard: number
@@ -87,8 +85,6 @@ export function summarize(records: GameRecord[]): Summary {
     ...seatMeasures(records),
     winSharesByCount: winSharesByCount(records),
     placed: Object.fromEntries(PLACEABLE_KINDS.map(kind => [kind, mean(records.map(record => record.placed[kind]))])) as Record<PlaceableKind, number>, // every kind
-    flips: mean(records.map(record => record.flips)),
-    takes: mean(records.map(record => record.takes)),
     passes: mean(records.map(record => record.passes)),
     meanActions: mean(records.map(record => record.meanActions)),
     peopleOnBoard: mean(records.map(record => record.peopleOnBoard)),

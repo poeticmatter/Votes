@@ -1,22 +1,29 @@
-import { hexCorners, roundedPolygonPath, type Point } from '../../map/hexGrid'
+import { hexCorners, roundedPolygonPath, type HexKey, type Point } from '../../map/hexGrid'
 import type { TownId } from '../../map/mapData'
-import type { CubeColor, Tile } from '../../rules/types'
+import type { CubeColor, PlaceableKind, PlayerColor, Tile } from '../../rules/types'
 import { COLORS, FONT_FAMILY, TILE_STYLE } from '../theme'
 import { usePieceColorOf } from '../viewer'
 import { residentCenters, TILE_LAYOUT, TILE_RADIUS } from './geometry'
-import { FactoryGlyph, HouseGlyph, LetteredHouseGlyph, PlaceGlyph, SchoolGlyph, UniversityGlyph } from './glyphs'
+import { FactoryGlyph, HouseGlyph, LetteredHouseGlyph, PlaceGlyph, SchoolGlyph } from './glyphs'
 
 // Pieces on the map, ported from the asset generator's src/pieces/Tile.jsx and
-// Tokens.jsx. Every piece is drawn around a centre point at map scale.
+// Tokens.jsx. Every piece is drawn around a centre point at map scale. A tile a player
+// placed wears its owner's colour as a thick outline; the starting Residences and printed
+// Factories, owned by nobody, keep the plain one.
 
-const TileBase = ({ center, fill }: { center: Point; fill: string }) => (
-  <path
-    d={roundedPolygonPath(hexCorners(center, TILE_RADIUS), TILE_STYLE.cornerRadius)}
-    fill={fill}
-    stroke={TILE_STYLE.outline.color}
-    strokeWidth={TILE_STYLE.outline.width}
-  />
-)
+const OWNER_OUTLINE_WIDTH = 7
+
+const TileBase = ({ center, fill, owner }: { center: Point; fill: string; owner: PlayerColor | null }) => {
+  const pieceColorOf = usePieceColorOf()
+  return (
+    <path
+      d={roundedPolygonPath(hexCorners(center, TILE_RADIUS), TILE_STYLE.cornerRadius)}
+      fill={fill}
+      stroke={owner ? pieceColorOf(owner).fill : TILE_STYLE.outline.color}
+      strokeWidth={owner ? OWNER_OUTLINE_WIDTH : TILE_STYLE.outline.width}
+    />
+  )
+}
 
 export const Cube = ({ center, color, size = TILE_LAYOUT.cubeSize }: { center: Point; color: CubeColor; size?: number }) => {
   const pieceColorOf = usePieceColorOf()
@@ -34,116 +41,85 @@ export const Cube = ({ center, color, size = TILE_LAYOUT.cubeSize }: { center: P
   )
 }
 
-const Cubes = ({ colors, positions }: { colors: CubeColor[]; positions: Point[] }) => (
-  <g>
-    {colors.map((color, index) => (
-      <Cube key={`${index}-${color}`} center={positions[index]} color={color} />
-    ))}
-  </g>
-)
-
-/**
- * `townLetter` marks a town's starting Residence, which carries the letter in its house.
- * Only the people show, sitting in a row over the house; there are no empty home slots.
- */
-const ResidenceTile = ({ center, fill, people, townLetter }: { center: Point; fill: string; people: CubeColor[]; townLetter: TownId | null }) => {
-  const size = TILE_LAYOUT.residenceSize
+const Cubes = ({ colors, center }: { colors: CubeColor[]; center: Point }) => {
+  const positions = residentCenters(center, colors.length)
   return (
     <g>
-      <TileBase center={center} fill={fill} />
-      <PlaceGlyph center={center} size={size}>
-        {townLetter ? (
-          <LetteredHouseGlyph size={size} color={TILE_STYLE.ink} letter={townLetter} letterColor={fill} fontFamily={FONT_FAMILY} />
-        ) : (
-          <HouseGlyph size={size} color={TILE_STYLE.ink} />
-        )}
-      </PlaceGlyph>
-      <Cubes colors={people} positions={residentCenters(center, people.length)} />
+      {colors.map((color, index) => (
+        <Cube key={`${index}-${color}`} center={positions[index]} color={color} />
+      ))}
     </g>
   )
 }
 
 const BUILDING_GLYPHS = {
+  residence: { size: TILE_LAYOUT.residenceSize, Glyph: HouseGlyph },
   factory: { size: TILE_LAYOUT.factorySize, Glyph: FactoryGlyph },
   school: { size: TILE_LAYOUT.schoolSize, Glyph: SchoolGlyph },
-  university: { size: TILE_LAYOUT.universitySize, Glyph: UniversityGlyph },
 } as const
 
-const BuildingTile = ({ center, fill, kind }: { center: Point; fill: string; kind: keyof typeof BUILDING_GLYPHS }) => {
+interface TileLook {
+  center: Point
+  kind: PlaceableKind
+  owner: PlayerColor | null
+  /** People on a Residence, or cubes waiting on a Factory, in rows over the glyph. */
+  cubes: CubeColor[]
+  /** A town's starting Residence carries its letter in its house. */
+  townLetter: TownId | null
+}
+
+function TileFace({ center, kind, owner, cubes, townLetter }: TileLook) {
+  const { fill } = TILE_STYLE
   const { size, Glyph } = BUILDING_GLYPHS[kind]
   return (
     <g>
-      <TileBase center={center} fill={fill} />
+      <TileBase center={center} fill={fill} owner={owner} />
       <PlaceGlyph center={center} size={size}>
-        <Glyph size={size} color={TILE_STYLE.ink} />
+        {townLetter ? (
+          <LetteredHouseGlyph size={size} color={TILE_STYLE.ink} letter={townLetter} letterColor={fill} fontFamily={FONT_FAMILY} />
+        ) : (
+          <Glyph size={size} color={TILE_STYLE.ink} />
+        )}
       </PlaceGlyph>
+      <Cubes colors={cubes} center={center} />
     </g>
   )
 }
 
-/** Proposed tiles not yet drawn by the asset generator: a plain tile with a letter (H for Hub, P for Port, T for Town Hall). */
-const LETTERED_TILE_FONT_SIZE = 44
-
-const LetteredTile = ({ center, fill, letter }: { center: Point; fill: string; letter: string }) => (
-  <g>
-    <TileBase center={center} fill={fill} />
-    <text
-      x={center.x}
-      y={center.y}
-      textAnchor="middle"
-      dominantBaseline="central"
-      fontFamily={FONT_FAMILY}
-      fontWeight={700}
-      fontSize={LETTERED_TILE_FONT_SIZE}
-      fill={TILE_STYLE.ink}
-    >
-      {letter}
-    </text>
-  </g>
-)
-
-const FACE_DOWN_GLYPH_SCALE = 0.7
-
-/** A face-down Residence or Factory: a promise, pale and dashed, its kind shown faintly. */
-const FaceDownTile = ({ center, kind }: { center: Point; kind: 'residence' | 'factory' }) => {
-  const { faceDown, cornerRadius, outline } = TILE_STYLE
-  const size = (kind === 'residence' ? TILE_LAYOUT.residenceSize : TILE_LAYOUT.factorySize) * FACE_DOWN_GLYPH_SCALE
-  const Glyph = kind === 'residence' ? HouseGlyph : FactoryGlyph
-  return (
-    <g>
-      <path
-        d={roundedPolygonPath(hexCorners(center, TILE_RADIUS), cornerRadius)}
-        fill={faceDown.fill}
-        stroke={COLORS.ink}
-        strokeWidth={outline.width}
-        strokeDasharray={faceDown.dash}
-      />
-      <PlaceGlyph center={center} size={size}>
-        <Glyph size={size} color={faceDown.ink} />
-      </PlaceGlyph>
-    </g>
-  )
+/** An empty tile of `kind`, owned by nobody: an icon, or a ghost on the rules sheet. */
+export function KindPiece({ kind, center }: { kind: PlaceableKind; center: Point }) {
+  return <TileFace center={center} kind={kind} owner={null} cubes={[]} townLetter={null} />
 }
 
-/** `townLetter` names a town's starting Residence; other tiles ignore it. */
+/** A placed tile. `townLetter` names a town's starting Residence; other tiles ignore it. */
 export function TilePiece({ tile, center, townLetter }: { tile: Tile; center: Point; townLetter: TownId | null }) {
-  const { fill } = TILE_STYLE
   switch (tile.kind) {
     case 'residence':
-      if (tile.isFaceDown) return <FaceDownTile center={center} kind="residence" />
-      return <ResidenceTile center={center} fill={fill} people={tile.people} townLetter={townLetter} />
+      return <TileFace center={center} kind="residence" owner={tile.owner} cubes={tile.people} townLetter={townLetter} />
     case 'factory':
-      if (tile.isFaceDown) return <FaceDownTile center={center} kind="factory" />
-      return <BuildingTile center={center} fill={fill} kind="factory" />
+      return <TileFace center={center} kind="factory" owner={tile.owner} cubes={tile.cubes} townLetter={null} />
     case 'school':
-      return <BuildingTile center={center} fill={fill} kind={tile.isUniversity ? 'university' : 'school'} />
-    case 'hub':
-      return <LetteredTile center={center} fill={fill} letter="H" />
-    case 'port':
-      return <LetteredTile center={center} fill={fill} letter="P" />
-    case 'hall':
-      return <LetteredTile center={center} fill={fill} letter="T" />
+      return <TileFace center={center} kind="school" owner={tile.owner} cubes={[]} townLetter={null} />
   }
+}
+
+/** Every tile in `tiles`. */
+export function PlacedTiles({
+  tiles,
+  centerOf,
+  townLetterOf,
+}: {
+  tiles: [HexKey, Tile][]
+  centerOf: (key: HexKey) => Point
+  townLetterOf: (key: HexKey) => TownId | null
+}) {
+  return (
+    <>
+      {tiles.map(([key, tile]) => (
+        <TilePiece key={key} tile={tile} center={centerOf(key)} townLetter={townLetterOf(key)} />
+      ))}
+    </>
+  )
 }
 
 // Merger markers borrow the transit-map interchange symbol: a white disc in a heavy

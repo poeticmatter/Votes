@@ -59,16 +59,6 @@ export const SchoolGlyph = ({ size, color }: GlyphProps) => (
   </Glyph>
 )
 
-/** A University: a mortarboard with its tassel. */
-export const UniversityGlyph = ({ size, color }: GlyphProps) => (
-  <Glyph size={size}>
-    <path d="M24 8 L45 17 L24 26 L3 17 Z" fill={color} />
-    <path d="M12 22 V32 C17 37 31 37 36 32 V22 L24 27.5 Z" fill={color} />
-    <path d="M40 19 V33" stroke={color} strokeWidth={2.5} strokeLinecap="round" />
-    <circle cx={40} cy={35} r={2.5} fill={color} />
-  </Glyph>
-)
-
 export const MountainGlyph = ({ size, color }: GlyphProps) => (
   <Glyph size={size}>
     <path d="M4 38 L17 14 L25 27 L31 19 L44 38 Z" fill={color} />

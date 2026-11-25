@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { countVotes, seatWinner } from './elections'
 import { HOME, NEXT, soloNeighborOf, startOf, townHexes, townSpots } from './testMap'
-import { faceDownFactory, factory, newGame, residence, withTiles } from './testStates'
+import { factory, newGame, residence, withTiles } from './testStates'
 
 describe('a Residence’s seat', () => {
   it('goes to the colour with the most people on it', () => {
@@ -31,21 +31,20 @@ describe('a Residence’s seat', () => {
 })
 
 describe('a city’s vote', () => {
-  // HOME gets a second Residence, a face-up Factory and a face-down one. The first
-  // Residence holds 2 pink; the second a vermillion and a pink, tied, so the vermillion on
-  // the left takes it. NEXT's Residence is in another city, as is a Factory beside it.
-  const [faceUp, faceDown, other] = townSpots(HOME)
+  // HOME gets a second Residence and a Factory. The first Residence holds 2 pink; the
+  // second a vermillion and a pink, tied, so the vermillion on the left takes it. NEXT's
+  // Residence is in another city, as is a Factory beside it. Any printed Factory in HOME
+  // counts too.
+  const [factoryAt, other] = townSpots(HOME)
   const board = withTiles(newGame(), {
     [startOf(HOME)]: residence(['pink', 'pink']),
-    [other]: residence(['vermillion', 'pink']),
-    [faceUp]: factory(),
-    [faceDown]: faceDownFactory(),
+    [other]: residence(['vermillion', 'pink'], 'vermillion'),
+    [factoryAt]: factory([], 'blue'),
     [startOf(NEXT)]: residence(['vermillion', 'vermillion']),
     [soloNeighborOf(NEXT)]: factory(),
   })
-  const result = countVotes(board, [HOME])
-  // Any Factory printed beside HOME is in its city too, face up.
   const printed = townHexes(HOME).filter(key => board.tiles[key]?.kind === 'factory').length
+  const result = countVotes(board, [HOME])
 
   it('makes every Residence in the city a seat', () => {
     expect(result.seats.map(seat => seat.residence).sort()).toEqual([startOf(HOME), other].sort())
@@ -55,7 +54,7 @@ describe('a city’s vote', () => {
     expect(result.seatsByColor).toEqual({ pink: 1, vermillion: 1 })
   })
 
-  it('pays 1 point per seat for each face-up Factory in the city, and nothing for face-down ones', () => {
+  it('pays 1 point per seat for each Factory in the city, whoever owns it', () => {
     expect(result.pointsPerSeat).toBe(1 + printed)
   })
 
@@ -68,8 +67,8 @@ describe('a city’s vote', () => {
     expect(countVotes(withGrey, [HOME]).scores).toEqual({})
   })
 
-  it('pays nothing in a city with no face-up Factory', () => {
-    const noFactories = withTiles(board, { [faceUp]: faceDownFactory() })
-    expect(countVotes(noFactories, [HOME]).pointsPerSeat).toBe(printed)
+  it('pays nothing in a city with no Factory', () => {
+    const bare = withTiles(newGame(), { [startOf(HOME)]: residence(['pink']) })
+    expect(countVotes(bare, [HOME]).pointsPerSeat).toBe(0)
   })
 })
