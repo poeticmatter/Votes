@@ -20,9 +20,12 @@ export type PlayerCount = 3 | 4 | 5
 export const MIN_PLAYERS: PlayerCount = 3
 export const MAX_PLAYERS: PlayerCount = 5
 
-/** Cubes dealt onto each starting Residence and each printed Factory at setup. */
+/** Cubes dealt onto each starting Residence at setup. */
 export const STARTING_CUBES_PER_RESIDENCE = 2
+/** The printed Factories' share of the cubes dealt at setup, per Factory, before any grey moves to its town. */
 export const STARTING_CUBES_PER_FACTORY = 5
+/** Grey people a printed Factory's town starts with on top of its dealt ones, taken from the Factory's share while it has grey. */
+export const GREYS_FOR_FACTORY_TOWNS = 1
 /** Cubes of each player's colour among those dealt onto the starting Residences, and again onto the printed Factories. */
 export const STARTING_CUBES_PER_PLAYER = 2
 
@@ -164,9 +167,9 @@ export type LogEntry =
  * domain, 19 two-hex Factories holding cubes, Residences drawing people, a shared pool
  * placed from directly, end-of-turn levelling, 20 a cube in the bag per seat won at a
  * merger, 21 owned tiles, one-hex Factories stocked from the bag, voluntary pulls, two
- * printed Factories.
+ * printed Factories, 22 a grey person moved from each printed Factory to its town.
  */
-export const RULES_VERSION = 21
+export const RULES_VERSION = 22
 
 export interface VotesState {
   /** {@link RULES_VERSION} when the game was created; missing in games from before it existed. */

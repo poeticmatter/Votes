@@ -47,7 +47,7 @@ export const COMPONENTS: LeadText[] = [
 
 export const SETUP = [
   `Take ${STARTING_CUBES_PER_PLAYER} cubes of each player’s colour and add grey cubes until there are 10. Mix them and place ${STARTING_CUBES_PER_RESIDENCE} at random on each starting Residence.`,
-  `Do the same again for the printed Factories: ${STARTING_CUBES_PER_PLAYER} of each colour, grey to 10, ${STARTING_CUBES_PER_FACTORY} at random on each.`,
+  `Do the same again for the printed Factories: ${STARTING_CUBES_PER_PLAYER} of each colour, grey to 10. Move 1 grey per printed Factory onto its town’s starting Residence, then deal the rest evenly onto the Factories (with 5 players there’s no grey: take the towns’ greys from the supply and deal ${STARTING_CUBES_PER_FACTORY} onto each).`,
   `Put ${bagCubesPerPlayer} cubes of each player’s colour in the bag and add grey cubes until there are ${bagSize}.`,
   'Each player takes their tiles. Choose a first player.',
 ]

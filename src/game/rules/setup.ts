@@ -1,8 +1,9 @@
 import { nextIndex } from 'game-kit/turns'
-import { residenceSiteKey, TOWN_IDS } from '../map/board'
+import { hexAt, residenceSiteKey, TOWN_IDS } from '../map/board'
 import { hexKey, type HexKey } from '../map/hexGrid'
-import { STARTING_FACTORIES } from '../map/mapData'
+import { STARTING_FACTORIES, type TownId } from '../map/mapData'
 import {
+  GREYS_FOR_FACTORY_TOWNS,
   INDEPENDENT,
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -66,12 +67,31 @@ function deal(pool: CubeColor[], size: number, randomState: number): Dealt {
 
 const STARTING_FACTORY_KEYS = STARTING_FACTORIES.map(([col, row]) => hexKey(col, row))
 
-/** Each town's starting Residence and each printed Factory, owned by nobody, with the cubes dealt to them. */
+/** The towns with a printed Factory beside their starting Residence. */
+const FACTORY_TOWNS: ReadonlySet<TownId> = new Set(
+  STARTING_FACTORY_KEYS.flatMap(key => hexAt(key).neighbors.flatMap(({ key: neighbor }) => hexAt(neighbor).residenceSite ?? [])),
+)
+
+/**
+ * The cubes for the printed Factories: the players' cubes, with grey up to the Factories'
+ * share. One grey per Factory goes to its town's starting Residence instead, as long as
+ * there is grey to spare (with 5 players there's none, and those greys come from outside).
+ */
+function factoryPool(colors: readonly PlayerColor[]): CubeColor[] {
+  const full = cubePool(colors, STARTING_CUBES_PER_PLAYER, STARTING_FACTORY_KEYS.length * STARTING_CUBES_PER_FACTORY)
+  const greys = full.filter(color => color === INDEPENDENT).length
+  return full.slice(0, full.length - Math.min(greys, STARTING_FACTORY_KEYS.length * GREYS_FOR_FACTORY_TOWNS))
+}
+
+/**
+ * Each town's starting Residence and each printed Factory, owned by nobody, with the cubes
+ * dealt to them; a town with a printed Factory has an extra grey person on the right.
+ */
 function startingTiles(residentsByTown: CubeColor[][], cubesByFactory: CubeColor[][]): Record<HexKey, Tile> {
-  const towns = TOWN_IDS.map((town, position): [HexKey, Tile] => [
-    residenceSiteKey(town),
-    { kind: 'residence', owner: null, people: residentsByTown[position] },
-  ])
+  const towns = TOWN_IDS.map((town, position): [HexKey, Tile] => {
+    const extra = FACTORY_TOWNS.has(town) ? Array<CubeColor>(GREYS_FOR_FACTORY_TOWNS).fill(INDEPENDENT) : []
+    return [residenceSiteKey(town), { kind: 'residence', owner: null, people: [...residentsByTown[position], ...extra] }]
+  })
   const factories = STARTING_FACTORY_KEYS.map((key, position): [HexKey, Tile] => [key, { kind: 'factory', owner: null, cubes: cubesByFactory[position] }])
   return Object.fromEntries([...towns, ...factories])
 }
@@ -96,11 +116,8 @@ export function createInitialState({ settings, playerCount, seed }: VotesSetup):
     STARTING_CUBES_PER_RESIDENCE,
     afterFirstPlayer,
   )
-  const factoryCubes = deal(
-    cubePool(colors, STARTING_CUBES_PER_PLAYER, STARTING_FACTORY_KEYS.length * STARTING_CUBES_PER_FACTORY),
-    STARTING_CUBES_PER_FACTORY,
-    residents.randomState,
-  )
+  const forFactories = factoryPool(colors)
+  const factoryCubes = deal(forFactories, forFactories.length / STARTING_FACTORY_KEYS.length, residents.randomState)
 
   return {
     rulesVersion: RULES_VERSION,

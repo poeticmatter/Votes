@@ -4,6 +4,9 @@ What changed and why, newest first. **Game design** is the game itself: rules, c
 
 ## Game design
 
+### 2026-11-25: A grey person moves from each printed Factory to its town
+At setup, E's and B's starting Residences each get a third person, a grey one, taken from the cubes for the printed Factories, which then start with 4 each instead of 5. With 5 players those cubes hold no grey, so the two greys come from the supply and the Factories keep 5.
+
 ### 2026-11-25: Own tiles, voluntary pulls, printed Factories
 - **Tiles are the players' own again**: 15 Residences, 5 Factories and 1 School each, and a placed tile belongs to its placer. The shared pool is gone.
 - **Factories are back to one hex.** A placed Factory draws 5 cubes from the bag onto itself (fewer if the bag runs short).

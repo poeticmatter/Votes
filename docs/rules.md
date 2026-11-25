@@ -14,11 +14,12 @@ Votes is a game for 3 to 5 players. You build up five small towns until they gro
 ## Setup
 
 1. Take 2 cubes of each player's colour and add grey cubes until there are 10. Mix them and put 2 at random on each starting Residence.
-2. Do the same again for the printed Factories: 2 of each player's colour, grey up to 10, mixed, and 5 at random on each.
+2. Do the same again for the printed Factories: 2 of each player's colour, grey up to 10. Take 1 grey out for each printed Factory and put it on the right of that town's starting Residence, so E's and B's start with 3 people. Mix the rest and put 4 at random on each Factory.
+   - With 5 players there's no grey among the Factories' cubes: the two towns' greys come from the supply, and each Factory gets 5.
 3. Put 4 cubes of each player's colour in the bag and add grey cubes until there are 20.
 4. Each player takes their tiles. A first player is picked at random. Play goes around the table from there.
 
-So 40 cubes start the game: 10 in the starting Residences, 10 on the printed Factories and 20 in the bag.
+So with 3 or 4 players, 40 cubes start the game: 12 in the starting Residences, 8 on the printed Factories and 20 in the bag.
 
 ## Words you'll need
 
